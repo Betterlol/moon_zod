@@ -8,5 +8,5 @@ pub fn Schema::refine(
   check : (Json) -> Bool,
   message : String,
 ) -> Schema {
-  { ..self, rules: self.rules + [{ check, message }] }
+  append_rule(self, check, message)
 }

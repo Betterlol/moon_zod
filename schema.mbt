@@ -35,6 +35,39 @@ pub struct Schema {
 }
 
 ///|
+/// Peel OptionalType / DefaultType wrappers to find the effective base type.
+pub fn inner_type(t : SchemaType) -> SchemaType {
+  match t {
+    OptionalType(inner) => inner.schema_type
+    DefaultType(inner, _) => inner.schema_type
+    other => other
+  }
+}
+
+///|
+/// Append a rule through decoration wrappers.
+/// When called on OptionalType / DefaultType, the rule is pushed to the
+/// innermost base schema so that chaining after `.optional()` / `.default()`
+/// works correctly (e.g. `string().optional().min(3)`).
+pub fn append_rule(
+  schema : Schema,
+  check : (Json) -> Bool,
+  message : String,
+) -> Schema {
+  match schema.schema_type {
+    OptionalType(inner) => {
+      let new_inner = append_rule(inner, check, message)
+      { schema_type: OptionalType(new_inner), rules: [] }
+    }
+    DefaultType(inner, default_val) => {
+      let new_inner = append_rule(inner, check, message)
+      { schema_type: DefaultType(new_inner, default_val), rules: [] }
+    }
+    _ => { ..schema, rules: schema.rules + [{ check, message }] }
+  }
+}
+
+///|
 fn expected_msg(schema_type : SchemaType) -> String {
   match schema_type {
     StringType => "Expected string"
@@ -54,21 +87,16 @@ fn collect_errors(
   path : String,
   json : Json,
   rules : Array[Rule],
-) -> Array[ValidationError] {
-  let result : Array[ValidationError] = []
+) -> Unit {
   for rule in rules {
     if !(rule.check)(json) {
-      result.push(ValidationError::{ path, message: rule.message, got: json })
+      errors.push(ValidationError::{ path, message: rule.message, got: json })
     }
   }
-  for e in errors {
-    result.push(e)
-  }
-  result
 }
 
 ///|
-fn sub_path(path : String, name : String) -> String {
+pub fn sub_path(path : String, name : String) -> String {
   if path.is_empty() {
     name
   } else {
@@ -77,7 +105,7 @@ fn sub_path(path : String, name : String) -> String {
 }
 
 ///|
-fn sub_index(path : String, i : Int) -> String {
+pub fn sub_index(path : String, i : Int) -> String {
   if path.is_empty() {
     "[\{i}]"
   } else {
@@ -86,7 +114,7 @@ fn sub_index(path : String, i : Int) -> String {
 }
 
 ///|
-fn value_in_array(s : String, arr : Array[String]) -> Bool {
+pub fn value_in_array(s : String, arr : Array[String]) -> Bool {
   for v in arr {
     if v == s {
       return true
@@ -96,7 +124,7 @@ fn value_in_array(s : String, arr : Array[String]) -> Bool {
 }
 
 ///|
-fn is_optional_schema(s : Schema) -> Bool {
+pub fn is_optional_schema(s : Schema) -> Bool {
   match s.schema_type {
     OptionalType(_) | DefaultType(_, _) => true
     _ => false
@@ -111,157 +139,13 @@ pub fn Schema::parse(
   path? : String = "",
 ) -> SchemaResult {
   match self.schema_type {
-    ObjectType(spec, mode) =>
-      match json {
-        Object(input_map) => {
-          let mut errors : Array[ValidationError] = []
-          for field_name in spec.keys() {
-            match spec.get(field_name) {
-              Some(field_schema) => {
-                let sp = sub_path(path, field_name)
-                match input_map.get(field_name) {
-                  None =>
-                    if !is_optional_schema(field_schema) {
-                      errors.push(ValidationError::{
-                        path: sp,
-                        message: "Required",
-                        got: Json::null(),
-                      })
-                    }
-                  Some(field_json) => {
-                    let result = field_schema.parse(field_json, path=sp)
-                    match result {
-                      Err(field_errors) =>
-                        for e in field_errors {
-                          errors.push(e)
-                        }
-                      _ => ()
-                    }
-                  }
-                }
-              }
-              None => ()
-            }
-          }
-          match mode {
-            Strict =>
-              for key in input_map.keys() {
-                match input_map.get(key) {
-                  Some(value) =>
-                    if !spec.contains(key) {
-                      errors.push(ValidationError::{
-                        path: sub_path(path, key),
-                        message: "Unexpected field",
-                        got: value,
-                      })
-                    }
-                  None => ()
-                }
-              }
-            _ => ()
-          }
-          errors = collect_errors(errors, path, json, self.rules)
-          if errors.is_empty() {
-            Ok(json)
-          } else {
-            Err(errors)
-          }
-        }
-        _ =>
-          Err([
-            ValidationError::{
-              path,
-              message: expected_msg(self.schema_type),
-              got: json,
-            },
-          ])
-      }
-    ArrayType(element_schema) =>
-      match json {
-        Array(elements) => {
-          let mut errors : Array[ValidationError] = []
-          let mut i = 0
-          for element in elements {
-            let sp = sub_index(path, i)
-            let result = element_schema.parse(element, path=sp)
-            match result {
-              Err(item_errors) =>
-                for e in item_errors {
-                  errors.push(e)
-                }
-              _ => ()
-            }
-            i = i + 1
-          }
-          errors = collect_errors(errors, path, json, self.rules)
-          if errors.is_empty() {
-            Ok(json)
-          } else {
-            Err(errors)
-          }
-        }
-        _ =>
-          Err([
-            ValidationError::{
-              path,
-              message: expected_msg(self.schema_type),
-              got: json,
-            },
-          ])
-      }
-    OptionalType(inner) =>
-      match json {
-        Null => Ok(json)
-        _ => inner.parse(json, path~)
-      }
+    ObjectType(spec, mode) => self.parse_object(spec, mode, json, path)
+    ArrayType(element_schema) => self.parse_array(element_schema, json, path)
+    OptionalType(inner) => self.parse_optional(inner, json, path)
     DefaultType(inner, default_val) =>
-      match json {
-        Null => Ok(default_val)
-        _ => inner.parse(json, path~)
-      }
-    EnumType(values) =>
-      match json {
-        String(s) =>
-          if value_in_array(s, values) {
-            Ok(json)
-          } else {
-            Err([
-              ValidationError::{
-                path,
-                message: "Invalid enum value",
-                got: json,
-              },
-            ])
-          }
-        _ =>
-          Err([
-            ValidationError::{
-              path,
-              message: "Expected string for enum",
-              got: json,
-            },
-          ])
-      }
-    UnionType(schemas) => {
-      let mut last_errors : Array[ValidationError]? = None
-      for s in schemas {
-        match s.parse(json, path~) {
-          Ok(v) => return Ok(v)
-          Err(errors) => last_errors = Some(errors)
-        }
-      }
-      match last_errors {
-        Some(errors) => Err(errors)
-        None =>
-          Err([
-            ValidationError::{
-              path,
-              message: "Expected union type, none matched",
-              got: json,
-            },
-          ])
-      }
-    }
+      self.parse_default(inner, default_val, json, path)
+    EnumType(values) => self.parse_enum(values, json, path)
+    UnionType(schemas) => self.parse_union(schemas, json, path)
     _ => {
       let valid = match (self.schema_type, json) {
         (StringType, String(_)) => true
@@ -279,7 +163,8 @@ pub fn Schema::parse(
           },
         ])
       }
-      let errors = collect_errors([], path, json, self.rules)
+      let errors : Array[ValidationError] = []
+      collect_errors(errors, path, json, self.rules)
       if errors.is_empty() {
         Ok(json)
       } else {

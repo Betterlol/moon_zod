@@ -523,3 +523,101 @@ test "refine fails custom check" {
   )
   guard s.parse(Json::number(5.0)) is Err(_) else { fail("expected Err") }
 }
+
+///|
+/// Phase 4 — append_rule through optional/default chaining
+test "string().optional().min(3) passes non-null long enough" {
+  let s = string().optional().min(3)
+  match s.parse(Json::string("abc")) {
+    Ok(v) => assert_eq(v, Json::string("abc"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "string().optional().min(3) rejects short string" {
+  let s = string().optional().min(3)
+  guard s.parse(Json::string("ab")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "string().optional().min(3) accepts null" {
+  let s = string().optional().min(3)
+  match s.parse(Json::null()) {
+    Ok(v) => assert_eq(v, Json::null())
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "string().default(x).min(3) uses default for null" {
+  let s = string().default(Json::string("xyz")).min(3)
+  match s.parse(Json::null()) {
+    Ok(v) => assert_eq(v, Json::string("xyz"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "default value satisfies rules chained after default" {
+  let s = string().default(Json::string("default!")).min(3)
+  match s.parse(Json::null()) {
+    Ok(v) => assert_eq(v, Json::string("default!"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+/// Phase 4 — to_json_schema
+test "to_json_schema string" {
+  let result = to_json_schema(string())
+  let expected = parse_json("{\"type\": \"string\"}")
+  assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema object with optional field" {
+  let s = object({ "name": string(), "email": string().optional() })
+  let result = to_json_schema(s)
+  let expected = parse_json(
+    "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"email\":{\"type\":\"string\"}},\"additionalProperties\":true,\"required\":[\"name\"]}",
+  )
+  assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema strict object" {
+  let s = object({ "x": number() }).strict()
+  let result = to_json_schema(s)
+  let expected = parse_json(
+    "{\"type\":\"object\",\"properties\":{\"x\":{\"type\":\"number\"}},\"additionalProperties\":false,\"required\":[\"x\"]}",
+  )
+  assert_eq(result, expected)
+}
+
+///|
+/// Phase 4 — union parse details
+test "union returns errors when no schema matches" {
+  let s = union([number().positive(), string().min(3)])
+  let input = parse_json("false")
+  match s.parse(input) {
+    Err(errors) => assert_true(errors.length() > 0)
+    _ => fail("expected Err")
+  }
+}
+
+///|
+/// Phase 4 — DefaultType parse
+test "default type accepts non-null and validates" {
+  let s = number().default(Json::number(0.0)).positive()
+  match s.parse(Json::number(5.0)) {
+    Ok(v) => assert_eq(v, Json::number(5.0))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "default type rejects non-null failing validation" {
+  let s = number().default(Json::number(0.0)).positive()
+  guard s.parse(Json::number(-1.0)) is Err(_) else { fail("expected Err") }
+}
