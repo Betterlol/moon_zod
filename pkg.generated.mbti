@@ -8,11 +8,18 @@ pub fn null() -> Schema
 
 pub fn number() -> Schema
 
+pub fn object(Map[String, Schema]) -> Schema
+
 pub fn string() -> Schema
 
 // Errors
 
 // Types and methods
+pub(all) enum ObjectMode {
+  Passthrough
+  Strict
+}
+
 pub(all) struct Rule {
   check : (Json) -> Bool
   message : String
@@ -30,8 +37,10 @@ pub fn Schema::multipleOf(Self, Int) -> Self
 pub fn Schema::negative(Self) -> Self
 pub fn Schema::nonempty(Self) -> Self
 pub fn Schema::parse(Self, Json, path? : String) -> Result[Json, Array[ValidationError]]
+pub fn Schema::passthrough(Self) -> Self
 pub fn Schema::positive(Self) -> Self
 pub fn Schema::regex(Self, String) -> Self
+pub fn Schema::strict(Self) -> Self
 pub fn Schema::url(Self) -> Self
 
 pub(all) enum SchemaType {
@@ -39,6 +48,7 @@ pub(all) enum SchemaType {
   NumberType
   BooleanType
   NullType
+  ObjectType(Map[String, Schema], ObjectMode)
 }
 
 pub struct ValidationError {

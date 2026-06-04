@@ -204,6 +204,120 @@ test "null rejects string" {
 }
 
 ///|
+fn parse_json(input : String) -> Json {
+  @json.parse(input) catch {
+    _ => abort("bad test json: " + input)
+  }
+}
+
+///|
+/// object() — valid cases
+test "object validates flat object" {
+  let s = object({ "name": string(), "age": number().int() })
+  let input = parse_json("{\"name\": \"Alice\", \"age\": 30}")
+  match s.parse(input) {
+    Ok(v) => assert_eq(v, input)
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "object validates nested object" {
+  let s = object({ "user": object({ "profile": object({ "name": string() }) }) })
+  let input = parse_json("{\"user\": {\"profile\": {\"name\": \"Alice\"}}}")
+  match s.parse(input) {
+    Ok(v) => assert_eq(v, input)
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "object passthrough (default) allows extra fields" {
+  let s = object({ "name": string() })
+  let input = parse_json("{\"name\": \"Alice\", \"extra\": 1}")
+  match s.parse(input) {
+    Ok(v) => assert_eq(v, input)
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+/// object() — error cases
+test "object rejects non-object" {
+  let s = object({ "name": string() })
+  guard s.parse(Json::string("hello")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "object reports missing field" {
+  let s = object({ "name": string() })
+  let input = parse_json("{}")
+  match s.parse(input) {
+    Err(errors) => {
+      assert_eq(errors.length(), 1)
+      assert_eq(errors[0].path, "name")
+      assert_eq(errors[0].message, "Required")
+    }
+    _ => fail("expected Err")
+  }
+}
+
+///|
+test "nested object reports correct error path" {
+  let s = object({
+    "user": object({ "profile": object({ "name": string().min(10) }) }),
+  })
+  let input = parse_json("{\"user\": {\"profile\": {\"name\": \"Bob\"}}}")
+  match s.parse(input) {
+    Err(errors) => assert_eq(errors[0].path, "user.profile.name")
+    _ => fail("expected Err")
+  }
+}
+
+///|
+test "strict mode rejects extra fields" {
+  let s = object({ "name": string() }).strict()
+  let input = parse_json("{\"name\": \"Alice\", \"extra\": 1}")
+  guard s.parse(input) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "strict mode reports extra field path" {
+  let s = object({ "name": string() }).strict()
+  let input = parse_json("{\"name\": \"Alice\", \"extra\": 1}")
+  match s.parse(input) {
+    Err(errors) => {
+      assert_eq(errors[0].path, "extra")
+      assert_eq(errors[0].message, "Unexpected field")
+    }
+    _ => fail("expected Err")
+  }
+}
+
+///|
+test "object collects multiple field errors" {
+  let s = object({ "a": string().min(5), "b": number().positive() })
+  let input = parse_json("{\"a\": \"ab\", \"b\": -1}")
+  match s.parse(input) {
+    Err(errors) => assert_eq(errors.length(), 2)
+    _ => fail("expected Err")
+  }
+}
+
+///|
+test "strict mode with nested path" {
+  let s = object({ "inner": object({ "x": number() }).strict() })
+  let input = parse_json("{\"inner\": {\"x\": 1, \"y\": 2}}")
+  match s.parse(input) {
+    Err(errors) => {
+      assert_eq(errors[0].path, "inner.y")
+      assert_eq(errors[0].message, "Unexpected field")
+    }
+    _ => fail("expected Err")
+  }
+}
+
+///|
 /// Error messages
 test "error message includes path and expected type" {
   let s = string()
