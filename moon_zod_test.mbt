@@ -342,3 +342,184 @@ test "multiple rules report first failing" {
     _ => fail("expected Err")
   }
 }
+
+///|
+/// array() — valid
+test "array validates elements" {
+  let s = array(number())
+  let input = parse_json("[1, 2, 3]")
+  match s.parse(input) {
+    Ok(v) => assert_eq(v, input)
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "array rejects non-array" {
+  let s = array(string())
+  guard s.parse(Json::string("hello")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "array min length passes" {
+  let s = array(string()).min(2)
+  let input = parse_json("[\"a\", \"b\"]")
+  match s.parse(input) {
+    Ok(v) => assert_eq(v, input)
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "array min length fails" {
+  let s = array(string()).min(3)
+  guard s.parse(parse_json("[\"a\", \"b\"]")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "array max length fails" {
+  let s = array(string()).max(1)
+  guard s.parse(parse_json("[\"a\", \"b\"]")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "array reports correct element index path" {
+  let s = array(number().positive())
+  let input = parse_json("[1, -2, 3]")
+  match s.parse(input) {
+    Err(errors) => assert_eq(errors[0].path, "[1]")
+    _ => fail("expected Err")
+  }
+}
+
+///|
+test "nested array reports matrix path" {
+  let s = array(array(number().positive()))
+  let input = parse_json("[[1, -2], [3, 4]]")
+  match s.parse(input) {
+    Err(errors) => assert_eq(errors[0].path, "[0][1]")
+    _ => fail("expected Err")
+  }
+}
+
+///|
+/// optional()
+test "object field optional passes with missing field" {
+  let s = object({ "name": string().optional() })
+  let input = parse_json("{}")
+  match s.parse(input) {
+    Ok(v) => assert_eq(v, input)
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "object field optional passes with null" {
+  let s = object({ "name": string().optional() })
+  let input = parse_json("{\"name\": null}")
+  match s.parse(input) {
+    Ok(v) => assert_eq(v, input)
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "object field optional still validates non-null" {
+  let s = object({ "name": string().min(3).optional() })
+  let input = parse_json("{\"name\": \"ab\"}")
+  guard s.parse(input) is Err(_) else { fail("expected Err") }
+}
+
+///|
+/// default()
+test "object field default passes with missing field" {
+  let s = object({ "name": string().default(Json::string("default_name")) })
+  let input = parse_json("{}")
+  match s.parse(input) {
+    Ok(v) => assert_eq(v, input)
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+/// enum_values()
+test "enum_values accepts valid value" {
+  let s = enum_values(["a", "b", "c"])
+  match s.parse(Json::string("b")) {
+    Ok(v) => assert_eq(v, Json::string("b"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "enum_values rejects invalid value" {
+  let s = enum_values(["a", "b", "c"])
+  guard s.parse(Json::string("d")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "enum_values rejects non-string" {
+  let s = enum_values(["a", "b"])
+  guard s.parse(Json::number(42.0)) is Err(_) else { fail("expected Err") }
+}
+
+///|
+/// union()
+test "union accepts first matching schema" {
+  let s = union([string(), number()])
+  match s.parse(Json::string("hello")) {
+    Ok(v) => assert_eq(v, Json::string("hello"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "union accepts second matching schema" {
+  let s = union([string(), number()])
+  match s.parse(Json::number(42.0)) {
+    Ok(v) => assert_eq(v, Json::number(42.0))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "union rejects when no schema matches" {
+  let s = union([string(), number()])
+  guard s.parse(Json::boolean(true)) is Err(_) else { fail("expected Err") }
+}
+
+///|
+/// refine()
+test "refine passes custom check" {
+  let s = number().refine(
+    fn(json) {
+      match json {
+        Number(v, ..) => v > 10.0
+        _ => false
+      }
+    },
+    "Value must be > 10",
+  )
+  match s.parse(Json::number(20.0)) {
+    Ok(v) => assert_eq(v, Json::number(20.0))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "refine fails custom check" {
+  let s = number().refine(
+    fn(json) {
+      match json {
+        Number(v, ..) => v > 10.0
+        _ => false
+      }
+    },
+    "Value must be > 10",
+  )
+  guard s.parse(Json::number(5.0)) is Err(_) else { fail("expected Err") }
+}

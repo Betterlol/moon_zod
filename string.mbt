@@ -21,6 +21,13 @@ fn schema_min_check(s : Schema, n : Int) -> (Json) -> Bool {
           _ => false
         }
       }
+    ArrayType(_) =>
+      fn(json) {
+        match json {
+          Array(arr) => arr.length() >= n
+          _ => false
+        }
+      }
     _ => fn(_) { false }
   }
 }
@@ -30,7 +37,8 @@ fn schema_min_msg(s : Schema, n : Int) -> String {
   match s.schema_type {
     StringType => "String must contain at least \{n} character(s)"
     NumberType => "Value must be >= \{n}"
-    _ => abort("min() is only valid for string or number schemas")
+    ArrayType(_) => "Array must contain at least \{n} item(s)"
+    _ => abort("min() is only valid for string, number, or array schemas")
   }
 }
 
@@ -59,6 +67,13 @@ fn schema_max_check(s : Schema, n : Int) -> (Json) -> Bool {
           _ => false
         }
       }
+    ArrayType(_) =>
+      fn(json) {
+        match json {
+          Array(arr) => arr.length() <= n
+          _ => false
+        }
+      }
     _ => fn(_) { false }
   }
 }
@@ -68,7 +83,8 @@ fn schema_max_msg(s : Schema, n : Int) -> String {
   match s.schema_type {
     StringType => "String must contain at most \{n} character(s)"
     NumberType => "Value must be <= \{n}"
-    _ => abort("max() is only valid for string or number schemas")
+    ArrayType(_) => "Array must contain at most \{n} item(s)"
+    _ => abort("max() is only valid for string, number, or array schemas")
   }
 }
 

@@ -2,7 +2,11 @@
 package "username/moon_zod"
 
 // Values
+pub fn array(Schema) -> Schema
+
 pub fn boolean() -> Schema
+
+pub fn enum_values(Array[String]) -> Schema
 
 pub fn null() -> Schema
 
@@ -11,6 +15,8 @@ pub fn number() -> Schema
 pub fn object(Map[String, Schema]) -> Schema
 
 pub fn string() -> Schema
+
+pub fn union(Array[Schema]) -> Schema
 
 // Errors
 
@@ -29,6 +35,7 @@ pub struct Schema {
   schema_type : SchemaType
   rules : Array[Rule]
 }
+pub fn Schema::default(Self, Json) -> Self
 pub fn Schema::email(Self) -> Self
 pub fn Schema::int(Self) -> Self
 pub fn Schema::max(Self, Int) -> Self
@@ -36,9 +43,11 @@ pub fn Schema::min(Self, Int) -> Self
 pub fn Schema::multipleOf(Self, Int) -> Self
 pub fn Schema::negative(Self) -> Self
 pub fn Schema::nonempty(Self) -> Self
+pub fn Schema::optional(Self) -> Self
 pub fn Schema::parse(Self, Json, path? : String) -> Result[Json, Array[ValidationError]]
 pub fn Schema::passthrough(Self) -> Self
 pub fn Schema::positive(Self) -> Self
+pub fn Schema::refine(Self, (Json) -> Bool, String) -> Self
 pub fn Schema::regex(Self, String) -> Self
 pub fn Schema::strict(Self) -> Self
 pub fn Schema::url(Self) -> Self
@@ -49,6 +58,11 @@ pub(all) enum SchemaType {
   BooleanType
   NullType
   ObjectType(Map[String, Schema], ObjectMode)
+  ArrayType(Schema)
+  OptionalType(Schema)
+  DefaultType(Schema, Json)
+  EnumType(Array[String])
+  UnionType(Array[Schema])
 }
 
 pub struct ValidationError {
