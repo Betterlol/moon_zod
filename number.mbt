@@ -1,0 +1,103 @@
+///|
+/// Create a schema that validates JSON numbers.
+pub fn number() -> Schema {
+  { schema_type: NumberType, rules: [] }
+}
+
+///|
+/// Require the number to be an integer (no fractional part).
+pub fn Schema::int(self : Schema) -> Schema {
+  let _ = match self.schema_type {
+    NumberType => ()
+    _ => abort("int() is only valid for number schemas")
+  }
+  {
+    ..self,
+    rules: self.rules +
+    [
+      {
+        check: fn(json) {
+          match json {
+            Number(v, ..) => v == v.to_int().to_double()
+            _ => false
+          }
+        },
+        message: "Value must be an integer",
+      },
+    ],
+  }
+}
+
+///|
+/// Require the number to be positive (> 0).
+pub fn Schema::positive(self : Schema) -> Schema {
+  let _ = match self.schema_type {
+    NumberType => ()
+    _ => abort("positive() is only valid for number schemas")
+  }
+  {
+    ..self,
+    rules: self.rules +
+    [
+      {
+        check: fn(json) {
+          match json {
+            Number(v, ..) => v > 0.0
+            _ => false
+          }
+        },
+        message: "Value must be positive",
+      },
+    ],
+  }
+}
+
+///|
+/// Require the number to be negative (< 0).
+pub fn Schema::negative(self : Schema) -> Schema {
+  let _ = match self.schema_type {
+    NumberType => ()
+    _ => abort("negative() is only valid for number schemas")
+  }
+  {
+    ..self,
+    rules: self.rules +
+    [
+      {
+        check: fn(json) {
+          match json {
+            Number(v, ..) => v < 0.0
+            _ => false
+          }
+        },
+        message: "Value must be negative",
+      },
+    ],
+  }
+}
+
+///|
+/// Require the number to be a multiple of `n`.
+pub fn Schema::multipleOf(self : Schema, n : Int) -> Schema {
+  let _ = match self.schema_type {
+    NumberType => ()
+    _ => abort("multipleOf() is only valid for number schemas")
+  }
+  let msg = "Value must be a multiple of \{n}"
+  {
+    ..self,
+    rules: self.rules +
+    [
+      {
+        check: fn(json) {
+          match json {
+            Number(v, ..) =>
+              v / n.to_double() == (v / n.to_double()).to_int().to_double()
+            _ => false
+          }
+        },
+        message: msg,
+      },
+    ],
+  }
+}
