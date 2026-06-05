@@ -10,6 +10,8 @@ pub fn boolean() -> Schema
 
 pub fn enum_values(Array[String]) -> Schema
 
+pub fn format_path(Array[String]) -> String
+
 pub fn inner_type(SchemaType) -> SchemaType
 
 pub fn is_optional_schema(Schema) -> Bool
@@ -19,6 +21,8 @@ pub fn null() -> Schema
 pub fn number() -> Schema
 
 pub fn object(Map[String, Schema]) -> Schema
+
+pub fn parse_inner(Schema, Json, Array[String]) -> Result[Json, Array[ValidationError]]
 
 pub fn string() -> Schema
 
@@ -38,6 +42,7 @@ pub fn value_in_array(String, Array[String]) -> Bool
 pub(all) enum ObjectMode {
   Passthrough
   Strict
+  Strip
 }
 
 pub(all) struct Rule {
@@ -59,17 +64,18 @@ pub fn Schema::negative(Self) -> Self
 pub fn Schema::nonempty(Self) -> Self
 pub fn Schema::optional(Self) -> Self
 pub fn Schema::parse(Self, Json, path? : String) -> Result[Json, Array[ValidationError]]
-pub fn Schema::parse_array(Self, Self, Json, String) -> Result[Json, Array[ValidationError]]
-pub fn Schema::parse_default(Self, Self, Json, Json, String) -> Result[Json, Array[ValidationError]]
-pub fn Schema::parse_enum(Self, Array[String], Json, String) -> Result[Json, Array[ValidationError]]
-pub fn Schema::parse_object(Self, Map[String, Self], ObjectMode, Json, String) -> Result[Json, Array[ValidationError]]
-pub fn Schema::parse_optional(Self, Self, Json, String) -> Result[Json, Array[ValidationError]]
-pub fn Schema::parse_union(Self, Array[Self], Json, String) -> Result[Json, Array[ValidationError]]
+pub fn Schema::parse_array(Self, Self, Json, Array[String]) -> Result[Json, Array[ValidationError]]
+pub fn Schema::parse_default(Self, Self, Json, Json, Array[String]) -> Result[Json, Array[ValidationError]]
+pub fn Schema::parse_enum(Self, Array[String], Json, Array[String]) -> Result[Json, Array[ValidationError]]
+pub fn Schema::parse_object(Self, Map[String, Self], ObjectMode, Json, Array[String]) -> Result[Json, Array[ValidationError]]
+pub fn Schema::parse_optional(Self, Self, Json, Array[String]) -> Result[Json, Array[ValidationError]]
+pub fn Schema::parse_union(Self, Array[Self], Json, Array[String]) -> Result[Json, Array[ValidationError]]
 pub fn Schema::passthrough(Self) -> Self
 pub fn Schema::positive(Self) -> Self
 pub fn Schema::refine(Self, (Json) -> Bool, String) -> Self
 pub fn Schema::regex(Self, String) -> Self
 pub fn Schema::strict(Self) -> Self
+pub fn Schema::strip(Self) -> Self
 pub fn Schema::url(Self) -> Self
 
 pub(all) enum SchemaType {

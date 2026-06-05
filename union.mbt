@@ -32,11 +32,11 @@ pub fn Schema::parse_optional(
   self : Schema,
   inner : Schema,
   json : Json,
-  path : String,
+  path_stack : Array[String],
 ) -> SchemaResult {
   match json {
     Null => Ok(json)
-    _ => inner.parse(json, path~)
+    _ => parse_inner(inner, json, path_stack)
   }
 }
 
@@ -46,11 +46,11 @@ pub fn Schema::parse_default(
   inner : Schema,
   default_val : Json,
   json : Json,
-  path : String,
+  path_stack : Array[String],
 ) -> SchemaResult {
   match json {
     Null => Ok(default_val)
-    _ => inner.parse(json, path~)
+    _ => parse_inner(inner, json, path_stack)
   }
 }
 
@@ -59,8 +59,9 @@ pub fn Schema::parse_enum(
   self : Schema,
   values : Array[String],
   json : Json,
-  path : String,
+  path_stack : Array[String],
 ) -> SchemaResult {
+  let path = format_path(path_stack)
   match json {
     String(s) =>
       if value_in_array(s, values) {
@@ -86,24 +87,22 @@ pub fn Schema::parse_union(
   self : Schema,
   schemas : Array[Schema],
   json : Json,
-  path : String,
+  path_stack : Array[String],
 ) -> SchemaResult {
-  let mut last_errors : Array[ValidationError]? = None
+  let all_branch_errors : Array[String] = []
   for s in schemas {
-    match s.parse(json, path~) {
+    match parse_inner(s, json, path_stack) {
       Ok(v) => return Ok(v)
-      Err(errors) => last_errors = Some(errors)
+      Err(errors) =>
+        if errors.length() > 0 {
+          all_branch_errors.push(errors[0].message)
+        }
     }
   }
-  match last_errors {
-    Some(errors) => Err(errors)
-    None =>
-      Err([
-        ValidationError::{
-          path,
-          message: "Expected union type: none of the schemas matched current input",
-          got: json,
-        },
-      ])
-  }
+  let path = format_path(path_stack)
+  let branches = all_branch_errors.join(", ")
+  let message = "Expected union type, but all branches failed. Branches: [" +
+    branches +
+    "]"
+  Err([ValidationError::{ path, message, got: json }])
 }

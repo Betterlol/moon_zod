@@ -232,8 +232,8 @@ test "object validates nested object" {
 }
 
 ///|
-test "object passthrough (default) allows extra fields" {
-  let s = object({ "name": string() })
+test "object passthrough allows extra fields" {
+  let s = object({ "name": string() }).passthrough()
   let input = parse_json("{\"name\": \"Alice\", \"extra\": 1}")
   match s.parse(input) {
     Ok(v) => assert_eq(v, input)
@@ -620,4 +620,69 @@ test "default type accepts non-null and validates" {
 test "default type rejects non-null failing validation" {
   let s = number().default(Json::number(0.0)).positive()
   guard s.parse(Json::number(-1.0)) is Err(_) else { fail("expected Err") }
+}
+
+///|
+/// Phase 5 — Strip mode (default)
+test "strip removes extra fields by default" {
+  let s = object({ "name": string() })
+  let input = parse_json("{\"name\": \"Alice\", \"extra\": 1}")
+  match s.parse(input) {
+    Ok(v) => assert_eq(v, parse_json("{\"name\": \"Alice\"}"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "strip removes extra fields in nested objects" {
+  let s = object({ "user": object({ "name": string() }) })
+  let input = parse_json("{\"user\": {\"name\": \"Alice\", \"ignored\": true}}")
+  match s.parse(input) {
+    Ok(v) => assert_eq(v, parse_json("{\"user\": {\"name\": \"Alice\"}}"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "explicit passthrough still allows extra fields" {
+  let s = object({ "name": string() }).passthrough()
+  let input = parse_json("{\"name\": \"Alice\", \"extra\": 1}")
+  match s.parse(input) {
+    Ok(v) => assert_eq(v, input)
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "explicit strip method works" {
+  let s = object({ "name": string() }).strip()
+  let input = parse_json("{\"name\": \"Bob\", \"x\": 2, \"y\": 3}")
+  match s.parse(input) {
+    Ok(v) => assert_eq(v, parse_json("{\"name\": \"Bob\"}"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+/// Phase 5 — path stack correctness
+test "deep nested path with arrays and objects" {
+  let s = object({ "a": array(object({ "b": number().positive() })) })
+  let input = parse_json("{\"a\": [{\"b\": 1}, {\"b\": -2}]}")
+  match s.parse(input) {
+    Err(errors) => assert_eq(errors[0].path, "a[1].b")
+    _ => fail("expected Err")
+  }
+}
+
+///|
+/// Phase 5 — union aggregated error reporting
+test "union aggregates all branch errors" {
+  let s = union([number().positive(), string().min(5)])
+  match s.parse(Json::boolean(false)) {
+    Err(errors) => {
+      assert_true(errors[0].message.contains("Branches:"))
+      assert_true(errors.length() == 1)
+    }
+    _ => fail("expected Err")
+  }
 }

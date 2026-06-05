@@ -3,6 +3,7 @@
 pub(all) enum ObjectMode {
   Passthrough
   Strict
+  Strip
 }
 
 ///|
@@ -46,9 +47,6 @@ pub fn inner_type(t : SchemaType) -> SchemaType {
 
 ///|
 /// Append a rule through decoration wrappers.
-/// When called on OptionalType / DefaultType, the rule is pushed to the
-/// innermost base schema so that chaining after `.optional()` / `.default()`
-/// works correctly (e.g. `string().optional().min(3)`).
 pub fn append_rule(
   schema : Schema,
   check : (Json) -> Bool,
@@ -84,15 +82,33 @@ fn expected_msg(schema_type : SchemaType) -> String {
 ///|
 fn collect_errors(
   errors : Array[ValidationError],
-  path : String,
+  path_stack : Array[String],
   json : Json,
   rules : Array[Rule],
 ) -> Unit {
+  let path = format_path(path_stack)
   for rule in rules {
     if !(rule.check)(json) {
       errors.push(ValidationError::{ path, message: rule.message, got: json })
     }
   }
+}
+
+///|
+pub fn format_path(stack : Array[String]) -> String {
+  let mut result = ""
+  let mut first = true
+  for part in stack {
+    if first {
+      result = result + part
+    } else if part.has_prefix("[") {
+      result = result + part
+    } else {
+      result = result + "." + part
+    }
+    first = false
+  }
+  result
 }
 
 ///|
@@ -132,22 +148,26 @@ pub fn is_optional_schema(s : Schema) -> Bool {
 }
 
 ///|
-/// Validate `json` against this schema.
-pub fn Schema::parse(
-  self : Schema,
+/// Internal dispatch that all parse helpers use for recursion.
+/// Accepts a mutable path_stack that is shared across the call tree.
+pub fn parse_inner(
+  schema : Schema,
   json : Json,
-  path? : String = "",
+  path_stack : Array[String],
 ) -> SchemaResult {
-  match self.schema_type {
-    ObjectType(spec, mode) => self.parse_object(spec, mode, json, path)
-    ArrayType(element_schema) => self.parse_array(element_schema, json, path)
-    OptionalType(inner) => self.parse_optional(inner, json, path)
+  // All parse helpers are called through this function so the same
+  // mutable path_stack is shared across the entire call tree.
+  match schema.schema_type {
+    ObjectType(spec, mode) => schema.parse_object(spec, mode, json, path_stack)
+    ArrayType(element_schema) =>
+      schema.parse_array(element_schema, json, path_stack)
+    OptionalType(inner) => schema.parse_optional(inner, json, path_stack)
     DefaultType(inner, default_val) =>
-      self.parse_default(inner, default_val, json, path)
-    EnumType(values) => self.parse_enum(values, json, path)
-    UnionType(schemas) => self.parse_union(schemas, json, path)
+      schema.parse_default(inner, default_val, json, path_stack)
+    EnumType(values) => schema.parse_enum(values, json, path_stack)
+    UnionType(schemas) => schema.parse_union(schemas, json, path_stack)
     _ => {
-      let valid = match (self.schema_type, json) {
+      let valid = match (schema.schema_type, json) {
         (StringType, String(_)) => true
         (NumberType, Number(_)) => true
         (BooleanType, True | False) => true
@@ -155,16 +175,17 @@ pub fn Schema::parse(
         _ => false
       }
       if !valid {
+        let path = format_path(path_stack)
         return Err([
           ValidationError::{
             path,
-            message: expected_msg(self.schema_type),
+            message: expected_msg(schema.schema_type),
             got: json,
           },
         ])
       }
       let errors : Array[ValidationError] = []
-      collect_errors(errors, path, json, self.rules)
+      collect_errors(errors, path_stack, json, schema.rules)
       if errors.is_empty() {
         Ok(json)
       } else {
@@ -172,4 +193,18 @@ pub fn Schema::parse(
       }
     }
   }
+}
+
+///|
+/// Validate `json` against this schema.
+/// Public API — accepts an optional root path string.
+/// Internally converts to a mutable path stack to avoid string allocations
+/// on the success path.
+pub fn Schema::parse(
+  self : Schema,
+  json : Json,
+  path? : String = "",
+) -> SchemaResult {
+  let path_stack : Array[String] = if path.is_empty() { [] } else { [path] }
+  parse_inner(self, json, path_stack)
 }

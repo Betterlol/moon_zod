@@ -11,15 +11,15 @@ pub fn Schema::parse_array(
   self : Schema,
   element_schema : Schema,
   json : Json,
-  path : String,
+  path_stack : Array[String],
 ) -> SchemaResult {
   match json {
     Array(elements) => {
       let errors : Array[ValidationError] = []
       let mut i = 0
       for element in elements {
-        let sp = sub_index(path, i)
-        let result = element_schema.parse(element, path=sp)
+        path_stack.push("[\{i}]")
+        let result = parse_inner(element_schema, element, path_stack)
         match result {
           Err(item_errors) =>
             for e in item_errors {
@@ -27,16 +27,18 @@ pub fn Schema::parse_array(
             }
           _ => ()
         }
+        let _ = path_stack.pop()
         i = i + 1
       }
-      collect_errors(errors, path, json, self.rules)
+      collect_errors(errors, path_stack, json, self.rules)
       if errors.is_empty() {
         Ok(json)
       } else {
         Err(errors)
       }
     }
-    _ =>
+    _ => {
+      let path = format_path(path_stack)
       Err([
         ValidationError::{
           path,
@@ -44,5 +46,6 @@ pub fn Schema::parse_array(
           got: json,
         },
       ])
+    }
   }
 }
