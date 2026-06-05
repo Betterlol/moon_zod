@@ -1,0 +1,12 @@
+{
+  "name": "bench_cross_lang",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cross-language benchmark: TS Zod vs MoonZod (Wasm) vs Handcrafted Match (Wasm)",
+  "scripts": {
+    "bench": "node bench.js"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  }
+}
