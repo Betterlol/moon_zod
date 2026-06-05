@@ -1,0 +1,32 @@
+name: MoonBit CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MoonBit
+        uses: moonbitlang/setup-moonbit-action@v1
+
+      - name: Install Dependencies
+        run: moon install
+
+      - name: Check Formatting
+        run: moon fmt --check
+
+      - name: Build Native
+        run: moon build
+
+      - name: Build Wasm
+        run: moon build --target wasm --release
+
+      - name: Run Tests
+        run: moon test
