@@ -1,42 +1,48 @@
 ///|
 /// moon_zod Schema Generator — JSON to `@moon_zod` source code
 ///
-/// A zero-dependency CLI utility that traverses a JSON AST and generates
-/// the corresponding moon_zod schema expression. Designed for rapid
-/// schema prototyping from real API payloads.
+/// A zero-dependency CLI utility that accepts a JSON string via CLI
+/// argument and generates the corresponding moon_zod schema expression.
 ///
-/// Run with: moon run cmd/json2schema
+/// Since MoonBit targets WASM without filesystem I/O, pass the JSON
+/// directly as a string argument.
+///
+/// Usage: moon run cmd/json2schema -- '<json-string>'
+///        moon run cmd/json2schema -- --help
 fn main {
-  // ── Chinese teaching payload (realistic AI Agent scenario) ──────
-  let mock_input = @json.parse(
-    "{\"lesson_id\":101,\"hsk_level\":4,\"vocabulary\":[{\"hanzi\":\"你好\",\"pinyin\":\"nǐ hǎo\",\"translation\":\"hello\"},{\"hanzi\":\"老师\",\"pinyin\":\"lǎo shī\",\"translation\":\"teacher\"}],\"situational_dialogue\":{\"context\":\"At the airport\",\"speakers\":[{\"name\":\"Li Ming\",\"dialogue\":\"你好！请问机场怎么走？\"},{\"name\":\"Agent\",\"dialogue\":\"请跟我来。\"}]},\"is_published\":true}",
-  ) catch {
-    _ => abort("invalid mock JSON")
+  let args = @env.args()
+  if args.length() < 2 || args[1] == "--help" {
+    println("Usage: moon run cmd/json2schema -- '<json-string>'")
+    println("")
+    println("Generate a moon_zod schema from a JSON payload.")
+    println("")
+    println("Examples:")
+    println("  moon run cmd/json2schema -- '{\"name\": \"Alice\"}'")
+    println("  moon run cmd/json2schema -- --help")
+    return
   }
 
-  println(
-    "╔══════════════════════════════════════════════════════════╗",
-  )
-  println("║   moon_zod Schema Generator — Chinese Teaching Demo     ║")
-  println(
-    "╚══════════════════════════════════════════════════════════╝",
-  )
-  println("")
+  let raw = args[1]
+  let json = @json.parse(raw) catch {
+    _ => {
+      println("Error: invalid JSON string")
+      println("Please provide valid JSON as the first argument.")
+      println("Use --help for usage information.")
+      return
+    }
+  }
+
   println("── Input JSON ──")
-  println(mock_input)
+  println(json)
   println("")
   println("── Generated moon_zod Schema (copy-paste ready) ──")
-  println(infer_schema(mock_input, 0))
+  println(infer_schema(json, 0))
   println("")
   println("── End ──")
 }
 
 ///|
 /// Infer a moon_zod schema expression from a JSON value.
-///
-/// @param json   The JSON value to analyze.
-/// @param indent Current nesting depth (each level = 2 spaces).
-/// @returns      A `@moon_zod.*` expression string.
 fn infer_schema(json : Json, indent : Int) -> String {
   match json {
     String(_) => "@moon_zod.string()"
@@ -50,6 +56,8 @@ fn infer_schema(json : Json, indent : Int) -> String {
 
 ///|
 /// Generate an `@moon_zod.object({...})` expression from a JSON object.
+/// Object keys are safely escaped via `escape_mbt_string` to ensure the
+/// generated MoonBit string literal does not break on `"` or `\`.
 fn infer_object_schema(map : Map[String, Json], indent : Int) -> String {
   let mut result = "@moon_zod.object({\n"
   let mut first = true
@@ -61,13 +69,17 @@ fn infer_object_schema(map : Map[String, Json], indent : Int) -> String {
     match map.get(key) {
       Some(val) => {
         let field_schema = infer_schema(val, indent + 1)
-        result = result + pad(indent + 1) + "\"" + key + "\": " + field_schema
+        result = result +
+          pad(indent + 1) +
+          "\"" +
+          escape_mbt_string(key) +
+          "\": " +
+          field_schema
       }
       None => ()
     }
   }
   if first {
-    // Empty map
     "@moon_zod.object({})"
   } else {
     result = result + ",\n" + pad(indent) + "})"
@@ -78,18 +90,35 @@ fn infer_object_schema(map : Map[String, Json], indent : Int) -> String {
 ///|
 /// Generate an `@moon_zod.array(...)` expression from a JSON array.
 /// Inspects the first element to infer the element schema.
-/// Empty arrays default to `@moon_zod.array(@moon_zod.string())`.
+/// Empty arrays generate a TODO comment to alert the developer.
 fn infer_array_schema(elements : Array[Json], indent : Int) -> String {
   let inner = if elements.length() > 0 {
     infer_schema(elements[0], indent + 1)
   } else {
-    "@moon_zod.string()"
+    "@moon_zod.string() /* TODO: specify exact type */"
   }
   if has_newlines(inner) {
     "@moon_zod.array(\n" + pad(indent + 1) + inner + "\n" + pad(indent) + ")"
   } else {
     "@moon_zod.array(" + inner + ")"
   }
+}
+
+///|
+/// Escape special characters in a string so it can be safely used as a
+/// MoonBit string literal. Escapes `"` → `\"` and `\` → `\\`.
+fn escape_mbt_string(s : String) -> String {
+  let mut result = ""
+  for c in s.to_array() {
+    if c == '\\' {
+      result = result + "\\\\"
+    } else if c == '"' {
+      result = result + "\\\""
+    } else {
+      result = result + c.to_string()
+    }
+  }
+  result
 }
 
 ///|
