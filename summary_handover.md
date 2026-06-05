@@ -9,7 +9,8 @@
 - **版本**: 0.1.0
 - **依赖**: 仅 `moonbitlang/core/json`
 - **测试**: 74 个黑盒测试，全部通过
-- **提交历史**: `2c333ad` (HEAD, Phase 5), `99cd546` (Phase 4), `fdc9741` (Phase 3), `bf6b00a` (Phase 2), `6466b60` (init)
+- **CI**: GitHub Actions (ubuntu-latest)，覆盖 fmt check → native build → wasm build → test
+- **发布**: https://github.com/Betterlol/moon_zod/releases/tag/v0.1.0
 
 ---
 
@@ -21,10 +22,16 @@ moon_zod/
 ├── moon.pkg                  # 包声明（导入 @json）
 ├── AGENTS.md                 # Agent 工作指南
 ├── DESIGN.md                 # 架构设计文档（原始规划）
-├── README.mbt.md             # 用户 README
+├── README.mbt.md             # 用户 README（含 API 参考、Benchmark 数据、LLM 自愈示例）
 ├── summary_handover.md       # 本文件
 ├── step_phase4_*.md          # Phase 4 阶段总结
 ├── step_phase5_*.md          # Phase 5 阶段总结
+├── step_phase6_*.md          # Phase 6 阶段总结
+├── step_phase7_*.md          # Phase 7 阶段总结
+├── step_phase8_*.md          # Phase 8 阶段总结
+│
+├── .github/workflows/
+│   └── ci.yml                # CI: checkout → setup-moonbit → install → fmt → build → test
 │
 ├── types.mbt                 # ValidationError / SchemaResult 类型
 ├── schema.mbt                # 核心枢纽：SchemaType / Schema / ObjectMode / Rule / parse 入口
@@ -41,9 +48,23 @@ moon_zod/
 │
 ├── moon_zod_test.mbt         # 黑盒测试（74 tests）
 ├── moon_zod_wbtest.mbt       # 白盒测试（空，可扩展）
+│
 ├── cmd/main/
-│   ├── moon.pkg              # 可执行包声明
-│   └── main.mbt              # 性能 Benchmark（10k 迭代）
+│   ├── moon.pkg              # Benchmark 可执行包声明
+│   └── main.mbt              # 性能 Benchmark（复杂嵌套 schema × 100k 迭代）
+│
+├── cmd/wasm/
+│   ├── moon.pkg              # Wasm benchmark 可执行包声明（导入 env）
+│   └── main.mbt              # Wasm 三路对比：moonzod / handcrafted / verify / startup
+│
+├── bench_cross_lang/
+│   ├── package.json           # Node 包声明 + zod 依赖
+│   └── bench.js              # JS 编排器：TS Zod vs MoonZod vs Handcrafted（100k 迭代）
+│
+├── examples/llm_agent/
+│   ├── moon.pkg              # LLM Demo 可执行包声明
+│   └── main.mbt              # LLM 自愈闭环：schema 定义 → mock 错误 → 校验 → 格式化 → 重试 → Strip
+│
 └── pkg.generated.mbti        # 自动生成的接口描述，**勿手动编辑**
 ```
 
@@ -91,14 +112,9 @@ moon_zod/
 | 函数 | 说明 |
 |---|---|
 | `to_json_schema(Schema) -> Json` | 导出为标准 JSON Schema 对象 |
-| `append_rule(Schema, (Json)->Bool, String) -> Schema` | 内部辅助：穿透 Optional/Default 装饰器追加规则 |
-| `inner_type(SchemaType) -> SchemaType` | 内部辅助：剥离 Optional/Default 获取基础类型 |
-| `format_path(Array[String]) -> String` | 内部辅助：将路径栈拼接为点号路径字符串 |
-| `is_optional_schema(Schema) -> Bool` | 内部辅助：判断是否为 Optional/Default 包装 |
-| `parse_inner(Schema, Json, Array[String]) -> SchemaResult` | 内部辅助：共享路径栈的递归校验入口 |
-| `sub_path(String, String) -> String` | 遗留辅助：字符串拼接路径（保留向后兼容）|
-| `sub_index(String, Int) -> String` | 遗留辅助：字符串拼接数组索引路径 |
-| `value_in_array(String, Array[String]) -> Bool` | 内部辅助：枚举值查找 |
+| `format_path(Array[String]) -> String` | 将路径栈拼接为点号路径字符串 |
+
+> 内部辅助函数（`append_rule`, `inner_type`, `is_optional_schema`, `value_in_array`, `sub_path`, `sub_index` 等）**未暴露**在公有 API 中。`parse_inner` 已在 v0.1.0 发布时从公共接口移除。
 
 ### 核心类型
 
@@ -123,7 +139,7 @@ pub type SchemaResult = Result[Json, Array[ValidationError]]
 **数据流**：
 ```
 Schema::parse(json, path?)          ← 公共入口，创建 path_stack
-  └─ parse_inner(schema, json, stack)  ← 内部转发枢纽
+  └─ parse_inner(schema, json, stack)  ← 内部转发枢纽（非 pub）
        ├─ parse_object()                ← push/pop 字段名
        ├─ parse_array()                 ← push/pop [索引]
        ├─ parse_optional()              ← 直接传递 stack
@@ -155,14 +171,6 @@ pub fn append_rule(schema, check, message) -> Schema {
 
 ### 4.3 inner_type — 类型擦除 (Phase 4)
 
-```mbt
-pub fn inner_type(t: SchemaType) -> SchemaType {
-  match t {
-    OptionalType(inner) | DefaultType(inner, _) => inner.schema_type
-    other => other
-  }
-}
-```
 用在规则方法的类型守卫中（如 `min()` 检查是 StringType/NumberType/ArrayType），确保装饰器不干扰类型判断。
 
 ### 4.4 Strip 默认模式 (Phase 5)
@@ -187,6 +195,13 @@ pub fn inner_type(t: SchemaType) -> SchemaType {
 - Strip/Passthrough → 映射为 `"additionalProperties": true`
 - Strict → 映射为 `"additionalProperties": false`
 
+### 4.7 Wasm 跨语言 Benchmark (Phase 7)
+
+由于 MoonBit wasm target 只导出 `_start` 和 `memory`，采用 CLI 参数分发模式：
+- `main()` 读取 `@env.args()[1]` 分派到 moonzod / handcrafted / verify / startup
+- Node.js 编排器通过 `execFileSync(moonrun, [wasm_path, mode])` 调用
+- Startup 模式测量 moonrun 进程启动开销（~12.8ms），从原始 Wasi 时间中扣除
+
 ---
 
 ## 5. 各阶段提交摘要
@@ -199,6 +214,9 @@ pub fn inner_type(t: SchemaType) -> SchemaType {
 | 3 | `fdc9741` | array, optional, default, enum, union, refine |
 | 4 | `99cd546` | append_rule/inner_type 穿透、parse 分派重构、to_json_schema、benchmark |
 | 5 | `2c333ad` | 可变路径栈、Strip 模式、union 错误聚合 |
+| 6 | `9e309d4` | LLM 自愈 Demo、复杂 Benchmark（100k × 嵌套对象）、README 全面翻新 |
+| 7 | `ead55a6` | 跨语言 Benchmark：TS Zod vs MoonZod Wasm vs Handcrafted Match |
+| 8 | `c5c44fd` | parse_inner 隐藏、README 补全 Benchmark 数据、v0.1.0 发布封板 |
 
 ---
 
@@ -224,7 +242,7 @@ pub fn inner_type(t: SchemaType) -> SchemaType {
 
 1. **Block 风格**: 每个公共项前用 `///|` 分隔；block 间顺序无关
 2. **Result 模式**: 所有校验返回 `Result[Json, Array[ValidationError]]`，**绝不 raise**
-3. **pub 语义**: `pub` = 包内可见，`pub(all)` = 外部包可见。内部辅助函数用 `pub`（需要跨文件访问）
+3. **pub 语义**: `pub` = 包内可见，`pub(all)` = 外部包可见。慎用 `pub` 暴露内部函数
 4. **提交前**: 必须运行 `moon test && moon info && moon fmt`
 5. **文件组织**: 每个工厂函数一个 `.mbt` 文件，对应规则方法写在同文件
 
@@ -235,28 +253,35 @@ pub fn inner_type(t: SchemaType) -> SchemaType {
 ### 已知
 - `union.mbt` 中的 parse helper 的 `self` 参数未使用（合法但有 warning），因为实际委托给 `parse_inner`
 - 无白盒测试（`moon_zod_wbtest.mbt` 空）
-- 无 CI/CD 配置
+- Benchmark 精确计时：Wasm 基准通过子进程 + 启动开销抵扣估算，而非进程内精确计时
+- `cmd/wasm/main.mbt:270` 存在良性 `unreachable_code` warning
 
 ### 建议下一步
-1. **Benchmark 精确计时**: 当前 cmd/main 只计数不测时，可用 `@bench` 包做 real benchmark
+1. **多平台 CI**: 扩展 GitHub Actions 到 macos-latest / windows-latest
 2. **refine 类型安全**: 允许用户定义 `refine<T>(fn(T) -> Bool)` 而不是 `fn(Json) -> Bool`
 3. **Schema 组合器**: `Schema::or()`, `Schema::and()`, `Schema::transform()` 等
 4. **错误本地化**: Error message 支持多语言模板
 5. **derive 宏**: `derive(ZodSchema)` 从 MoonBit struct 自动生成 schema
-6. **CI**: 配置 GitHub Actions 自动 `moon test`
+6. **Benchmark 精确计时**: 用 `@bench` 包替代手动循环
+7. **wasm-gc target**: 验证 `--target wasm-gc` 的兼容性并优化 instantiation 开销
 
 ---
 
 ## 9. 快速命令
 
 ```bash
-moon test                # 运行全部测试
-moon build               # 编译库
-moon run cmd/main        # 运行 benchmark
-moon info && moon fmt    # 更新接口 + 格式化
-moon coverage analyze    # 查看测试覆盖率
+moon test                          # 运行全部测试
+moon build                         # 编译库
+moon build --target wasm --release # 编译 Wasm benchmark
+moon run cmd/main                  # 运行 MoonZod 吞吐 Benchmark
+moon run examples/llm_agent        # 运行 LLM 自愈 Demo
+moon run cmd/wasm -- moonzod       # Wasm 模式 moonzod 基准
+moon run cmd/wasm -- handcrafted   # Wasm 模式手写 Match 基准
+moon run cmd/wasm -- verify        # 验证两种实现输出一致
+cd bench_cross_lang && node bench.js  # 三方语言对比 Benchmark
+moon info && moon fmt              # 更新接口 + 格式化
 ```
 
 ---
 
-*生成时间: 2026-06-05 | 由 opencode 在 Phase 5 完成后生成*
+*生成时间: 2026-06-05 | v0.1.0 发布时由 Phase 6-8 完成后更新*
