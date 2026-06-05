@@ -22,8 +22,6 @@ pub fn number() -> Schema
 
 pub fn object(Map[String, Schema]) -> Schema
 
-pub fn parse_inner(Schema, Json, Array[String]) -> Result[Json, Array[ValidationError]]
-
 pub fn string() -> Schema
 
 pub fn sub_index(String, Int) -> String

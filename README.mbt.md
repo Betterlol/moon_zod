@@ -94,9 +94,22 @@ moon_zod's **Mutable Path Stack** (Phase 5) defers path string construction unti
 
 This is especially important for **Wasm edge runtimes** where GC pauses and memory pressure directly impact request latency.
 
-Run the benchmark:
+### Cross-Language Benchmark (100k iterations)
+
+| Validator | Runtime | Adjusted Time | Ops/sec |
+|---|---|---|---|
+| **TS Zod** | In-process V8 | 430.2 ms | **232,456 ops/sec** |
+| **MoonZod** | Wasm via moonrun | 1,729.1 ms | 57,837 ops/sec |
+| **Handcrafted Match** | Wasm via moonrun | 96.4 ms | **1,037,718 ops/sec** |
+
+> Wasm times are adjusted by subtracting 12.8 ms startup overhead (moonrun process spawn + module instantiation). TS Zod runs in-process with no startup overhead.
+>
+> Handcrafted Match is ~10.8x faster than MoonZod — expected for a minimal state machine vs general-purpose library. MoonZod vs TS Zod is not a direct comparison due to subprocess overhead.
+
+Run the benchmarks:
 ```
-moon run cmd/main
+moon run cmd/main                  # MoonZod throughput
+cd bench_cross_lang && node bench.js  # Three-way comparison
 ```
 
 ---

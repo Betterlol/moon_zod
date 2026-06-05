@@ -150,7 +150,7 @@ pub fn is_optional_schema(s : Schema) -> Bool {
 ///|
 /// Internal dispatch that all parse helpers use for recursion.
 /// Accepts a mutable path_stack that is shared across the call tree.
-pub fn parse_inner(
+fn parse_inner(
   schema : Schema,
   json : Json,
   path_stack : Array[String],
