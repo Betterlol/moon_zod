@@ -6,9 +6,10 @@
 
 - **语言**: MoonBit
 - **模块名**: `username/moon_zod`
-- **版本**: 0.1.0
-- **依赖**: 仅 `moonbitlang/core/json`
+- **版本**: 0.1.0（API 冻结）
+- **依赖**: 仅 `moonbitlang/core/json`、`moonbitlang/core/debug`
 - **测试**: 74 个黑盒测试，全部通过
+- **编译器警告**: 0（Phase 12 清理完成）
 - **CI**: GitHub Actions (ubuntu-latest)，覆盖 fmt check → native build → wasm build → test
 - **发布**: https://github.com/Betterlol/moon_zod/releases/tag/v0.1.0
 
@@ -19,16 +20,13 @@
 ```
 moon_zod/
 ├── moon.mod                  # 包元信息（模块名/版本/描述）
-├── moon.pkg                  # 包声明（导入 @json）
+├── moon.pkg                  # 包声明（导入 @json + @debug）
 ├── AGENTS.md                 # Agent 工作指南
-├── DESIGN.md                 # 架构设计文档（原始规划）
+├── DESIGN.md                 # 架构设计文档
 ├── README.mbt.md             # 用户 README（含 API 参考、Benchmark 数据、LLM 自愈示例）
 ├── summary_handover.md       # 本文件
-├── step_phase4_*.md          # Phase 4 阶段总结
-├── step_phase5_*.md          # Phase 5 阶段总结
-├── step_phase6_*.md          # Phase 6 阶段总结
-├── step_phase7_*.md          # Phase 7 阶段总结
-├── step_phase8_*.md          # Phase 8 阶段总结
+├── step_phase_summary.md     # Phase 1-12 合并总结
+├── step_phase_details/       # 各阶段详细总结（12 个 .md）
 │
 ├── .github/workflows/
 │   └── ci.yml                # CI: checkout → setup-moonbit → install → fmt → build → test
@@ -47,15 +45,18 @@ moon_zod/
 ├── moon_zod.mbt              # 包级文档（doc comment）
 │
 ├── moon_zod_test.mbt         # 黑盒测试（74 tests）
-├── moon_zod_wbtest.mbt       # 白盒测试（空，可扩展）
 │
 ├── cmd/main/
 │   ├── moon.pkg              # Benchmark 可执行包声明
-│   └── main.mbt              # 性能 Benchmark（复杂嵌套 schema × 100k 迭代）
+│   └── main.mbt              # 性能 Benchmark（3 项：Valid / Adversarial / Redundancy）
 │
 ├── cmd/wasm/
 │   ├── moon.pkg              # Wasm benchmark 可执行包声明（导入 env）
 │   └── main.mbt              # Wasm 三路对比：moonzod / handcrafted / verify / startup
+│
+├── cmd/json2schema/
+│   ├── moon.pkg              # JSON-to-Schema 生成器可执行包声明
+│   └── main.mbt              # CLI：JSON 输入 → @moon_zod 源码输出（含 safe escaping）
 │
 ├── bench_cross_lang/
 │   ├── package.json           # Node 包声明 + zod 依赖
@@ -63,7 +64,11 @@ moon_zod/
 │
 ├── examples/llm_agent/
 │   ├── moon.pkg              # LLM Demo 可执行包声明
-│   └── main.mbt              # LLM 自愈闭环：schema 定义 → mock 错误 → 校验 → 格式化 → 重试 → Strip
+│   └── main.mbt              # LLM 自愈闭环：schema 定义 → mock 错误 → 校验 → 重试 → Strip
+│
+├── examples/educational_agent/
+│   ├── moon.pkg              # 教育 Agent 可执行包声明
+│   └── main.mbt              # 3 轮自纠正：类型错误 → 规则违例 → Strip 清洗
 │
 └── pkg.generated.mbti        # 自动生成的接口描述，**勿手动编辑**
 ```
@@ -217,6 +222,10 @@ pub fn append_rule(schema, check, message) -> Schema {
 | 6 | `9e309d4` | LLM 自愈 Demo、复杂 Benchmark（100k × 嵌套对象）、README 全面翻新 |
 | 7 | `ead55a6` | 跨语言 Benchmark：TS Zod vs MoonZod Wasm vs Handcrafted Match |
 | 8 | `c5c44fd` | parse_inner 隐藏、README 补全 Benchmark 数据、v0.1.0 发布封板 |
+| 9 | `b5a2d1e` | 健壮性基准套件（Valid/Adversarial/Redundancy）+ 教育 Agent 3 轮自纠正 |
+| 10 | `545fbd5` | JSON-to-Schema 代码生成器 CLI（递归 AST 遍历 + `@moon_zod` 源码输出）|
+| 11 | `ef93d1a` | 生产级 CLI 升级（`@env.args()` + 键名安全转义 + 优雅错误处理）|
+| 12 | `aee6143` | 零警告清理 + `ValidationError::to_string()` + README 完善 |
 
 ---
 
@@ -251,10 +260,10 @@ pub fn append_rule(schema, check, message) -> Schema {
 ## 8. 已知问题 / 未来方向
 
 ### 已知
-- `union.mbt` 中的 parse helper 的 `self` 参数未使用（合法但有 warning），因为实际委托给 `parse_inner`
-- 无白盒测试（`moon_zod_wbtest.mbt` 空）
 - Benchmark 精确计时：Wasm 基准通过子进程 + 启动开销抵扣估算，而非进程内精确计时
-- `cmd/wasm/main.mbt:270` 存在良性 `unreachable_code` warning
+- 无白盒测试
+
+> Phase 12 已消除全部编译器警告（unused self × 4、unreachable_code × 1、Show deprecation × 30+）。
 
 ### 建议下一步
 1. **多平台 CI**: 扩展 GitHub Actions 到 macos-latest / windows-latest
@@ -270,11 +279,13 @@ pub fn append_rule(schema, check, message) -> Schema {
 ## 9. 快速命令
 
 ```bash
-moon test                          # 运行全部测试
-moon build                         # 编译库
+moon test                          # 运行全部测试（74 tests, 0 warnings）
+moon build                         # 编译库（0 warnings）
 moon build --target wasm --release # 编译 Wasm benchmark
-moon run cmd/main                  # 运行 MoonZod 吞吐 Benchmark
+moon run cmd/main                  # 运行 MoonZod 吞吐 Benchmark（3 项）
+moon run cmd/json2schema -- '{"hello":"world"}'  # JSON → @moon_zod 源码生成
 moon run examples/llm_agent        # 运行 LLM 自愈 Demo
+moon run examples/educational_agent # 运行教育 Agent 3 轮自纠正 Demo
 moon run cmd/wasm -- moonzod       # Wasm 模式 moonzod 基准
 moon run cmd/wasm -- handcrafted   # Wasm 模式手写 Match 基准
 moon run cmd/wasm -- verify        # 验证两种实现输出一致
@@ -284,4 +295,4 @@ moon info && moon fmt              # 更新接口 + 格式化
 
 ---
 
-*生成时间: 2026-06-05 | v0.1.0 发布时由 Phase 6-8 完成后更新*
+*最后更新: 2026-06-06 | Phase 1-12 全部完成*

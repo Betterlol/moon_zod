@@ -73,34 +73,92 @@ pub fn object(spec: Map[String, Schema]) -> Schema
 - **自定义规则**：`.refine(fn) →` 用户注入自定义校验逻辑。
 - **JSON Schema 导出**：`schema.to_json_schema()` → 输出标准 JSON Schema 字符串，可供 LLM 直接使用。
 
-### Phase 4：Polish（竞赛加分项）
+### Phase 4：Polish + JSON Schema 导出
 
-- **错误信息人类可读**：错误路径用 `"name"`, `"address.city"` 格式。
-- **性能 Benchmark**：对比手写 `match` 校验 + 对比 TypeScript Zod（展示 MoonBit 优势）。
-- **README 文档**：完整的中英文 Example + API 文档 + 设计思路。
-- **测试覆盖**：每个规则独立测试 + RFC 官方 JSON Schema 测试套件子集。
+- **错误收集**：`parse_object` 一次性收集所有字段错误而非 fail-fast，便于 LLM 一次性修正。
+- **`append_rule` / `inner_type`**：实现装饰器穿透机制，令 `.optional().min(3)` 正确落在内层 Schema 上。
+- **JSON Schema 导出**：`to_json_schema(schema)` 递归遍历 Schema 树，输出标准 JSON Schema 对象。
+- **`parse_inner` 隐藏**：重构 parse 路由，`parse_inner` 从公共接口移除。
+
+### Phase 5：可变路径栈 + Strip 模式
+
+- **可变路径栈**：`Array[String]` 在 parse 树中共享，进入子结构 `push` / 返回 `pop`，仅在产生 `ValidationError` 时才调用 `format_path()` 拼接字符串。成功路径**零堆分配**。
+- **Strip 默认模式**：`object()` 默认 Strip 模式，parse 后只返回 spec 定义的字段，嵌套对象递归剥离。
+- **Union 错误聚合**：所有分支失败时聚合各分支首个错误消息，而非只返回最后一个。
+
+### Phase 6：LLM 自愈 Demo + 基准测试
+
+- **`examples/llm_agent/`**：5 步 LLM 工具调用自纠错闭环（定义 Schema → LLM 输出 → 校验 → 格式化反馈 → 重试），含 Strip 模式演示。
+- **`cmd/main/`**：复杂嵌套 Schema × 10 万次迭代基准测试。
+- **README 全面翻新**：API 参考、Benchmark 数据、LLM 自愈示例。
+
+### Phase 7：跨语言基准测试
+
+- **`cmd/wasm/`**：WASM 可执行包，CLI 参数分发模式（moonzod / handcrafted / verify / startup）。
+- **`bench_cross_lang/`**：Node.js 编排器，三路对比（TS Zod × MoonZod Wasm × Handcrafted Match），扣除 ~12.8ms 进程启动开销。
+- **结果**：Handcrafted Match ~10.8x 快于 MoonZod（通用库 vs 状态机）。
+
+### Phase 8：健壮性增强 + v0.1.0 发布
+
+- **边界 case 修复**：空 spec 正确处理、空数组提前返回、missing field 错误收集。
+- **测试覆盖到 74 个**：零外部依赖，API 冻结。
+- **发布 v0.1.0**：GitHub Release + CI（GitHub Actions fmt → build → test）。
+
+### Phase 9：健壮性基准套件 + 教育 Agent
+
+- **基准扩展为 3 项**：Valid Throughput (100k) + Adversarial Hallucination (50k) + Extreme Redundancy (50k)。
+- **`examples/educational_agent/`**：3 轮 LLM 自纠正循环（类型错误 → 规则违例 → Strip 清洗），验证路径栈在 200k 总迭代中的稳定性。
+
+### Phase 10：JSON-to-Schema 代码生成器
+
+- **`cmd/json2schema/`**：递归遍历 JSON AST，自动生成 `@moon_zod.object({...})` 源码。零外部依赖。
+- 含 CLI 参数解析、`--help`、`escape_mbt_string()` 键名安全转义、空数组 `/* TODO */` 提示。
+
+### Phase 11：生产级 CLI 升级
+
+- `@env.args()` 取代硬编码 mock，优雅处理无效 JSON 和缺失参数。
+- 因 WASM 无文件系统 I/O（无 `@fs` 模块），采用内联 JSON 字符串参数。
+
+### Phase 12：零警告清理 + QoL 糖
+
+- 消除全部编译警告（unused `self`、unreachable code、Show deprecation × 30+）。
+- `ValidationError::to_string()` 便利方法。
+- README 新增 JSON-to-Schema Generator 章节。
 
 ---
 
-## 项目结构建议
+## 项目结构
 
 ```
 moon_zod/
-├── moon_zod.mbt          # re-export 所有公开 API
-├── types.mbt              # Schema, ValidationError, SchemaResult
-├── string.mbt             # string() schema + 规则链
-├── number.mbt             # number() schema + 规则链
-├── boolean.mbt            # boolean() schema
-├── null.mbt               # null() schema
-├── array.mbt              # array() schema + 规则链
-├── object.mbt             # object() schema + 规则链
-├── union.mbt              # union() / optional() / default()
-├── refine.mbt             # .refine() 自定义规则
+├── types.mbt              # ValidationError, SchemaResult
+├── schema.mbt             # SchemaType / Schema / ObjectMode / Rule / parse 入口
+├── string.mbt             # string() + 规则链
+├── number.mbt             # number() + 规则链
+├── boolean.mbt            # boolean()
+├── null.mbt               # null()
+├── array.mbt              # array() + parse_array
+├── object.mbt             # object() + strict/passthrough/strip / parse_object
+├── union.mbt              # optional / default / enum_values / union
+├── refine.mbt             # refine() 自定义规则
 ├── json_schema.mbt        # to_json_schema() 导出
-├── deprecated.mbt         # 废弃的旧 API
-├── moon_zod_test.mbt      # 黑盒测试
-├── moon_zod_wbtest.mbt    # 白盒测试
-└── cmd/main/main.mbt      # CLI demo / 调试入口
+├── moon_zod.mbt           # 包级文档注释
+├── moon_zod_test.mbt      # 黑盒测试（74 tests）
+│
+├── cmd/main/              # 基准测试入口
+├── cmd/wasm/              # WASM 跨语言对比基准
+├── cmd/json2schema/       # JSON-to-Schema 代码生成器 CLI
+│
+├── examples/llm_agent/        # LLM 工具调用自愈演示
+├── examples/educational_agent/ # AI 教育 Agent 3 轮自纠正演示
+│
+├── bench_cross_lang/      # Node.js 三路对比编排器
+├── step_phase_details/    # 各阶段详细总结
+├── step_phase_summary.md  # Phase 1-12 合并总结
+├── summary_handover.md    # 项目交接文档
+├── DESIGN.md              # 本文件（架构设计）
+├── README.mbt.md          # 用户 README
+└── AGENTS.md              # Agent 工作指南
 ```
 
 ---
