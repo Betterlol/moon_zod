@@ -137,6 +137,21 @@ moon_zod/
 
 ---
 
+## Demo/Example 编写规范
+
+### Real LLM vs Mock 选择标准
+
+| 场景 | 方式 | 原因 |
+|---|---|---|
+| `examples/` 展示 | **Real LLM** | 给别人看的 demo，真实调用才有说服力 |
+| `moon_zod_test.mbt` 单元测试 | **Mock** | 确定性、快、不依赖网络、不花 API 费用 |
+| CI / 回归测试 | **Mock** | 精确覆盖边界 case，LLM 不定输出 |
+| Benchmarks | **Mock** | 控制变量，排除网络延迟干扰 |
+
+**原则**：`examples/` 面向读者，应该调真 LLM 展示项目价值；测试面向开发者，保持 mock 确保确定性和速度。
+
+---
+
 ## MoonBit 编码要点
 
 1. **Block 风格**：每个公共函数/类型前用 `///|` 分隔，顺序无关。
