@@ -94,6 +94,7 @@ pub struct ValidationError {
   message : String
   got : Json
 }
+pub fn ValidationError::to_string(Self) -> String
 
 // Type aliases
 pub type SchemaResult = Result[Json, Array[ValidationError]]
