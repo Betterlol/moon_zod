@@ -22,108 +22,82 @@ let result = schema.parse(json_data)
 
 ---
 
-## 实施阶段
+## 开发阶段总览
 
-### Phase 1：核心类型 + 基础校验器
+完整阶段记录见 [`step_phase_summary.md`](./step_phase_summary.md)（Phase 1-12 详细总结，含每个阶段的文件变更、关键决策、产出指标）。
 
-**文件**: `schema.mbt` / `types.mbt`
+简明对照：
 
-定义核心类型系统：
+| Phase | 主题 | 核心产出 |
+|---|---|---|
+| 1 | 核心类型 + 基础校验器 | Schema 类型系统、string/number/boolean/null/array/refine |
+| 2 | Object 三种模式 | Strip（默认）/ Passthrough / Strict |
+| 3 | 组合子 | optional / default / enum / union |
+| 4 | JSON Schema 导出 | `to_json_schema()` + `append_rule`/`inner_type` 穿透 |
+| 5 | 可变路径栈 | 成功路径零堆分配 + Strip 默认模式 |
+| 6 | 场景演示 | `examples/llm_agent/` + `cmd/main/` 基准 |
+| 7 | 跨语言对比 | `cmd/wasm/` + `bench_cross_lang/`（Zod × MoonZod × Handcrafted） |
+| 8 | v0.1.0 发布 | 边界修复、74 测试、API 冻结 |
+| 9 | 健壮性基准 + 教育 Agent | 3 项基准 + `examples/educational_agent/` |
+| 10 | JSON-to-Schema 生成器 | `cmd/json2schema/` CLI |
+| 11 | 生产级 CLI 升级 | `@env.args()` + 键名转义 + 错误处理 |
+| 12 | 零警告清理 + QoL 糖 | 全部警告归零 + `ValidationError::to_string()` |
+
+---
+
+## 核心架构设计
+
+### 1. parse 路由 + 可变路径栈
 
 ```
-Schema[T]     — 校验器 trait/struct，携带校验规则
-ValidationError — 错误类型，包含 field path + message + 期望值/实际值
-SchemaResult[T] — type alias for Result[T, Array[ValidationError]]
+Schema::parse(json)                   ← 公共入口，创建 path_stack
+  └─ parse_inner(schema, json, stack) ← 内部转发枢纽（非 pub）
+       ├─ parse_object()              ← push/pop 字段名
+       ├─ parse_array()               ← push/pop [索引]
+       ├─ parse_optional()            ← 直接传递 stack
+       ├─ parse_default()             ← 直接传递 stack
+       ├─ parse_enum()                ← format_path 后报错
+       ├─ parse_union()               ← 直接传递 stack
+       └─ 基本类型检查                ← format_path 后报错
 ```
 
-基础校验器工厂函数：
+路径栈 (`Array[String]`) 在所有 parse helper 间共享，进入子结构 `push` / 返回 `let _ = pop()`。仅在产生 `ValidationError` 时调用 `format_path(stack)` 拼接字符串。**成功路径零堆分配**。
 
-| 函数 | 规则链方法 |
-|---|---|
-| `string()` | `.min(n)` `.max(n)` `.email()` `.url()` `.regex(pattern)` `.nonempty()` |
-| `number()` | `.min(n)` `.max(n)` `.int()` `.positive()` `.negative()` `.multipleOf(n)` |
-| `boolean()` | (无链式规则) |
-| `null()` | — |
-| `array(schema)` | `.min(n)` `.max(n)` `.nonempty()` |
-| `object(spec)` | 见下 |
-
-**关键设计决策**：
-- 每个 Schema 是一个 struct，内部存储 `rules: Array[Rule]`。Rule 是一个函数类型 `(Json) -> Result[Json, ValidationError]`。
-- 链式调用 `.min(2).max(10)` 只是往 rules 里 push 新 rule，返回 self。
-- `parse(json)` 遍历 rules 依次执行。
-
-### Phase 2：Object Schema 与字段级错误
-
-**文件**: `object.mbt`
+### 2. append_rule — 装饰器穿透
 
 ```mbt
-pub fn object(spec: Map[String, Schema]) -> Schema
+pub fn append_rule(schema, check, message) -> Schema {
+  match schema.schema_type {
+    OptionalType(inner)  => 递归到 inner，新建 OptionalType 包裹
+    DefaultType(inner,_) => 递归到 inner，新建 DefaultType 包裹
+    _ => 直接追加到 rules
+  }
+}
 ```
 
-- parse 时遍历 spec 的每个 key，用对应 Schema 校验。
-- 收集所有字段的错误，而非 fail-fast（一次性返回所有错误，方便 LLM 修正）。
-- 支持 `.strict()`（拒绝未在 spec 中定义的字段）和 `.passthrough()`（默认，保留额外字段）。
+使 `string().optional().min(3)` 的 `min(3)` 规则穿透 OptionalType 落在 StringType 上。
 
-### Phase 3：高级特性
+### 3. Strip 默认模式
 
-- **可选字段**：`.optional()` → 值为 Null 或缺失时跳过校验。
-- **默认值**：`.default(value)` → 缺失时填充默认值。
-- **枚举校验**：`.enum(["a", "b", "c"])`。
-- **联合类型**：`.union([schema1, schema2])` → 任一通过即成功。
-- **自定义规则**：`.refine(fn) →` 用户注入自定义校验逻辑。
-- **JSON Schema 导出**：`schema.to_json_schema()` → 输出标准 JSON Schema 字符串，可供 LLM 直接使用。
+`object()` 默认 `Strip` 模式。parse 成功后只返回 spec 定义的字段（已递归校验清洗的值），未定义字段静默移除。嵌套对象递归剥离。
 
-### Phase 4：Polish + JSON Schema 导出
+### 4. Union 错误聚合
 
-- **错误收集**：`parse_object` 一次性收集所有字段错误而非 fail-fast，便于 LLM 一次性修正。
-- **`append_rule` / `inner_type`**：实现装饰器穿透机制，令 `.optional().min(3)` 正确落在内层 Schema 上。
-- **JSON Schema 导出**：`to_json_schema(schema)` 递归遍历 Schema 树，输出标准 JSON Schema 对象。
-- **`parse_inner` 隐藏**：重构 parse 路由，`parse_inner` 从公共接口移除。
+所有分支失败时，聚合各分支第一个错误消息：
+```
+"Expected union type, but all branches failed. Branches: [Expected string, Expected number]"
+```
 
-### Phase 5：可变路径栈 + Strip 模式
+### 5. JSON Schema 导出
 
-- **可变路径栈**：`Array[String]` 在 parse 树中共享，进入子结构 `push` / 返回 `pop`，仅在产生 `ValidationError` 时才调用 `format_path()` 拼接字符串。成功路径**零堆分配**。
-- **Strip 默认模式**：`object()` 默认 Strip 模式，parse 后只返回 spec 定义的字段，嵌套对象递归剥离。
-- **Union 错误聚合**：所有分支失败时聚合各分支首个错误消息，而非只返回最后一个。
+`to_json_schema()` 递归遍历 SchemaType：
+- OptionalType/DefaultType → 透明穿透（不产生 `oneOf`）
+- Strip/Passthrough → `"additionalProperties": true`
+- Strict → `"additionalProperties": false`
 
-### Phase 6：LLM 自愈 Demo + 基准测试
+### 6. WASM CLI 参数分发
 
-- **`examples/llm_agent/`**：5 步 LLM 工具调用自纠错闭环（定义 Schema → LLM 输出 → 校验 → 格式化反馈 → 重试），含 Strip 模式演示。
-- **`cmd/main/`**：复杂嵌套 Schema × 10 万次迭代基准测试。
-- **README 全面翻新**：API 参考、Benchmark 数据、LLM 自愈示例。
-
-### Phase 7：跨语言基准测试
-
-- **`cmd/wasm/`**：WASM 可执行包，CLI 参数分发模式（moonzod / handcrafted / verify / startup）。
-- **`bench_cross_lang/`**：Node.js 编排器，三路对比（TS Zod × MoonZod Wasm × Handcrafted Match），扣除 ~12.8ms 进程启动开销。
-- **结果**：Handcrafted Match ~10.8x 快于 MoonZod（通用库 vs 状态机）。
-
-### Phase 8：健壮性增强 + v0.1.0 发布
-
-- **边界 case 修复**：空 spec 正确处理、空数组提前返回、missing field 错误收集。
-- **测试覆盖到 74 个**：零外部依赖，API 冻结。
-- **发布 v0.1.0**：GitHub Release + CI（GitHub Actions fmt → build → test）。
-
-### Phase 9：健壮性基准套件 + 教育 Agent
-
-- **基准扩展为 3 项**：Valid Throughput (100k) + Adversarial Hallucination (50k) + Extreme Redundancy (50k)。
-- **`examples/educational_agent/`**：3 轮 LLM 自纠正循环（类型错误 → 规则违例 → Strip 清洗），验证路径栈在 200k 总迭代中的稳定性。
-
-### Phase 10：JSON-to-Schema 代码生成器
-
-- **`cmd/json2schema/`**：递归遍历 JSON AST，自动生成 `@moon_zod.object({...})` 源码。零外部依赖。
-- 含 CLI 参数解析、`--help`、`escape_mbt_string()` 键名安全转义、空数组 `/* TODO */` 提示。
-
-### Phase 11：生产级 CLI 升级
-
-- `@env.args()` 取代硬编码 mock，优雅处理无效 JSON 和缺失参数。
-- 因 WASM 无文件系统 I/O（无 `@fs` 模块），采用内联 JSON 字符串参数。
-
-### Phase 12：零警告清理 + QoL 糖
-
-- 消除全部编译警告（unused `self`、unreachable code、Show deprecation × 30+）。
-- `ValidationError::to_string()` 便利方法。
-- README 新增 JSON-to-Schema Generator 章节。
+MoonBit wasm target 只导出 `_start` 和 `memory`。`cmd/wasm/` 通过 `@env.args()[1]` 分派模式（moonzod / handcrafted / verify / startup），Node.js 编排器用 `execFileSync` 调用。
 
 ---
 
