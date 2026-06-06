@@ -6,12 +6,13 @@
 
 - **语言**: MoonBit
 - **模块名**: `username/moon_zod`
-- **版本**: 0.1.0（API 冻结）
+- **版本**: 0.2.0（新增 transform 数据变换管线）
 - **依赖**: 仅 `moonbitlang/core/json`、`moonbitlang/core/debug`
-- **测试**: 74 个黑盒测试，全部通过
-- **编译器警告**: 0（Phase 12 清理完成）
+- **测试**: 81 个黑盒测试 + 4 个白盒测试 = 85，全部通过
+- **编译器警告**: 0（Phase 12 清理完成 + Phase 13 零新增）
 - **CI**: GitHub Actions (ubuntu-latest)，覆盖 fmt check → native build → wasm build → test
 - **发布**: https://github.com/Betterlol/moon_zod/releases/tag/v0.1.0
+- **最新发布**: https://github.com/Betterlol/moon_zod/releases/tag/v0.2.0
 
 ---
 
@@ -25,8 +26,8 @@ moon_zod/
 ├── DESIGN.md                 # 架构设计文档
 ├── README.mbt.md             # 用户 README（含 API 参考、Benchmark 数据、LLM 自愈示例）
 ├── summary_handover.md       # 本文件
-├── step_phase_summary.md     # Phase 1-12 合并总结
-├── step_phase_details/       # 各阶段详细总结（12 个 .md）
+├── step_phase_summary.md     # Phase 1-13 合并总结
+├── step_phase_details/       # 各阶段详细总结（13 个 .md）
 │
 ├── .github/workflows/
 │   └── ci.yml                # CI: checkout → setup-moonbit → install → fmt → build → test
@@ -41,10 +42,12 @@ moon_zod/
 ├── object.mbt                # object() 工厂 + strict/passthrough/strip 方法 + parse_object helper
 ├── union.mbt                 # optional / default / enum_values / union 工厂 + parse helpers
 ├── refine.mbt                # refine() 自定义规则
+├── transform.mbt             # transform() 数据变换管线
 ├── json_schema.mbt           # to_json_schema() 导出标准 JSON Schema
 ├── moon_zod.mbt              # 包级文档（doc comment）
 │
-├── moon_zod_test.mbt         # 黑盒测试（74 tests）
+├── moon_zod_test.mbt         # 黑盒测试（81 tests）
+├── moon_zod_wbtest.mbt       # 白盒测试（4 tests）
 │
 ├── cmd/main/
 │   ├── moon.pkg              # Benchmark 可执行包声明
@@ -111,6 +114,7 @@ moon_zod/
 | `.passthrough()` | object | 允许未定义字段原样保留 |
 | `.strip()` | object | 静默移除未定义字段（默认行为）|
 | `.refine(check, msg)` | 任意 | 自定义校验谓词 |
+| `.transform(fn)` | 任意 | 校验通过后变换输出值，`fn: (Json) -> Result[Json, String]` |
 
 ### 独立函数
 
@@ -128,7 +132,9 @@ pub(all) enum ObjectMode { Passthrough; Strict; Strip }
 pub(all) enum SchemaType { StringType; NumberType; BooleanType; NullType;
     ObjectType(Map[String, Schema], ObjectMode); ArrayType(Schema);
     OptionalType(Schema); DefaultType(Schema, Json);
-    EnumType(Array[String]); UnionType(Array[Schema]) }
+    EnumType(Array[String]); UnionType(Array[Schema]);
+    TransformType(Schema, TransformClosure) }
+pub(all) struct TransformClosure { f: (Json) -> Result[Json, String] }
 pub(all) struct Rule { check: (Json) -> Bool; message: String }
 pub struct Schema { schema_type: SchemaType; rules: Array[Rule] }
 pub struct ValidationError { path: String; message: String; got: Json }
@@ -226,12 +232,13 @@ pub fn append_rule(schema, check, message) -> Schema {
 | 10 | `545fbd5` | JSON-to-Schema 代码生成器 CLI（递归 AST 遍历 + `@moon_zod` 源码输出）|
 | 11 | `ef93d1a` | 生产级 CLI 升级（`@env.args()` + 键名安全转义 + 优雅错误处理）|
 | 12 | `aee6143` | 零警告清理 + `ValidationError::to_string()` + README 完善 |
+| 13 (v0.2.0) | `f6f4bf5` | 路径栈白盒测试 + `Schema::transform()` 数据变换管线 |
 
 ---
 
 ## 6. 测试概况
 
-- **74 个黑盒测试**，全部在 `moon_zod_test.mbt` 中
+- **81 个黑盒测试**（`moon_zod_test.mbt`）+ **4 个白盒测试**（`moon_zod_wbtest.mbt`）= **85 个测试**
 - 无外部依赖测试框架，使用 MoonBit 内建 `test` 块
 - `parse_json()` 辅助函数用于从字符串构造 JSON（避免 `@json.parse` 的异常处理）
 - 测试覆盖：
@@ -240,6 +247,8 @@ pub fn append_rule(schema, check, message) -> Schema {
   - 嵌套对象/数组的路径正确性
   - 装饰器穿透（`.optional().min()` 等）
   - Strip 模式行为
+  - Path stack 白盒验证（成功/错误路径长度归零）
+  - Transform 数据变换管线（成功、失败、链式组合）
   - 错误消息内容
   - to_json_schema 输出
 
@@ -268,7 +277,7 @@ pub fn append_rule(schema, check, message) -> Schema {
 ### 建议下一步
 1. **多平台 CI**: 扩展 GitHub Actions 到 macos-latest / windows-latest
 2. **refine 类型安全**: 允许用户定义 `refine<T>(fn(T) -> Bool)` 而不是 `fn(Json) -> Bool`
-3. **Schema 组合器**: `Schema::or()`, `Schema::and()`, `Schema::transform()` 等
+3. **Schema 组合器**: `Schema::or()`, `Schema::and()` 等（`Schema::transform()` 已在 v0.2.0 实现）
 4. **错误本地化**: Error message 支持多语言模板
 5. **derive 宏**: `derive(ZodSchema)` 从 MoonBit struct 自动生成 schema
 6. **Benchmark 精确计时**: 用 `@bench` 包替代手动循环
@@ -279,7 +288,7 @@ pub fn append_rule(schema, check, message) -> Schema {
 ## 9. 快速命令
 
 ```bash
-moon test                          # 运行全部测试（74 tests, 0 warnings）
+moon test                          # 运行全部测试（85 tests, 0 warnings）
 moon build                         # 编译库（0 warnings）
 moon build --target wasm --release # 编译 Wasm benchmark
 moon run cmd/main                  # 运行 MoonZod 吞吐 Benchmark（3 项）
@@ -295,4 +304,4 @@ moon info && moon fmt              # 更新接口 + 格式化
 
 ---
 
-*最后更新: 2026-06-06 | Phase 1-12 全部完成*
+*最后更新: 2026-06-06 | v0.2.0 发布 — Phase 1-13 全部完成*

@@ -24,7 +24,7 @@ let result = schema.parse(json_data)
 
 ## 开发阶段总览
 
-完整阶段记录见 [`step_phase_summary.md`](./step_phase_summary.md)（Phase 1-12 详细总结，含每个阶段的文件变更、关键决策、产出指标）。
+完整阶段记录见 [`step_phase_summary.md`](./step_phase_summary.md)（Phase 1-13 详细总结，含每个阶段的文件变更、关键决策、产出指标）。
 
 简明对照：
 
@@ -42,6 +42,7 @@ let result = schema.parse(json_data)
 | 10 | JSON-to-Schema 生成器 | `cmd/json2schema/` CLI |
 | 11 | 生产级 CLI 升级 | `@env.args()` + 键名转义 + 错误处理 |
 | 12 | 零警告清理 + QoL 糖 | 全部警告归零 + `ValidationError::to_string()` |
+| 13 (v0.2.0) | 路径栈白盒测试 + `.transform()` 管线 | 4 白盒测试 + `Schema::transform()` 数据变换 |
 
 ---
 
@@ -56,6 +57,7 @@ Schema::parse(json)                   ← 公共入口，创建 path_stack
        ├─ parse_array()               ← push/pop [索引]
        ├─ parse_optional()            ← 直接传递 stack
        ├─ parse_default()             ← 直接传递 stack
+       ├─ parse_transform()           ← 先校验 inner，再应用变换
        ├─ parse_enum()                ← format_path 后报错
        ├─ parse_union()               ← 直接传递 stack
        └─ 基本类型检查                ← format_path 后报错
@@ -115,9 +117,11 @@ moon_zod/
 ├── object.mbt             # object() + strict/passthrough/strip / parse_object
 ├── union.mbt              # optional / default / enum_values / union
 ├── refine.mbt             # refine() 自定义规则
+├── transform.mbt          # transform() 数据变换管线
 ├── json_schema.mbt        # to_json_schema() 导出
 ├── moon_zod.mbt           # 包级文档注释
-├── moon_zod_test.mbt      # 黑盒测试（74 tests）
+├── moon_zod_test.mbt      # 黑盒测试（81 tests）
+├── moon_zod_wbtest.mbt    # 白盒测试（4 tests）
 │
 ├── cmd/main/              # 基准测试入口
 ├── cmd/wasm/              # WASM 跨语言对比基准
@@ -128,7 +132,7 @@ moon_zod/
 │
 ├── bench_cross_lang/      # Node.js 三路对比编排器
 ├── step_phase_details/    # 各阶段详细总结
-├── step_phase_summary.md  # Phase 1-12 合并总结
+├── step_phase_summary.md  # Phase 1-13 合并总结
 ├── summary_handover.md    # 项目交接文档
 ├── DESIGN.md              # 本文件（架构设计）
 ├── README.mbt.md          # 用户 README

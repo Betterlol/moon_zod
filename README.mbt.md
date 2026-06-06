@@ -44,6 +44,7 @@ match schema.parse(input_json) {
 - **Validation rules**: `.min(n)`, `.max(n)`, `.nonempty()`, `.email()`, `.url()`, `.regex(pattern)`, `.int()`, `.positive()`, `.negative()`, `.multipleOf(n)`
 - **Optional / Default**: `.optional()` and `.default(value)` with correct rule chaining through wrappers
 - **Object modes**: `.strict()` rejects extra fields; `.passthrough()` allows them; `.strip()` (default) silently removes them
+- **Data transform**: `.transform(fn)` validates then transforms the output
 - **Custom rules**: `.refine(check, message)`
 - **JSON Schema export**: `to_json_schema(schema)` produces a standard JSON Schema object
 - **Detailed errors**: per-field path, message, and received value
@@ -150,6 +151,7 @@ cd bench_cross_lang && node bench.js  # Three-way comparison
 | `.passthrough()` | object | Keep undefined fields as-is |
 | `.strip()` | object | Silently remove undefined fields (default) |
 | `.refine(check, msg)` | Any | Custom validation predicate |
+| `.transform(fn)` | Any | Validate then transform output via `(Json) -> Result[Json, String]` |
 
 ### Standalone Functions
 
@@ -157,6 +159,7 @@ cd bench_cross_lang && node bench.js  # Three-way comparison
 |---|---|
 | `to_json_schema(Schema)` | Export standard JSON Schema object |
 | `format_path(Array[String])` | Join path stack to dot-notation string |
+| `ValidationError::to_string()` | Format error as `[path] message (got: value)` |
 
 ### Core Types
 
@@ -195,10 +198,12 @@ moon_zod/
 ├── object.mbt          # object() + strict/passthrough/strip
 ├── union.mbt           # optional / default / enum / union
 ├── refine.mbt          # refine()
+├── transform.mbt       # transform()
 ├── json_schema.mbt     # to_json_schema()
 ├── cmd/main/           # Benchmark
 ├── examples/llm_agent/ # LLM self-correction demo
-└── moon_zod_test.mbt   # 74 tests
+├── moon_zod_test.mbt   # Black-box tests (81)
+└── moon_zod_wbtest.mbt # White-box tests (4)
 ```
 
 ---
@@ -206,7 +211,7 @@ moon_zod/
 ## Development
 
 ```bash
-moon test                # Run all tests (74 total)
+moon test                # Run all tests (85 total)
 moon build               # Build the library
 moon run cmd/main        # Run benchmark
 moon run cmd/json2schema -- '{"hello":"world"}'  # Generate schema from JSON

@@ -173,14 +173,40 @@
 
 ---
 
+## Phase 13 — 路径栈白盒测试 + `.transform()` 数据变换管线 (v0.2.0)
+
+**目标**: 从纯校验器进化到数据变换管线，同时为路径栈零分配优化建立自动化安全网。
+
+| 新增文件 | 用途 |
+|---|---|
+| `transform.mbt` | `Schema::transform(fn)` 方法 + `Schema::parse_transform()` 内部 helper |
+| `moon_zod_wbtest.mbt` | 白盒测试：4 个路径栈 invariant 测试（成功/错误路径推入推出平衡） |
+
+| 修改文件 | 变更 |
+|---|---|
+| `schema.mbt` | `TransformType` 枚举变体、`TransformClosure` 结构体、`append_rule`/`inner_type` 装饰器穿透、`parse_inner` 分发 |
+| `json_schema.mbt` | `to_json_schema_inner` TransformType 透明穿透 |
+| `moon_zod_test.mbt` | 7 个 transform 黑盒测试（字符串变换、错误处理、optional 链式调用、路径报告） |
+| `pkg.generated.mbti` | 新增 `Schema::transform`、`Schema::parse_transform`、`TransformType`、`TransformClosure` |
+
+**关键决策**:
+- `TransformClosure` 内部包装 `(Json) -> Result[Json, String]` 函数，避免 enum 变体直接持有函数类型
+- `append_rule` 对 TransformType 递归穿透到 inner schema，使 `.transform().min(3)` 正确工作
+- `inner_type` 剥离 TransformType，使类型守卫（如 `min()` 识别 StringType）保持正确
+- `to_json_schema` 透明穿透 TransformType，因为变换是运行时任意函数，无法用 JSON Schema 表达
+
+**产出**: (81 黑盒 + 4 白盒 = 85) 测试全部通过 0 警告。
+
+---
+
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 74 |
+| 测试数量 | 85（81 黑盒 + 4 白盒） |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
-| 核心源码模块 | 13 个 `.mbt` 文件 |
+| 核心源码模块 | 14 个 `.mbt` 文件 |
 | CLI 工具 | 3 个（`cmd/main` 基准, `cmd/wasm` 跨语言, `cmd/json2schema` 代码生成） |
 | 展示示例 | 2 个（`llm_agent`, `educational_agent`） |
 
