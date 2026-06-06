@@ -50,7 +50,7 @@ fn main {
   println("          estimated_minutes.positive(), credits.min(1).max(10)")
   println("")
   println("  JSON Schema skeleton (sent to LLM API):")
-  println("  \{@moon_zod.to_json_schema(course_schema)}")
+  println("  \{@debug.to_string(@moon_zod.to_json_schema(course_schema))}")
   println("")
 
   // ═══════════════════════════════════════════════════════════════════
@@ -64,14 +64,14 @@ fn main {
   println("")
 
   let round1_json = mock_round1_response()
-  println("  Raw LLM output: \{round1_json}")
+  println("  Raw LLM output: \{@debug.to_string(round1_json)}")
   println("")
 
   match course_schema.parse(round1_json) {
     Err(errors) => {
       println("  >>> moon_zod caught \{errors.length().to_string()} error(s):")
       for e in errors {
-        println("      [\{e.path}] \{e.message} (got: \{e.got})")
+        println("      \{e.to_string()}")
       }
       println("")
 
@@ -93,7 +93,7 @@ fn main {
       println("  Simulating: LLM fixes structural types but violates")
       println("              rule constraints (title too short).")
       println("")
-      println("  Raw LLM output: \{round2_json}")
+      println("  Raw LLM output: \{@debug.to_string(round2_json)}")
       println("")
 
       match course_schema.parse(round2_json) {
@@ -102,7 +102,7 @@ fn main {
             "  >>> moon_zod caught \{errors2.length().to_string()} rule-level error(s):",
           )
           for e in errors2 {
-            println("      [\{e.path}] \{e.message} (got: \{e.got})")
+            println("      \{e.to_string()}")
           }
           println("")
           println(
@@ -132,7 +132,7 @@ fn main {
           println("")
 
           let round3_json = mock_round3_response()
-          println("  Raw LLM output: \{round3_json}")
+          println("  Raw LLM output: \{@debug.to_string(round3_json)}")
           println("")
 
           match course_schema.parse(round3_json) {
@@ -150,7 +150,7 @@ fn main {
                 }
                 _ => ()
               }
-              println("  \{clean}")
+              println("  \{@debug.to_string(clean)}")
               println("")
               println(
                 "  >>> The LLM's hallucinated fields (llm_model, temperature,",
@@ -201,8 +201,7 @@ fn build_correction_prompt(errors : Array[@moon_zod.ValidationError]) -> String 
     "The errors below show the exact field path, the constraint violated, and the value you provided.\n\n"
   prompt = prompt + "### Errors to fix:\n\n"
   for e in errors {
-    prompt = prompt + "- **`\{e.path}`**: \{e.message}\n"
-    prompt = prompt + "  (you provided: `\{e.got}`)\n"
+    prompt = prompt + "- " + e.to_string() + "\n"
   }
   prompt = prompt + "\n### Instructions:\n\n"
   prompt = prompt + "1. Fix each error at the exact path shown above\n"

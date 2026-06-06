@@ -3,7 +3,7 @@
 test "string accepts valid string" {
   let s = string()
   match s.parse(Json::string("hello")) {
-    Ok(v) => assert_eq(v, Json::string("hello"))
+    Ok(v) => @debug.assert_eq(v, Json::string("hello"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -12,7 +12,7 @@ test "string accepts valid string" {
 test "string min passes long enough" {
   let s = string().min(3)
   match s.parse(Json::string("abc")) {
-    Ok(v) => assert_eq(v, Json::string("abc"))
+    Ok(v) => @debug.assert_eq(v, Json::string("abc"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -21,7 +21,7 @@ test "string min passes long enough" {
 test "string max passes short enough" {
   let s = string().max(5)
   match s.parse(Json::string("hello")) {
-    Ok(v) => assert_eq(v, Json::string("hello"))
+    Ok(v) => @debug.assert_eq(v, Json::string("hello"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -30,7 +30,7 @@ test "string max passes short enough" {
 test "string email passes valid" {
   let s = string().email()
   match s.parse(Json::string("user@example.com")) {
-    Ok(v) => assert_eq(v, Json::string("user@example.com"))
+    Ok(v) => @debug.assert_eq(v, Json::string("user@example.com"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -39,7 +39,7 @@ test "string email passes valid" {
 test "string url passes valid" {
   let s = string().url()
   match s.parse(Json::string("https://moonbitlang.com")) {
-    Ok(v) => assert_eq(v, Json::string("https://moonbitlang.com"))
+    Ok(v) => @debug.assert_eq(v, Json::string("https://moonbitlang.com"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -48,7 +48,7 @@ test "string url passes valid" {
 test "string nonempty passes non-empty" {
   let s = string().nonempty()
   match s.parse(Json::string("x")) {
-    Ok(v) => assert_eq(v, Json::string("x"))
+    Ok(v) => @debug.assert_eq(v, Json::string("x"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -105,7 +105,7 @@ test "string nonempty rejects empty string" {
 test "number accepts valid number" {
   let s = number()
   match s.parse(Json::number(42.0)) {
-    Ok(v) => assert_eq(v, Json::number(42.0))
+    Ok(v) => @debug.assert_eq(v, Json::number(42.0))
     Err(_) => fail("expected Ok")
   }
 }
@@ -114,7 +114,7 @@ test "number accepts valid number" {
 test "number int passes integer" {
   let s = number().int()
   match s.parse(Json::number(7.0)) {
-    Ok(v) => assert_eq(v, Json::number(7.0))
+    Ok(v) => @debug.assert_eq(v, Json::number(7.0))
     Err(_) => fail("expected Ok")
   }
 }
@@ -123,7 +123,7 @@ test "number int passes integer" {
 test "number positive passes positive" {
   let s = number().positive()
   match s.parse(Json::number(1.0)) {
-    Ok(v) => assert_eq(v, Json::number(1.0))
+    Ok(v) => @debug.assert_eq(v, Json::number(1.0))
     Err(_) => fail("expected Ok")
   }
 }
@@ -132,7 +132,7 @@ test "number positive passes positive" {
 test "number negative passes negative" {
   let s = number().negative()
   match s.parse(Json::number(-1.0)) {
-    Ok(v) => assert_eq(v, Json::number(-1.0))
+    Ok(v) => @debug.assert_eq(v, Json::number(-1.0))
     Err(_) => fail("expected Ok")
   }
 }
@@ -167,7 +167,7 @@ test "number negative rejects positive" {
 test "boolean accepts true" {
   let s = boolean()
   match s.parse(Json::boolean(true)) {
-    Ok(v) => assert_eq(v, Json::boolean(true))
+    Ok(v) => @debug.assert_eq(v, Json::boolean(true))
     Err(_) => fail("expected Ok")
   }
 }
@@ -176,7 +176,7 @@ test "boolean accepts true" {
 test "boolean accepts false" {
   let s = boolean()
   match s.parse(Json::boolean(false)) {
-    Ok(v) => assert_eq(v, Json::boolean(false))
+    Ok(v) => @debug.assert_eq(v, Json::boolean(false))
     Err(_) => fail("expected Ok")
   }
 }
@@ -192,7 +192,7 @@ test "boolean rejects string" {
 test "null accepts null" {
   let s = null()
   match s.parse(Json::null()) {
-    Ok(v) => assert_eq(v, Json::null())
+    Ok(v) => @debug.assert_eq(v, Json::null())
     Err(_) => fail("expected Ok")
   }
 }
@@ -216,7 +216,7 @@ test "object validates flat object" {
   let s = object({ "name": string(), "age": number().int() })
   let input = parse_json("{\"name\": \"Alice\", \"age\": 30}")
   match s.parse(input) {
-    Ok(v) => assert_eq(v, input)
+    Ok(v) => @debug.assert_eq(v, input)
     Err(_) => fail("expected Ok")
   }
 }
@@ -226,7 +226,7 @@ test "object validates nested object" {
   let s = object({ "user": object({ "profile": object({ "name": string() }) }) })
   let input = parse_json("{\"user\": {\"profile\": {\"name\": \"Alice\"}}}")
   match s.parse(input) {
-    Ok(v) => assert_eq(v, input)
+    Ok(v) => @debug.assert_eq(v, input)
     Err(_) => fail("expected Ok")
   }
 }
@@ -236,7 +236,7 @@ test "object passthrough allows extra fields" {
   let s = object({ "name": string() }).passthrough()
   let input = parse_json("{\"name\": \"Alice\", \"extra\": 1}")
   match s.parse(input) {
-    Ok(v) => assert_eq(v, input)
+    Ok(v) => @debug.assert_eq(v, input)
     Err(_) => fail("expected Ok")
   }
 }
@@ -254,9 +254,9 @@ test "object reports missing field" {
   let input = parse_json("{}")
   match s.parse(input) {
     Err(errors) => {
-      assert_eq(errors.length(), 1)
-      assert_eq(errors[0].path, "name")
-      assert_eq(errors[0].message, "Required")
+      @debug.assert_eq(errors.length(), 1)
+      @debug.assert_eq(errors[0].path, "name")
+      @debug.assert_eq(errors[0].message, "Required")
     }
     _ => fail("expected Err")
   }
@@ -269,7 +269,7 @@ test "nested object reports correct error path" {
   })
   let input = parse_json("{\"user\": {\"profile\": {\"name\": \"Bob\"}}}")
   match s.parse(input) {
-    Err(errors) => assert_eq(errors[0].path, "user.profile.name")
+    Err(errors) => @debug.assert_eq(errors[0].path, "user.profile.name")
     _ => fail("expected Err")
   }
 }
@@ -287,8 +287,8 @@ test "strict mode reports extra field path" {
   let input = parse_json("{\"name\": \"Alice\", \"extra\": 1}")
   match s.parse(input) {
     Err(errors) => {
-      assert_eq(errors[0].path, "extra")
-      assert_eq(errors[0].message, "Unexpected field")
+      @debug.assert_eq(errors[0].path, "extra")
+      @debug.assert_eq(errors[0].message, "Unexpected field")
     }
     _ => fail("expected Err")
   }
@@ -299,7 +299,7 @@ test "object collects multiple field errors" {
   let s = object({ "a": string().min(5), "b": number().positive() })
   let input = parse_json("{\"a\": \"ab\", \"b\": -1}")
   match s.parse(input) {
-    Err(errors) => assert_eq(errors.length(), 2)
+    Err(errors) => @debug.assert_eq(errors.length(), 2)
     _ => fail("expected Err")
   }
 }
@@ -310,8 +310,8 @@ test "strict mode with nested path" {
   let input = parse_json("{\"inner\": {\"x\": 1, \"y\": 2}}")
   match s.parse(input) {
     Err(errors) => {
-      assert_eq(errors[0].path, "inner.y")
-      assert_eq(errors[0].message, "Unexpected field")
+      @debug.assert_eq(errors[0].path, "inner.y")
+      @debug.assert_eq(errors[0].message, "Unexpected field")
     }
     _ => fail("expected Err")
   }
@@ -323,8 +323,8 @@ test "error message includes path and expected type" {
   let s = string()
   match s.parse(Json::number(1.0), path="root") {
     Err(errors) => {
-      assert_eq(errors[0].path, "root")
-      assert_eq(errors[0].message, "Expected string")
+      @debug.assert_eq(errors[0].path, "root")
+      @debug.assert_eq(errors[0].message, "Expected string")
     }
     _ => fail("expected Err")
   }
@@ -335,7 +335,7 @@ test "multiple rules report first failing" {
   let s = string().min(5).max(10)
   match s.parse(Json::string("ab")) {
     Err(errors) =>
-      assert_eq(
+      @debug.assert_eq(
         errors[0].message,
         "String must contain at least 5 character(s)",
       )
@@ -349,7 +349,7 @@ test "array validates elements" {
   let s = array(number())
   let input = parse_json("[1, 2, 3]")
   match s.parse(input) {
-    Ok(v) => assert_eq(v, input)
+    Ok(v) => @debug.assert_eq(v, input)
     Err(_) => fail("expected Ok")
   }
 }
@@ -365,7 +365,7 @@ test "array min length passes" {
   let s = array(string()).min(2)
   let input = parse_json("[\"a\", \"b\"]")
   match s.parse(input) {
-    Ok(v) => assert_eq(v, input)
+    Ok(v) => @debug.assert_eq(v, input)
     Err(_) => fail("expected Ok")
   }
 }
@@ -391,7 +391,7 @@ test "array reports correct element index path" {
   let s = array(number().positive())
   let input = parse_json("[1, -2, 3]")
   match s.parse(input) {
-    Err(errors) => assert_eq(errors[0].path, "[1]")
+    Err(errors) => @debug.assert_eq(errors[0].path, "[1]")
     _ => fail("expected Err")
   }
 }
@@ -401,7 +401,7 @@ test "nested array reports matrix path" {
   let s = array(array(number().positive()))
   let input = parse_json("[[1, -2], [3, 4]]")
   match s.parse(input) {
-    Err(errors) => assert_eq(errors[0].path, "[0][1]")
+    Err(errors) => @debug.assert_eq(errors[0].path, "[0][1]")
     _ => fail("expected Err")
   }
 }
@@ -412,7 +412,7 @@ test "object field optional passes with missing field" {
   let s = object({ "name": string().optional() })
   let input = parse_json("{}")
   match s.parse(input) {
-    Ok(v) => assert_eq(v, input)
+    Ok(v) => @debug.assert_eq(v, input)
     Err(_) => fail("expected Ok")
   }
 }
@@ -422,7 +422,7 @@ test "object field optional passes with null" {
   let s = object({ "name": string().optional() })
   let input = parse_json("{\"name\": null}")
   match s.parse(input) {
-    Ok(v) => assert_eq(v, input)
+    Ok(v) => @debug.assert_eq(v, input)
     Err(_) => fail("expected Ok")
   }
 }
@@ -440,7 +440,7 @@ test "object field default passes with missing field" {
   let s = object({ "name": string().default(Json::string("default_name")) })
   let input = parse_json("{}")
   match s.parse(input) {
-    Ok(v) => assert_eq(v, input)
+    Ok(v) => @debug.assert_eq(v, input)
     Err(_) => fail("expected Ok")
   }
 }
@@ -450,7 +450,7 @@ test "object field default passes with missing field" {
 test "enum_values accepts valid value" {
   let s = enum_values(["a", "b", "c"])
   match s.parse(Json::string("b")) {
-    Ok(v) => assert_eq(v, Json::string("b"))
+    Ok(v) => @debug.assert_eq(v, Json::string("b"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -472,7 +472,7 @@ test "enum_values rejects non-string" {
 test "union accepts first matching schema" {
   let s = union([string(), number()])
   match s.parse(Json::string("hello")) {
-    Ok(v) => assert_eq(v, Json::string("hello"))
+    Ok(v) => @debug.assert_eq(v, Json::string("hello"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -481,7 +481,7 @@ test "union accepts first matching schema" {
 test "union accepts second matching schema" {
   let s = union([string(), number()])
   match s.parse(Json::number(42.0)) {
-    Ok(v) => assert_eq(v, Json::number(42.0))
+    Ok(v) => @debug.assert_eq(v, Json::number(42.0))
     Err(_) => fail("expected Ok")
   }
 }
@@ -505,7 +505,7 @@ test "refine passes custom check" {
     "Value must be > 10",
   )
   match s.parse(Json::number(20.0)) {
-    Ok(v) => assert_eq(v, Json::number(20.0))
+    Ok(v) => @debug.assert_eq(v, Json::number(20.0))
     Err(_) => fail("expected Ok")
   }
 }
@@ -529,7 +529,7 @@ test "refine fails custom check" {
 test "string().optional().min(3) passes non-null long enough" {
   let s = string().optional().min(3)
   match s.parse(Json::string("abc")) {
-    Ok(v) => assert_eq(v, Json::string("abc"))
+    Ok(v) => @debug.assert_eq(v, Json::string("abc"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -544,7 +544,7 @@ test "string().optional().min(3) rejects short string" {
 test "string().optional().min(3) accepts null" {
   let s = string().optional().min(3)
   match s.parse(Json::null()) {
-    Ok(v) => assert_eq(v, Json::null())
+    Ok(v) => @debug.assert_eq(v, Json::null())
     Err(_) => fail("expected Ok")
   }
 }
@@ -553,7 +553,7 @@ test "string().optional().min(3) accepts null" {
 test "string().default(x).min(3) uses default for null" {
   let s = string().default(Json::string("xyz")).min(3)
   match s.parse(Json::null()) {
-    Ok(v) => assert_eq(v, Json::string("xyz"))
+    Ok(v) => @debug.assert_eq(v, Json::string("xyz"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -562,7 +562,7 @@ test "string().default(x).min(3) uses default for null" {
 test "default value satisfies rules chained after default" {
   let s = string().default(Json::string("default!")).min(3)
   match s.parse(Json::null()) {
-    Ok(v) => assert_eq(v, Json::string("default!"))
+    Ok(v) => @debug.assert_eq(v, Json::string("default!"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -572,7 +572,7 @@ test "default value satisfies rules chained after default" {
 test "to_json_schema string" {
   let result = to_json_schema(string())
   let expected = parse_json("{\"type\": \"string\"}")
-  assert_eq(result, expected)
+  @debug.assert_eq(result, expected)
 }
 
 ///|
@@ -582,7 +582,7 @@ test "to_json_schema object with optional field" {
   let expected = parse_json(
     "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"email\":{\"type\":\"string\"}},\"additionalProperties\":true,\"required\":[\"name\"]}",
   )
-  assert_eq(result, expected)
+  @debug.assert_eq(result, expected)
 }
 
 ///|
@@ -592,7 +592,7 @@ test "to_json_schema strict object" {
   let expected = parse_json(
     "{\"type\":\"object\",\"properties\":{\"x\":{\"type\":\"number\"}},\"additionalProperties\":false,\"required\":[\"x\"]}",
   )
-  assert_eq(result, expected)
+  @debug.assert_eq(result, expected)
 }
 
 ///|
@@ -611,7 +611,7 @@ test "union returns errors when no schema matches" {
 test "default type accepts non-null and validates" {
   let s = number().default(Json::number(0.0)).positive()
   match s.parse(Json::number(5.0)) {
-    Ok(v) => assert_eq(v, Json::number(5.0))
+    Ok(v) => @debug.assert_eq(v, Json::number(5.0))
     Err(_) => fail("expected Ok")
   }
 }
@@ -628,7 +628,7 @@ test "strip removes extra fields by default" {
   let s = object({ "name": string() })
   let input = parse_json("{\"name\": \"Alice\", \"extra\": 1}")
   match s.parse(input) {
-    Ok(v) => assert_eq(v, parse_json("{\"name\": \"Alice\"}"))
+    Ok(v) => @debug.assert_eq(v, parse_json("{\"name\": \"Alice\"}"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -638,7 +638,8 @@ test "strip removes extra fields in nested objects" {
   let s = object({ "user": object({ "name": string() }) })
   let input = parse_json("{\"user\": {\"name\": \"Alice\", \"ignored\": true}}")
   match s.parse(input) {
-    Ok(v) => assert_eq(v, parse_json("{\"user\": {\"name\": \"Alice\"}}"))
+    Ok(v) =>
+      @debug.assert_eq(v, parse_json("{\"user\": {\"name\": \"Alice\"}}"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -648,7 +649,7 @@ test "explicit passthrough still allows extra fields" {
   let s = object({ "name": string() }).passthrough()
   let input = parse_json("{\"name\": \"Alice\", \"extra\": 1}")
   match s.parse(input) {
-    Ok(v) => assert_eq(v, input)
+    Ok(v) => @debug.assert_eq(v, input)
     Err(_) => fail("expected Ok")
   }
 }
@@ -658,7 +659,7 @@ test "explicit strip method works" {
   let s = object({ "name": string() }).strip()
   let input = parse_json("{\"name\": \"Bob\", \"x\": 2, \"y\": 3}")
   match s.parse(input) {
-    Ok(v) => assert_eq(v, parse_json("{\"name\": \"Bob\"}"))
+    Ok(v) => @debug.assert_eq(v, parse_json("{\"name\": \"Bob\"}"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -669,7 +670,7 @@ test "deep nested path with arrays and objects" {
   let s = object({ "a": array(object({ "b": number().positive() })) })
   let input = parse_json("{\"a\": [{\"b\": 1}, {\"b\": -2}]}")
   match s.parse(input) {
-    Err(errors) => assert_eq(errors[0].path, "a[1].b")
+    Err(errors) => @debug.assert_eq(errors[0].path, "a[1].b")
     _ => fail("expected Err")
   }
 }

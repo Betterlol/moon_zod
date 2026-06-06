@@ -24,13 +24,13 @@ fn main {
 
   // Export JSON Schema skeleton (what you'd send to an LLM API)
   println("=== [Tool Schema] JSON Skeleton (sent to LLM) ===")
-  println(@moon_zod.to_json_schema(user_schema))
+  println(@debug.to_string(@moon_zod.to_json_schema(user_schema)))
   println("")
 
   // ── Step 2: First LLM call — returns MALFORMED JSON ────────────
   println("=== [Round 1] LLM returns invalid JSON ===")
   let bad_json = mock_bad_response()
-  println("Raw output: \{bad_json}")
+  println("Raw output: \{@debug.to_string(bad_json)}")
   println("")
 
   // ── Step 3: Validate & format errors ──────────────────────────
@@ -58,7 +58,7 @@ fn main {
 
       let fixed_json = mock_fixed_response()
       println("=== [Round 2] LLM returns corrected JSON ===")
-      println("Raw output: \{fixed_json}")
+      println("Raw output: \{@debug.to_string(fixed_json)}")
       println("")
 
       let retry_result = user_schema.parse(fixed_json)
@@ -68,7 +68,7 @@ fn main {
           println(
             ">>> Validation passed! Clean data (hallucinations stripped):",
           )
-          println(clean)
+          println(@debug.to_string(clean))
           println("")
           println("=== Self-correction loop completed successfully ===")
         }

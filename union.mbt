@@ -29,7 +29,7 @@ pub fn union(schemas : Array[Schema]) -> Schema {
 
 ///|
 pub fn Schema::parse_optional(
-  self : Schema,
+  _self : Schema,
   inner : Schema,
   json : Json,
   path_stack : Array[String],
@@ -42,7 +42,7 @@ pub fn Schema::parse_optional(
 
 ///|
 pub fn Schema::parse_default(
-  self : Schema,
+  _self : Schema,
   inner : Schema,
   default_val : Json,
   json : Json,
@@ -56,7 +56,7 @@ pub fn Schema::parse_default(
 
 ///|
 pub fn Schema::parse_enum(
-  self : Schema,
+  _self : Schema,
   values : Array[String],
   json : Json,
   path_stack : Array[String],
@@ -84,7 +84,7 @@ pub fn Schema::parse_enum(
 
 ///|
 pub fn Schema::parse_union(
-  self : Schema,
+  _self : Schema,
   schemas : Array[Schema],
   json : Json,
   path_stack : Array[String],

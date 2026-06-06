@@ -33,7 +33,7 @@ fn main {
   }
 
   println("── Input JSON ──")
-  println(json)
+  println(@debug.to_string(json))
   println("")
   println("── Generated moon_zod Schema (copy-paste ready) ──")
   println(infer_schema(json, 0))

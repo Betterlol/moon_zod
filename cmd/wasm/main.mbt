@@ -267,7 +267,6 @@ fn validate_profile(json : Json) -> Bool {
       match fields.get("metadata") {
         Some(Null) | None => ()
         Some(m) => if !validate_metadata(m) { return false }
-        _ => return false
       }
       true
     }
