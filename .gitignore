@@ -4,5 +4,12 @@ target/
 target
 .mooncakes/
 .moonagent/
+**/pkg.generated.mbti
+
 doc/
 .claude/
+
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd

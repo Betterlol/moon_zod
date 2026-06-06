@@ -1,12 +1,24 @@
 ```bash
 export OPENAI_API_URL=https://api.siliconflow.cn
-export OPENAI_API_KEY=sk-tveudemnngjhzzjfnxfagjcmndtemgzpgtzdsnqkxzdqefcb
-export OPENAI_API_MODEL=deepseek-ai/DeepSeek-V3.2 
-python3 agent.py
+export OPENAI_API_KEY=sk-...
+export OPENAI_API_MODEL=deepseek-ai/DeepSeek-V3.2
+
+# Prompt-based self-correction loop (default)
+python3 agent.py product
+
+# Tool calling / structured outputs mode
+python3 agent.py product --mode tool
 ```
 
-or
-
+**Mock mode** (no API key needed):
 ```bash
-python3 agent.py --mock
+python3 agent.py product --mock
+python3 agent.py product --mode tool --mock
+```
+
+**MoonBit CLI** (direct schema inspection):
+```bash
+moon run examples/real_llm_agent -- product schema
+moon run examples/real_llm_agent -- product validate '<json>'
+moon run examples/real_llm_agent -- movie schema
 ```
