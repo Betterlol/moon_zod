@@ -24,6 +24,7 @@ fn to_json_schema_inner(t : SchemaType) -> Json {
         "items": to_json_schema_inner(elem.schema_type),
       })
     OptionalType(inner) => to_json_schema_inner(inner.schema_type)
+    TransformType(inner, _) => to_json_schema_inner(inner.schema_type)
     DefaultType(inner, default_val) => {
       let inner_json = to_json_schema_inner(inner.schema_type)
       match inner_json {

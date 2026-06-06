@@ -19,6 +19,13 @@ pub(all) enum SchemaType {
   DefaultType(Schema, Json)
   EnumType(Array[String])
   UnionType(Array[Schema])
+  TransformType(Schema, TransformClosure)
+}
+
+///|
+/// Internal wrapper for a transform function stored in TransformType.
+pub(all) struct TransformClosure {
+  f : (Json) -> Result[Json, String]
 }
 
 ///|
@@ -41,6 +48,7 @@ pub fn inner_type(t : SchemaType) -> SchemaType {
   match t {
     OptionalType(inner) => inner.schema_type
     DefaultType(inner, _) => inner.schema_type
+    TransformType(inner, _) => inner.schema_type
     other => other
   }
 }
@@ -61,6 +69,10 @@ pub fn append_rule(
       let new_inner = append_rule(inner, check, message)
       { schema_type: DefaultType(new_inner, default_val), rules: [] }
     }
+    TransformType(inner, closure) => {
+      let new_inner = append_rule(inner, check, message)
+      { schema_type: TransformType(new_inner, closure), rules: [] }
+    }
     _ => { ..schema, rules: schema.rules + [{ check, message }] }
   }
 }
@@ -75,6 +87,7 @@ fn expected_msg(schema_type : SchemaType) -> String {
     ObjectType(_, _) => "Expected object"
     ArrayType(_) => "Expected array"
     EnumType(_) => "Invalid enum value"
+    TransformType(_, _) => "Validation failed"
     _ => "Validation failed"
   }
 }
@@ -166,6 +179,8 @@ fn parse_inner(
       schema.parse_default(inner, default_val, json, path_stack)
     EnumType(values) => schema.parse_enum(values, json, path_stack)
     UnionType(schemas) => schema.parse_union(schemas, json, path_stack)
+    TransformType(inner, closure) =>
+      schema.parse_transform(inner, closure, json, path_stack)
     _ => {
       let valid = match (schema.schema_type, json) {
         (StringType, String(_)) => true

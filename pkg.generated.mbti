@@ -67,6 +67,7 @@ pub fn Schema::parse_default(Self, Self, Json, Json, Array[String]) -> Result[Js
 pub fn Schema::parse_enum(Self, Array[String], Json, Array[String]) -> Result[Json, Array[ValidationError]]
 pub fn Schema::parse_object(Self, Map[String, Self], ObjectMode, Json, Array[String]) -> Result[Json, Array[ValidationError]]
 pub fn Schema::parse_optional(Self, Self, Json, Array[String]) -> Result[Json, Array[ValidationError]]
+pub fn Schema::parse_transform(Self, Self, TransformClosure, Json, Array[String]) -> Result[Json, Array[ValidationError]]
 pub fn Schema::parse_union(Self, Array[Self], Json, Array[String]) -> Result[Json, Array[ValidationError]]
 pub fn Schema::passthrough(Self) -> Self
 pub fn Schema::positive(Self) -> Self
@@ -74,6 +75,7 @@ pub fn Schema::refine(Self, (Json) -> Bool, String) -> Self
 pub fn Schema::regex(Self, String) -> Self
 pub fn Schema::strict(Self) -> Self
 pub fn Schema::strip(Self) -> Self
+pub fn Schema::transform(Self, (Json) -> Result[Json, String]) -> Self
 pub fn Schema::url(Self) -> Self
 
 pub(all) enum SchemaType {
@@ -87,6 +89,11 @@ pub(all) enum SchemaType {
   DefaultType(Schema, Json)
   EnumType(Array[String])
   UnionType(Array[Schema])
+  TransformType(Schema, TransformClosure)
+}
+
+pub(all) struct TransformClosure {
+  f : (Json) -> Result[Json, String]
 }
 
 pub struct ValidationError {
