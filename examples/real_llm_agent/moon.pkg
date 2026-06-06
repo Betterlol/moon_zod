@@ -1,0 +1,10 @@
+import {
+  "username/moon_zod",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/debug",
+}
+
+options(
+  "is-main": true,
+)
