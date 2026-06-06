@@ -61,6 +61,77 @@ def validate_json(json_str: str) -> tuple[bool, object]:
     return False, [f"(unexpected output: {lines[0]!r})"]
 
 
+# ── schema fetch ─────────────────────────────────────────────────────
+
+
+def fetch_schema() -> dict:
+    """Run validator --schema and return the parsed JSON Schema dict."""
+    proc = subprocess.run(
+        ["moon", "run", VALIDATOR_PKG, "--", "--schema"],
+        capture_output=True,
+        text=True,
+        cwd=PROJECT_ROOT,
+        timeout=30,
+    )
+    if proc.returncode != 0:
+        print(f"  [validator stderr]: {proc.stderr.strip()}")
+        sys.exit(1)
+    return json.loads(proc.stdout)
+
+
+# ── schema to prompt ─────────────────────────────────────────────────
+
+
+def _describe_type(schema: dict) -> str:
+    """Translate a JSON Schema property into a concise type string."""
+    t = schema.get("type", "any")
+    if "enum" in schema:
+        vals = ", ".join(repr(v) for v in schema["enum"])
+        return f"enum [{vals}]"
+    if t == "array":
+        items = schema.get("items", {})
+        return f"array of {_describe_type(items)}"
+    if t == "object":
+        props = schema.get("properties", {})
+        req = schema.get("required", [])
+        parts = []
+        for name, ps in props.items():
+            label = name if name in req else f"{name} (optional)"
+            parts.append(f"    - {label}: {_describe_type(ps)}")
+        return "object\n" + "\n".join(parts)
+    return t  # string, number, integer, boolean, null
+
+
+def schema_to_prompt(schema: dict) -> str:
+    """Convert a JSON Schema dict to a concise, LLM-friendly text description."""
+    props = schema.get("properties", {})
+    required = set(schema.get("required", []))
+
+    req_lines = []
+    opt_lines = []
+
+    for name, ps in props.items():
+        desc = _describe_type(ps)
+        if name in required:
+            req_lines.append(f"  - {name}: {desc}")
+        else:
+            opt_lines.append(f"  - {name}: {desc}")
+
+    lines = ["Required fields:"]
+    lines.extend(req_lines)
+
+    if opt_lines:
+        lines.append("")
+        lines.append("Optional fields:")
+        lines.extend(opt_lines)
+
+    extra = schema.get("additionalProperties", True)
+    lines.append("")
+    lines.append(f"Extra fields: {'allowed' if extra else 'not allowed'}")
+
+    return "\n".join(lines)
+
+
 # ── LLM helpers ───────────────────────────────────────────────────────
 
 def call_llm(system: str, user: str) -> str:
@@ -161,38 +232,34 @@ def main():
     print("╚══════════════════════════════════════════════════════════╝")
     print()
 
+    # ── fetch schema from validator ─────────────────────────────────
+    schema_json = fetch_schema()
+    schema_prompt = schema_to_prompt(schema_json)
+
     # ── system prompt ──────────────────────────────────────────────
     system_prompt = textwrap.dedent("""\
     You are a product data generator. Given a product name, generate a
-    structured JSON product listing following the schema rules exactly.
+    structured JSON product listing following the provided JSON Schema exactly.
 
     Rules:
     - Return ONLY valid JSON, no markdown wrappers, no explanations.
-    - Use correct types: string, number, integer for stock.
-    - Currency must be a real ISO code from the allowed set.
-    - Category must be from the allowed set.
-    - All tags must be non-empty strings.
-    - Positive numbers must be > 0.
     - You may add extra fields if they add useful information.
     """)
 
-    user_prompt = textwrap.dedent("""\
+    user_prompt = textwrap.dedent(f"""\
     Generate a product listing in JSON format for:
     "Quantum Computing Starter Kit"
 
-    Schema:
-    - name: string (3-100 chars)
-    - description: string (10-500 chars)
-    - price: number (positive)
-    - currency: string — one of ["USD", "EUR", "GBP", "JPY", "CNY"]
-    - category: string — one of ["electronics", "clothing", "food", "books", "other"]
-    - tags: array of strings (each non-empty)
-    - stock: integer (>= 0)
-    - metadata (optional): object with brand (string) and weight_kg (number > 0)
+    {schema_prompt}
 
     Be creative and realistic. Add extra fields if they add value.
     Return ONLY valid JSON.
     """)
+    
+    print("  user prompt:")
+    for line in user_prompt.split("\n"):
+        print(f"    {line}")
+    print()
 
     # ── correction loop ────────────────────────────────────────────
     current_user_prompt = user_prompt

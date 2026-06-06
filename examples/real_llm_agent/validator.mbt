@@ -8,8 +8,12 @@
 ///   OK     → line 1, followed by cleaned data in debug format
 ///   ERR    → line 1, count on line 2, one error per line after
 ///
+/// Special mode:
+///   --schema  → output JSON Schema (from to_json_schema()) and exit
+///
 /// Package: examples/real_llm_agent
 /// Usage:   moon run examples/real_llm_agent -- '<json-string>'
+///          moon run examples/real_llm_agent -- --schema
 let product_schema : @moon_zod.Schema = @moon_zod.object({
   "name": @moon_zod.string().min(3).max(100),
   "description": @moon_zod.string().min(10).max(500),
@@ -29,6 +33,12 @@ let product_schema : @moon_zod.Schema = @moon_zod.object({
 ///|
 fn main {
   let args = @env.args()
+  if args.length() > 1 && args[1] == "--schema" {
+    let schema_json = @moon_zod.to_json_schema(product_schema)
+    println(schema_json.stringify(indent=2))
+    return
+  }
+
   if args.length() < 2 {
     println("ERR")
     println("1")
