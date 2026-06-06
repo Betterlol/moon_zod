@@ -1,5 +1,6 @@
 import {
   "Betterlol/moon_zod",
+  "moonbitlang/core/bench",
 }
 
 options(

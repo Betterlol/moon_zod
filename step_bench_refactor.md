@@ -1,3 +1,23 @@
+# Stage Summary
+
+## 1. Stage Description
+
+Refactor `cmd/main/main.mbt` benchmark suite from manual `for` loop timing to MoonBit's official `@bench` standard library, obtaining calibrated ns/op metrics with mean, median, std_dev, and quartiles.
+
+## 2. Stage Metadata
+- STAGE_ID: bench-refactor
+- STAGE_TYPE: refactor
+- BASE_COMMIT: 5b66e01516edace6e31fc4029e0c8b345f1b128c
+
+## 3. New Files
+
+None.
+
+## 4. Modified Files
+
+### cmd/main/main.mbt
+
+Full content at commit time:
 ///|
 /// Benchmark: measure throughput of moon_zod validation on a complex schema.
 ///
@@ -197,3 +217,37 @@ fn main {
   // ── Output JSON summary ──────────────────────────────────────────
   println(bench.dump_summaries())
 }
+
+### cmd/main/moon.pkg
+
+```diff
+diff --git a/cmd/main/moon.pkg b/cmd/main/moon.pkg
+index a0ded25..fc83c65 100644
+--- a/cmd/main/moon.pkg
++++ b/cmd/main/moon.pkg
+@@ -1,4 +1,5 @@
+ import {
+   "username/moon_zod",
++  "moonbitlang/core/bench",
+ }
+ 
+```
+
+## 5. Deleted Files
+
+None.
+
+## 6. ACTION_LOG
+
+| Action | File | Reason |
+|--------|------|--------|
+| modify | `cmd/main/main.mbt` | Replace manual for-loop timing with @bench.bench() calls; keep same schemas/inputs; add sanity checks |
+| modify | `cmd/main/moon.pkg` | Add "moonbitlang/core/bench" dependency |
+
+## 7. Risks / Notes
+
+- @bench auto-calibrates iteration batch size per scenario (~100ms per sample), so iteration counts vary by scenario (Valid: ~18.5k/batch, Adversarial: ~53k/batch, Strip: ~56k/batch).
+- bench.keep() prevents DCE of the parse result inside timed closures.
+- All three JSON inputs and schema definitions preserved exactly from the original.
+- Core moon_zod library untouched (frozen at v0.2.0).
+- Build: 0 warnings. Tests: 85/85 pass. No regressions.
