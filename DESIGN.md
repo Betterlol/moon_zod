@@ -4,6 +4,23 @@
 
 MoonBit 版的 Zod/Pydantic——一个**运行时 JSON Schema 校验库**，核心场景是为 LLM Tool Calling 的输出做结构化校验和错误回溯。
 
+> #### 设计哲学与战略优势 (Design Philosophy & Strategic Advantages)
+> `moon_zod` 不追求成为一个包罗万象的通用数据验证框架，而是致力于成为**最适合 LLM 智能体（Agent）运行时的结构化数据引擎**。我们的核心优势建立在以下三个不可妥协的架构基石之上：
+> 1. **LLM 幻觉防御优先 (Native Defense Against Hallucination)**
+> * 与传统校验库默认的严格（Strict）或放行（Passthrough）模式不同，`moon_zod` 的 `object()` 默认采用 **Strip（清洗）模式**。
+> * 这一设计是专门针对大语言模型常常“自行脑补”输出多余字段的痛点。我们以 $O(spec)$ 的复杂度进行数据提取，确保下游业务逻辑接管到的永远是干净、确定、严格符合定义的 Schema 数据。
+> 2. **极致的性能与惰性路径格式化 (Lazy Path Formatting)**
+> * 在自主智能体的高频 Tool Calling 循环中，校验层决不能成为性能瓶颈。
+> * `moon_zod` 的核心路由 `parse_inner` 通过共享可变路径栈 (`path_stack: Array[String]`)，实现了在成功校验路径上的**零字符串格式化开销**——路径拼接仅在真正产生错误时才触发，无论嵌套层级多深。
+> 3. **极简 API 与无缝组合 (Minimalist DX & Penetration)**
+> * 拒绝复杂的泛型体操和冗长的配置声明。利用独特的 `append_rule` 装饰器穿透机制，使得 `string().optional().min(3)` 等链式调用能够符合开发者的直觉，保持代码的极度扁平与优雅。
+
+> #### 明确的非目标 (Explicit Non-Goals)
+> 为了维持 `moon_zod` 的轻量级与专注度，以下特性被明确排除在我们的核心演进路线之外：
+> * **拒绝重型生态绑定**：我们不会在核心库中引入针对特定数据库 ORM（如 SQL 构造）或 GraphQL 的转换逻辑，保持 0 外部依赖。
+> * **拒绝异步校验 (Async Validation)**：为了保持 WASM 运行时的极致执行速度和架构的简单性，`moon_zod` 坚持纯同步校验。涉及网络请求的异步验证应交由上层业务逻辑处理。
+> * **拒绝臃肿的类型推演**：在 MoonBit 宏系统完全成熟之前，我们不会用过度复杂的代码生成去强行模拟类似 TypeScript `z.infer` 的行为，避免破坏当前的极简编译体验。作为现阶段的替代方案，我们通过提供 json2schema CLI 工具来实现“从数据到 Schema”的极速生产力闭环。
+
 ---
 
 ## API 设计目标
