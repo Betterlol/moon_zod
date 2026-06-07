@@ -1,5 +1,5 @@
 import {
-  "betterlol/moon_zod",
+  "Betterlol/moon_zod",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
   "moonbitlang/core/debug",

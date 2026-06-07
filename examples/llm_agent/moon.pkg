@@ -1,5 +1,5 @@
 import {
-  "betterlol/moon_zod",
+  "Betterlol/moon_zod",
   "moonbitlang/core/debug",
 }
 

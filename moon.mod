@@ -9,7 +9,7 @@
 //   "moonbitlang/x@0.4.6",
 // }
 
-name = "betterlol/moon_zod"
+name = "Betterlol/moon_zod"
 
 version = "0.2.1"
 
