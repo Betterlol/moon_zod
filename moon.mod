@@ -9,13 +9,13 @@
 //   "moonbitlang/x@0.4.6",
 // }
 
-name = "username/moon_zod"
+name = "betterlol/moon_zod"
 
-version = "0.2.0"
+version = "0.2.1"
 
 readme = "README.mbt.md"
 
-repository = ""
+repository = "https://github.com/Betterlol/moon_zod"
 
 license = "Apache-2.0"
 
