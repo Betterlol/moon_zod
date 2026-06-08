@@ -5,14 +5,13 @@
 **moon_zod** 是一个 MoonBit 运行时 JSON Schema 校验库，受 Zod (TypeScript) 和 Pydantic (Python) 启发。核心场景是 LLM Tool Calling 的输出结构化校验与精确错误回溯。
 
 - **语言**: MoonBit
-- **模块名**: `username/moon_zod`
-- **版本**: 0.2.0（新增 transform 数据变换管线）
+- **模块名**: `Betterlol/moon_zod`
+- **版本**: 0.2.2（含 v0.2.1 hotfix + JSON Schema 完整约束导出）
 - **依赖**: 仅 `moonbitlang/core/json`、`moonbitlang/core/debug`
-- **测试**: 81 个黑盒测试 + 4 个白盒测试 = 85，全部通过
-- **编译器警告**: 0（Phase 12 清理完成 + Phase 13 零新增）
+- **测试**: 95 个黑盒测试，全部通过
+- **编译器警告**: 0
 - **CI**: GitHub Actions (ubuntu-latest)，覆盖 fmt check → native build → wasm build → test
-- **发布**: https://github.com/Betterlol/moon_zod/releases/tag/v0.1.0
-- **最新发布**: https://github.com/Betterlol/moon_zod/releases/tag/v0.2.0
+- **发布**: https://github.com/Betterlol/moon_zod/releases/tag/v0.2.2
 
 ---
 

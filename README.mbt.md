@@ -157,7 +157,8 @@ cd bench_cross_lang && node bench.js  # Three-way comparison
 
 | Function | Description |
 |---|---|
-| `to_json_schema(Schema)` | Export standard JSON Schema object |
+| `to_json_schema(Schema)` | Export standard JSON Schema object with full constraint annotations |
+| `to_json_schema_skeleton(Schema)` | Export lightweight JSON Schema skeleton (structure only, no constraints) |
 | `format_path(Array[String])` | Join path stack to dot-notation string |
 | `ValidationError::to_string()` | Format error as `[path] message (got: value)` |
 
@@ -199,11 +200,11 @@ moon_zod/
 ├── union.mbt           # optional / default / enum / union
 ├── refine.mbt          # refine()
 ├── transform.mbt       # transform()
-├── json_schema.mbt     # to_json_schema()
+├── json_schema.mbt     # to_json_schema() / to_json_schema_skeleton()
 ├── cmd/main/           # Benchmark
 ├── examples/llm_agent/ # LLM self-correction demo
-├── moon_zod_test.mbt   # Black-box tests (81)
-└── moon_zod_wbtest.mbt # White-box tests (4)
+├── moon_zod_test.mbt   # Black-box tests (95)
+└── moon_zod_wbtest.mbt # White-box tests
 ```
 
 ---
@@ -211,7 +212,7 @@ moon_zod/
 ## Development
 
 ```bash
-moon test                # Run all tests (85 total)
+moon test                # Run all tests (95 total)
 moon build               # Build the library
 moon run cmd/main        # Run benchmark
 moon run cmd/json2schema -- '{"hello":"world"}'  # Generate schema from JSON

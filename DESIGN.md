@@ -60,6 +60,8 @@ let result = schema.parse(json_data)
 | 11 | 生产级 CLI 升级 | `@env.args()` + 键名转义 + 错误处理 |
 | 12 | 零警告清理 + QoL 糖 | 全部警告归零 + `ValidationError::to_string()` |
 | 13 (v0.2.0) | 路径栈白盒测试 + `.transform()` 管线 | 4 白盒测试 + `Schema::transform()` 数据变换 |
+| 14 | Bench 重构 + 示例优化 | `@bench` 库迁移 + `examples/real_llm_agent/` 重构成 CLI |
+| 15 (v0.2.2) | JSON Schema 完整约束导出 | `to_json_schema()` 带约束注解 + `to_json_schema_skeleton()` 骨架导出 |
 
 ---
 
