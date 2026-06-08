@@ -8,7 +8,7 @@
 - **模块名**: `Betterlol/moon_zod`
 - **版本**: 0.2.2（含 v0.2.1 hotfix + JSON Schema 完整约束导出）
 - **依赖**: 仅 `moonbitlang/core/json`、`moonbitlang/core/debug`
-- **测试**: 95 个黑盒测试，全部通过
+- **测试**: 95 个测试（91 黑盒 + 4 白盒），全部通过
 - **编译器警告**: 0
 - **CI**: GitHub Actions (ubuntu-latest)，覆盖 fmt check → native build → wasm build → test
 - **发布**: https://github.com/Betterlol/moon_zod/releases/tag/v0.2.2
@@ -71,6 +71,19 @@ moon_zod/
 ├── examples/educational_agent/
 │   ├── moon.pkg              # 教育 Agent 可执行包声明
 │   └── main.mbt              # 3 轮自纠正：类型错误 → 规则违例 → Strip 清洗
+│
+├── examples/real_llm_agent/
+│   ├── schemas.mbt           # 真实 LLM API 调用示例（含 API Key 配置）
+│   └── validator.mbt         # LLM 输出的结构化校验与重试逻辑
+│
+├── examples/json2schema/
+│   ├── main.mbt              # JSON → Schema 代码生成示例（从文件读取 JSON）
+│   ├── moon.pkg
+│   └── test_*.json           # 测试用 JSON 数据文件
+│
+├── examples/schema2json/
+│   ├── schemas.mbt           # Schema → JSON 反向转换示例
+│   └── run.sh                # 运行脚本
 │
 └── pkg.generated.mbti        # 自动生成的接口描述，**勿手动编辑**
 ```
@@ -232,12 +245,14 @@ pub fn append_rule(schema, check, message) -> Schema {
 | 11 | `ef93d1a` | 生产级 CLI 升级（`@env.args()` + 键名安全转义 + 优雅错误处理）|
 | 12 | `aee6143` | 零警告清理 + `ValidationError::to_string()` + README 完善 |
 | 13 (v0.2.0) | `f6f4bf5` | 路径栈白盒测试 + `Schema::transform()` 数据变换管线 |
+| 14 (v0.2.1) | `97b526a` | Bench 重构：迁移到 `@bench` 标准库（Valid/Adversarial/Redundancy 三场景）|
+| 15 (v0.2.2) | `e320010` | JSON Schema 完整约束导出 + `to_json_schema_skeleton()` |
 
 ---
 
 ## 6. 测试概况
 
-- **81 个黑盒测试**（`moon_zod_test.mbt`）+ **4 个白盒测试**（`moon_zod_wbtest.mbt`）= **85 个测试**
+- **91 个黑盒测试**（`moon_zod_test.mbt`）+ **4 个白盒测试**（`moon_zod_wbtest.mbt`）= **95 个测试**
 - 无外部依赖测试框架，使用 MoonBit 内建 `test` 块
 - `parse_json()` 辅助函数用于从字符串构造 JSON（避免 `@json.parse` 的异常处理）
 - 测试覆盖：
@@ -268,19 +283,19 @@ pub fn append_rule(schema, check, message) -> Schema {
 ## 8. 已知问题 / 未来方向
 
 ### 已知
-- Benchmark 精确计时：Wasm 基准通过子进程 + 启动开销抵扣估算，而非进程内精确计时
-- 无白盒测试
+- Wasm 基准通过子进程 + 启动开销抵扣估算，而非进程内精确计时（MoonBit wasm target 的限制）
 
-> Phase 12 已消除全部编译器警告（unused self × 4、unreachable_code × 1、Show deprecation × 30+）。
+> 编译器警告已在 Phase 12 全部消除（unused self × 4、unreachable_code × 1、Show deprecation × 30+）。  
+> 白盒测试已在 Phase 13 新增（4 个 path_stack 不变性测试）。  
+> 原生 Benchmark 已在 Phase 14 迁移至 `@bench` 标准库（校准 ns/op 指标）。
 
 ### 建议下一步
 1. **多平台 CI**: 扩展 GitHub Actions 到 macos-latest / windows-latest
 2. **refine 类型安全**: 允许用户定义 `refine<T>(fn(T) -> Bool)` 而不是 `fn(Json) -> Bool`
-3. **Schema 组合器**: `Schema::or()`, `Schema::and()` 等（`Schema::transform()` 已在 v0.2.0 实现）
+3. **Schema 组合器**: `Schema::or()`, `Schema::and()` 等
 4. **错误本地化**: Error message 支持多语言模板
 5. **derive 宏**: `derive(ZodSchema)` 从 MoonBit struct 自动生成 schema
-6. **Benchmark 精确计时**: 用 `@bench` 包替代手动循环
-7. **wasm-gc target**: 验证 `--target wasm-gc` 的兼容性并优化 instantiation 开销
+6. **wasm-gc target**: 验证 `--target wasm-gc` 的兼容性并优化 instantiation 开销
 
 ---
 
@@ -303,4 +318,4 @@ moon info && moon fmt              # 更新接口 + 格式化
 
 ---
 
-*最后更新: 2026-06-06 | v0.2.0 发布 — Phase 1-13 全部完成*
+*最后更新: 2026-06-09 | v0.2.2 发布 — Phase 1-15 全部完成*

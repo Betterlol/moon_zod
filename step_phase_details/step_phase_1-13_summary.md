@@ -1,4 +1,4 @@
-# moon_zod 开发阶段总结 (Phase 1–12)
+# moon_zod 开发阶段总结 (Phase 1–13)
 
 > 本项目为 MoonBit 语言实现的 JSON Schema 运行时校验库，灵感来自 Zod/Pydantic。
 > 以下按阶段总结每个 Phase 的核心交付物、关键设计决策及文件变更。
@@ -199,48 +199,15 @@
 
 ---
 
-## Phase 14 — Bench 重构 + 示例优化 (v0.2.1)
-
-**目标**: 将基准测试从手动循环计时迁移到 MoonBit 官方 `@bench` 标准库，获得校准的 ns/op 指标。
-
-| 文件 | 变更 |
-|---|---|
-| `cmd/main/main.mbt` | 替换手动 for 循环为 `@bench.bench()` 调用，保留相同 schema/输入；添加合理性检查 |
-| `cmd/main/moon.pkg` | 添加 `"moonbitlang/core/bench"` 依赖 |
-
-**关键决策**: `@bench` 自动校准每批迭代次数（约 100ms/样本），Valid ~18.5k/批, Adversarial ~53k/批, Strip ~56k/批。`bench.keep()` 防止 DCE 优化掉 parse 结果。
-
-**产出**: 核心库无变动，85/85 测试通过 0 警告。
-
----
-
-## Phase 15 — JSON Schema 完整约束导出 (v0.2.2)
-
-**目标**: 实现 `to_json_schema()` 带约束注解（minLength, maximum, pattern, format 等）的完整导出，新增 `to_json_schema_skeleton()` 轻量骨架导出。
-
-| 文件 | 变更 |
-|---|---|
-| `schema.mbt` | `Rule` 增加 `annotation: Json` 字段；新增 `append_rule_with_annotation()` |
-| `string.mbt` | `min`/`max` → minLength/maxLength(minItems/maxItems)；`email` → `format: "email"`；`url` → `format: "uri"`；`regex` → `pattern` |
-| `number.mbt` | `int` → `type: "integer"`；`positive` → `exclusiveMinimum: 0`；`negative` → `exclusiveMaximum: 0`；`multipleOf` → `multipleOf: n` |
-| `json_schema.mbt` | 新增 `to_json_schema_skeleton()`；重写 `to_json_schema()` 为递归 `to_json_schema_full` + `merge_annotations` |
-| `moon_zod_test.mbt` | 8 个新增测试覆盖约束导出和骨架 |
-
-**关键决策**: 非破坏性变更 — 无规则 schema 输出与之前完全一致。`nonempty()` 不产生 `minLength` 注解，避免与更严格的 `min(n)` 冲突。注解合并采用后写覆盖（`map.set`），使 `int()` 正确将 `"type":"number"` 升级为 `"type":"integer"`。
-
-**产出**: 95/95 测试全部通过 0 警告。
-
----
-
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 95（91 黑盒 + 4 白盒） |
+| 测试数量 | 85（81 黑盒 + 4 白盒） |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
-| 核心源码模块 | 13 个 `.mbt` 文件 |
+| 核心源码模块 | 14 个 `.mbt` 文件 |
 | CLI 工具 | 3 个（`cmd/main` 基准, `cmd/wasm` 跨语言, `cmd/json2schema` 代码生成） |
-| 展示示例 | 5 个（`llm_agent`, `educational_agent`, `real_llm_agent`, `json2schema`, `schema2json`） |
+| 展示示例 | 2 个（`llm_agent`, `educational_agent`） |
 
 详情见各 `step_phase_details/step_phase_*.md` 文件。
