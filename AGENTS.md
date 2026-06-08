@@ -15,6 +15,12 @@ You can browse and install extra skills here:
 - In the toplevel directory, there is a `moon.mod` file listing module
   metadata.
 
+## MoonBit pitfalls
+
+See [`moonbit_syntax_pitfalls.md`](./moonbit_syntax_pitfalls.md) for common syntax errors and
+anti-patterns gathered from real development experience in this project. Read
+this before writing any MoonBit code.
+
 ## Coding convention
 
 - MoonBit code is organized in block style, each block is separated by `///|`,
