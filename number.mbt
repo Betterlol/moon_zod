@@ -11,7 +11,7 @@ pub fn Schema::int(self : Schema) -> Schema {
     NumberType => ()
     _ => abort("int() is only valid for number schemas")
   }
-  append_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -20,6 +20,7 @@ pub fn Schema::int(self : Schema) -> Schema {
       }
     },
     "Value must be an integer",
+    Json::object({ "type": Json::string("integer") }),
   )
 }
 
@@ -30,7 +31,7 @@ pub fn Schema::positive(self : Schema) -> Schema {
     NumberType => ()
     _ => abort("positive() is only valid for number schemas")
   }
-  append_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -39,6 +40,7 @@ pub fn Schema::positive(self : Schema) -> Schema {
       }
     },
     "Value must be positive",
+    Json::object({ "exclusiveMinimum": Json::number(0.0) }),
   )
 }
 
@@ -49,7 +51,7 @@ pub fn Schema::negative(self : Schema) -> Schema {
     NumberType => ()
     _ => abort("negative() is only valid for number schemas")
   }
-  append_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -58,6 +60,7 @@ pub fn Schema::negative(self : Schema) -> Schema {
       }
     },
     "Value must be negative",
+    Json::object({ "exclusiveMaximum": Json::number(0.0) }),
   )
 }
 
@@ -68,7 +71,7 @@ pub fn Schema::multipleOf(self : Schema, n : Int) -> Schema {
     NumberType => ()
     _ => abort("multipleOf() is only valid for number schemas")
   }
-  append_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -78,5 +81,6 @@ pub fn Schema::multipleOf(self : Schema, n : Int) -> Schema {
       }
     },
     "Value must be a multiple of \{n}",
+    Json::object({ "multipleOf": Json::number(n.to_double()) }),
   )
 }

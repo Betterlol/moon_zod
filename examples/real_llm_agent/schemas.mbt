@@ -36,10 +36,12 @@ fn movie_schema() -> @moon_zod.Schema {
     "year": @moon_zod.number().int().min(1888),
     "rating": @moon_zod.number().min(0).max(10),
     "genres": @moon_zod.array(@moon_zod.string().min(1)),
-    "cast": @moon_zod.array(@moon_zod.object({
-      "name": @moon_zod.string().min(1),
-      "role": @moon_zod.string().min(1),
-    })),
+    "cast": @moon_zod.array(
+      @moon_zod.object({
+        "name": @moon_zod.string().min(1),
+        "role": @moon_zod.string().min(1),
+      }),
+    ),
     "duration_minutes": @moon_zod.number().int().positive(),
   })
 }
@@ -57,14 +59,22 @@ fn get_schema(name : String) -> Result[@moon_zod.Schema, String] {
 fn main {
   let args = @env.args()
   if args.length() < 3 {
-    println("Usage: moon run examples/real_llm_agent -- <schema_name> [schema|validate] [json]")
+    println(
+      "Usage: moon run examples/real_llm_agent -- <schema_name> [schema|validate] [json]",
+    )
     println("")
     println("Schemas: product, movie")
     println("")
     println("Examples:")
-    println("  Output JSON Schema:  moon run examples/real_llm_agent -- product schema")
-    println("  Validate JSON:       moon run examples/real_llm_agent -- product validate '<json>'")
-    println("  Movie JSON Schema:   moon run examples/real_llm_agent -- movie schema")
+    println(
+      "  Output JSON Schema:  moon run examples/real_llm_agent -- product schema",
+    )
+    println(
+      "  Validate JSON:       moon run examples/real_llm_agent -- product validate '<json>'",
+    )
+    println(
+      "  Movie JSON Schema:   moon run examples/real_llm_agent -- movie schema",
+    )
     return
   }
 

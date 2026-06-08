@@ -1,8 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "username/moon_zod"
+package "Betterlol/moon_zod"
 
 // Values
 pub fn append_rule(Schema, (Json) -> Bool, String) -> Schema
+
+pub fn append_rule_with_annotation(Schema, (Json) -> Bool, String, Json) -> Schema
 
 pub fn array(Schema) -> Schema
 
@@ -30,6 +32,8 @@ pub fn sub_path(String, String) -> String
 
 pub fn to_json_schema(Schema) -> Json
 
+pub fn to_json_schema_skeleton(Schema) -> Json
+
 pub fn union(Array[Schema]) -> Schema
 
 pub fn value_in_array(String, Array[String]) -> Bool
@@ -46,6 +50,7 @@ pub(all) enum ObjectMode {
 pub(all) struct Rule {
   check : (Json) -> Bool
   message : String
+  annotation : Json
 }
 
 pub struct Schema {

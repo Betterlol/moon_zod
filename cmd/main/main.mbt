@@ -122,10 +122,7 @@ fn main {
           "tags": Json::array([]),
         }),
       }),
-      Json::object({
-        "id": Json::number(99.0),
-        "role": Json::number(123.0),
-      }),
+      Json::object({ "id": Json::number(99.0), "role": Json::number(123.0) }),
     ]),
     "config": Json::object({
       "version": Json::string(""),
@@ -142,7 +139,8 @@ fn main {
       }
       println("Adversarial: \{count.to_string()} errors generated (expected)")
     }
-    Ok(_) => println("WARNING: adversarial input unexpectedly passed validation")
+    Ok(_) =>
+      println("WARNING: adversarial input unexpectedly passed validation")
   }
   bench.bench(name="Adversarial Hallucination", fn() {
     bench.keep(schema.parse(adv_input))
@@ -184,7 +182,9 @@ fn main {
             spec_count = spec_count + 1
           }
           let stripped = 107 - spec_count
-          println("Strip: \{stripped.to_string()} hallucinated fields removed (expected)")
+          println(
+            "Strip: \{stripped.to_string()} hallucinated fields removed (expected)",
+          )
         }
         _ => println("WARNING: cleaned result is not an object")
       }

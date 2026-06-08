@@ -596,6 +596,99 @@ test "to_json_schema strict object" {
 }
 
 ///|
+/// Phase 13 (v0.2.0) — to_json_schema full constraint export
+test "to_json_schema string with constraints" {
+  let s = string().min(3).max(100)
+  let result = to_json_schema(s)
+  let expected = parse_json(
+    "{\"type\":\"string\",\"minLength\":3,\"maxLength\":100}",
+  )
+  @debug.assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema skeleton omits constraints" {
+  let s = string().min(3).max(100)
+  let result = to_json_schema_skeleton(s)
+  let expected = parse_json("{\"type\": \"string\"}")
+  @debug.assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema number with int and positive" {
+  let s = number().int().positive()
+  let result = to_json_schema(s)
+  let expected = parse_json("{\"type\":\"integer\",\"exclusiveMinimum\":0}")
+  @debug.assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema number with multipleOf" {
+  let s = number().multipleOf(5)
+  let result = to_json_schema(s)
+  let expected = parse_json("{\"type\":\"number\",\"multipleOf\":5}")
+  @debug.assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema string with email format" {
+  let s = string().email()
+  let result = to_json_schema(s)
+  let expected = parse_json("{\"type\":\"string\",\"format\":\"email\"}")
+  @debug.assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema string with url format" {
+  let s = string().url()
+  let result = to_json_schema(s)
+  let expected = parse_json("{\"type\":\"string\",\"format\":\"uri\"}")
+  @debug.assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema string with regex pattern" {
+  let s = string().regex("hello")
+  let result = to_json_schema(s)
+  let expected = parse_json("{\"type\":\"string\",\"pattern\":\"hello\"}")
+  @debug.assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema nested object with constraints" {
+  let s = object({
+    "name": string().min(2).max(50),
+    "age": number().int().min(0).max(150),
+    "email": string().email().optional(),
+  })
+  let result = to_json_schema(s)
+  let expected = parse_json(
+    "{\"type\":\"object\",\"properties\":{\"name\":{\"minLength\":2,\"maxLength\":50,\"type\":\"string\"},\"age\":{\"minimum\":0,\"maximum\":150,\"type\":\"integer\"},\"email\":{\"type\":\"string\",\"format\":\"email\"}},\"additionalProperties\":true,\"required\":[\"name\",\"age\"]}",
+  )
+  @debug.assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema constraints penetrate optional" {
+  let s = string().min(3).optional()
+  let result = to_json_schema(s)
+  // optional() should be transparent — constraints on the inner type
+  // are exported as normal string constraints
+  let expected = parse_json("{\"minLength\":3,\"type\":\"string\"}")
+  @debug.assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema constraints penetrate transform" {
+  let s = string().min(3).transform(fn(j) { Ok(j) })
+  let result = to_json_schema(s)
+  // transform() should be transparent — constraints on the inner type
+  // are exported as normal string constraints
+  let expected = parse_json("{\"minLength\":3,\"type\":\"string\"}")
+  @debug.assert_eq(result, expected)
+}
+
+///|
 /// Phase 4 — union parse details
 test "union returns errors when no schema matches" {
   let s = union([number().positive(), string().min(3)])

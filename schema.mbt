@@ -29,10 +29,11 @@ pub(all) struct TransformClosure {
 }
 
 ///|
-/// A single validation rule: a predicate + error message.
+/// A single validation rule: a predicate + error message + optional JSON Schema annotation.
 pub(all) struct Rule {
   check : (Json) -> Bool
   message : String
+  annotation : Json
 }
 
 ///|
@@ -60,20 +61,39 @@ pub fn append_rule(
   check : (Json) -> Bool,
   message : String,
 ) -> Schema {
+  append_rule_with_annotation(schema, check, message, Json::null())
+}
+
+///|
+/// Append a rule with a JSON Schema annotation fragment.
+/// The annotation is merged into the JSON Schema output when `to_json_schema()`
+/// is called, enabling constraint export (minLength, maximum, pattern, etc.).
+pub fn append_rule_with_annotation(
+  schema : Schema,
+  check : (Json) -> Bool,
+  message : String,
+  annotation : Json,
+) -> Schema {
   match schema.schema_type {
     OptionalType(inner) => {
-      let new_inner = append_rule(inner, check, message)
+      let new_inner = append_rule_with_annotation(
+        inner, check, message, annotation,
+      )
       { schema_type: OptionalType(new_inner), rules: [] }
     }
     DefaultType(inner, default_val) => {
-      let new_inner = append_rule(inner, check, message)
+      let new_inner = append_rule_with_annotation(
+        inner, check, message, annotation,
+      )
       { schema_type: DefaultType(new_inner, default_val), rules: [] }
     }
     TransformType(inner, closure) => {
-      let new_inner = append_rule(inner, check, message)
+      let new_inner = append_rule_with_annotation(
+        inner, check, message, annotation,
+      )
       { schema_type: TransformType(new_inner, closure), rules: [] }
     }
-    _ => { ..schema, rules: schema.rules + [{ check, message }] }
+    _ => { ..schema, rules: schema.rules + [{ check, message, annotation }] }
   }
 }
 

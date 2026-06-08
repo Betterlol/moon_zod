@@ -47,7 +47,13 @@ fn schema_min_msg(s : Schema, n : Int) -> String {
 pub fn Schema::min(self : Schema, n : Int) -> Schema {
   let check = schema_min_check(self, n)
   let message = schema_min_msg(self, n)
-  append_rule(self, check, message)
+  let annotation = match inner_type(self.schema_type) {
+    StringType => Json::object({ "minLength": Json::number(n.to_double()) })
+    NumberType => Json::object({ "minimum": Json::number(n.to_double()) })
+    ArrayType(_) => Json::object({ "minItems": Json::number(n.to_double()) })
+    _ => Json::null()
+  }
+  append_rule_with_annotation(self, check, message, annotation)
 }
 
 ///|
@@ -93,7 +99,13 @@ fn schema_max_msg(s : Schema, n : Int) -> String {
 pub fn Schema::max(self : Schema, n : Int) -> Schema {
   let check = schema_max_check(self, n)
   let message = schema_max_msg(self, n)
-  append_rule(self, check, message)
+  let annotation = match inner_type(self.schema_type) {
+    StringType => Json::object({ "maxLength": Json::number(n.to_double()) })
+    NumberType => Json::object({ "maximum": Json::number(n.to_double()) })
+    ArrayType(_) => Json::object({ "maxItems": Json::number(n.to_double()) })
+    _ => Json::null()
+  }
+  append_rule_with_annotation(self, check, message, annotation)
 }
 
 ///|
@@ -143,7 +155,7 @@ pub fn Schema::email(self : Schema) -> Schema {
     StringType => ()
     _ => abort("email() is only valid for string schemas")
   }
-  append_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -152,6 +164,7 @@ pub fn Schema::email(self : Schema) -> Schema {
       }
     },
     "String must be a valid email address",
+    Json::object({ "format": Json::string("email") }),
   )
 }
 
@@ -167,7 +180,7 @@ pub fn Schema::url(self : Schema) -> Schema {
     StringType => ()
     _ => abort("url() is only valid for string schemas")
   }
-  append_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -176,6 +189,7 @@ pub fn Schema::url(self : Schema) -> Schema {
       }
     },
     "String must be a valid URL",
+    Json::object({ "format": Json::string("uri") }),
   )
 }
 
@@ -186,7 +200,7 @@ pub fn Schema::regex(self : Schema, pattern : String) -> Schema {
     StringType => ()
     _ => abort("regex() is only valid for string schemas")
   }
-  append_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -195,5 +209,6 @@ pub fn Schema::regex(self : Schema, pattern : String) -> Schema {
       }
     },
     "String must match pattern: \{pattern}",
+    Json::object({ "pattern": Json::string(pattern) }),
   )
 }
