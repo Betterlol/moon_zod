@@ -884,3 +884,206 @@ test "to_json_schema ignores transform wrapper" {
   let expected = parse_json("{\"type\": \"string\"}")
   @debug.assert_eq(result, expected)
 }
+
+///|
+/// Phase 16 — schema_to_prompt TypeScript interface generation
+test "schema_to_prompt leaf types" {
+  @debug.assert_eq(schema_to_prompt(string()), "string")
+  @debug.assert_eq(schema_to_prompt(number()), "number")
+  @debug.assert_eq(schema_to_prompt(boolean()), "boolean")
+  @debug.assert_eq(schema_to_prompt(null()), "null")
+}
+
+///|
+test "schema_to_prompt optional and default" {
+  @debug.assert_eq(schema_to_prompt(string().optional()), "string | null")
+  @debug.assert_eq(
+    schema_to_prompt(string().default(Json::string("x"))),
+    "string | null",
+  )
+}
+
+///|
+test "schema_to_prompt string constraints" {
+  @debug.assert_eq(
+    schema_to_prompt(string().min(2).max(50)),
+    "string  // 2-50 chars",
+  )
+  @debug.assert_eq(schema_to_prompt(string().min(3)), "string  // min: 3")
+  @debug.assert_eq(schema_to_prompt(string().max(100)), "string  // max: 100")
+  @debug.assert_eq(schema_to_prompt(string().email()), "string  // email")
+  @debug.assert_eq(schema_to_prompt(string().url()), "string  // url")
+  @debug.assert_eq(
+    schema_to_prompt(string().regex("hello")),
+    "string  // pattern: hello",
+  )
+}
+
+///|
+test "schema_to_prompt number constraints" {
+  @debug.assert_eq(schema_to_prompt(number().int()), "number  // int")
+  @debug.assert_eq(schema_to_prompt(number().positive()), "number  // positive")
+  @debug.assert_eq(schema_to_prompt(number().negative()), "number  // negative")
+  @debug.assert_eq(
+    schema_to_prompt(number().int().min(0).max(150)),
+    "number  // int, 0-150",
+  )
+  @debug.assert_eq(schema_to_prompt(number().min(10)), "number  // min: 10")
+  @debug.assert_eq(schema_to_prompt(number().max(100)), "number  // max: 100")
+  @debug.assert_eq(
+    schema_to_prompt(number().multipleOf(5)),
+    "number  // multiple of 5",
+  )
+}
+
+///|
+test "schema_to_prompt enum" {
+  @debug.assert_eq(
+    schema_to_prompt(enum_values(["admin", "user", "viewer"])),
+    "\"admin\" | \"user\" | \"viewer\"",
+  )
+  @debug.assert_eq(schema_to_prompt(enum_values(["a"])), "\"a\"")
+}
+
+///|
+test "schema_to_prompt array" {
+  @debug.assert_eq(schema_to_prompt(array(string())), "string[]")
+  @debug.assert_eq(
+    schema_to_prompt(array(string()).min(2)),
+    "string[]  // min: 2 items",
+  )
+  @debug.assert_eq(
+    schema_to_prompt(array(string()).max(5)),
+    "string[]  // max: 5 items",
+  )
+  @debug.assert_eq(
+    schema_to_prompt(array(string()).min(1).max(10)),
+    "string[]  // min: 1 items, max: 10 items",
+  )
+  @debug.assert_eq(
+    schema_to_prompt(array(string().email())),
+    "string[]  // email",
+  )
+}
+
+///|
+test "schema_to_prompt union" {
+  @debug.assert_eq(
+    schema_to_prompt(union([string(), number()])),
+    "string | number",
+  )
+  @debug.assert_eq(
+    schema_to_prompt(union([string(), number(), boolean()])),
+    "string | number | boolean",
+  )
+}
+
+///|
+test "schema_to_prompt optional with constraints" {
+  @debug.assert_eq(
+    schema_to_prompt(string().min(3).optional()),
+    "string | null  // min: 3",
+  )
+  @debug.assert_eq(
+    schema_to_prompt(number().int().optional()),
+    "number | null  // int",
+  )
+}
+
+///|
+test "schema_to_prompt transform transparent" {
+  let s = string().transform(fn(json) { Ok(json) })
+  @debug.assert_eq(schema_to_prompt(s), "string")
+  let s2 = number().int().transform(fn(j) { Ok(j) })
+  @debug.assert_eq(schema_to_prompt(s2), "number  // int")
+}
+
+///|
+test "schema_to_prompt empty object" {
+  @debug.assert_eq(schema_to_prompt(object({})), "{}")
+}
+
+///|
+test "schema_to_prompt simple object" {
+  let s = object({
+    "name": string().min(2).max(50),
+    "age": number().int().min(0).max(150),
+  })
+  let expected = "{\n" +
+    "  name: string,  // 2-50 chars\n" +
+    "  age: number,  // int, 0-150\n" +
+    "}"
+  @debug.assert_eq(schema_to_prompt(s), expected)
+}
+
+///|
+test "schema_to_prompt object with optional fields" {
+  let s = object({
+    "name": string(),
+    "email": string().email().optional(),
+    "role": enum_values(["admin", "user"]),
+  })
+  let expected = "{\n" +
+    "  name: string,\n" +
+    "  email?: string,  // email\n" +
+    "  role: \"admin\" | \"user\",\n" +
+    "}"
+  @debug.assert_eq(schema_to_prompt(s), expected)
+}
+
+///|
+test "schema_to_prompt nested object" {
+  let s = object({
+    "profile": object({
+      "age": number().int().min(0).max(150),
+      "tags": array(string().min(1)),
+    }),
+  })
+  let expected = "{\n" +
+    "  profile: {\n" +
+    "    age: number,  // int, 0-150\n" +
+    "    tags: string[],  // min: 1\n" +
+    "  },\n" +
+    "}"
+  @debug.assert_eq(schema_to_prompt(s), expected)
+}
+
+///|
+test "schema_to_prompt nested optional object" {
+  let s = object({
+    "metadata": object({ "level": number().int().min(1).max(10) }).optional(),
+  })
+  let expected = "{\n" +
+    "  metadata?: {\n" +
+    "    level: number,  // int, 1-10\n" +
+    "  },\n" +
+    "}"
+  @debug.assert_eq(schema_to_prompt(s), expected)
+}
+
+///|
+test "schema_to_prompt refine custom message" {
+  let s = number().refine(
+    fn(json) {
+      match json {
+        Number(v, ..) => v > 10.0
+        _ => false
+      }
+    },
+    "Value must be > 10",
+  )
+  @debug.assert_eq(schema_to_prompt(s), "number  // Value must be > 10")
+}
+
+///|
+test "schema_to_prompt nonempty is filtered" {
+  // nonempty has no annotation and its message matches the built-in
+  let s = string().nonempty()
+  @debug.assert_eq(schema_to_prompt(s), "string")
+}
+
+///|
+test "schema_to_prompt default with constraints" {
+  let s = string().min(3).default(Json::string("abc"))
+  @debug.assert_eq(schema_to_prompt(s), "string | null  // min: 3")
+}

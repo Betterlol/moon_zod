@@ -24,6 +24,8 @@ pub fn number() -> Schema
 
 pub fn object(Map[String, Schema]) -> Schema
 
+pub fn schema_to_prompt(Schema) -> String
+
 pub fn string() -> Schema
 
 pub fn sub_index(String, Int) -> String

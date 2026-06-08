@@ -31,7 +31,9 @@ fn main {
   let json = @json.parse(raw) catch {
     _ => {
       println("Error: invalid JSON string")
-      println("Note: wrap the JSON in single quotes to prevent shell interpretation.")
+      println(
+        "Note: wrap the JSON in single quotes to prevent shell interpretation.",
+      )
       println("  moon run cmd/json2schema -- '{\"key\": \"value\"}'")
       println("Use --help for usage information.")
       return
