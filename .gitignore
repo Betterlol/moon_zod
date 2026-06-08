@@ -13,3 +13,4 @@ doc/
 **/*.pyc
 **/*.pyo
 **/*.pyd
+tmp/
