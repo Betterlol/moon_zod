@@ -97,20 +97,17 @@ This is especially important for **Wasm edge runtimes** where GC pauses and memo
 
 ### Cross-Language Benchmark (100k iterations)
 
-| Validator | Runtime | Adjusted Time | Ops/sec |
-|---|---|---|---|
-| **TS Zod** | In-process V8 | 430.2 ms | **232,456 ops/sec** |
-| **MoonZod** | Wasm via moonrun | 1,729.1 ms | 57,837 ops/sec |
-| **Handcrafted Match** | Wasm via moonrun | 96.4 ms | **1,037,718 ops/sec** |
+| Validator | Runtime | Ops/sec |
+|---|---|---|
+| **TS Zod** | In-process V8 | 243,178 ops/sec |
+| **MoonZod** | Native (@bench) | **3,815,556 ops/sec** |
 
-> Wasm times are adjusted by subtracting 12.8 ms startup overhead (moonrun process spawn + module instantiation). TS Zod runs in-process with no startup overhead.
->
-> Handcrafted Match is ~10.8x faster than MoonZod — expected for a minimal state machine vs general-purpose library. MoonZod vs TS Zod is not a direct comparison due to subprocess overhead.
+> Both validators run in-process with no subprocess overhead. MoonZod uses MoonBit's `@bench` library for calibrated iteration counts (ns/op → ops/sec); TS Zod uses wall-clock timing over 100k manual `parse()` calls. MoonZod is ~15x faster than TS Zod on this benchmark, demonstrating the advantage of a focused, zero-allocation validation path (Phase 5 Mutable Path Stack).
 
 Run the benchmarks:
 ```
-moon run cmd/main                  # MoonZod throughput
-cd bench_cross_lang && node bench.js  # Three-way comparison
+moon run cmd/main                  # MoonZod throughput (3 benchmarks)
+cd bench_cross_lang && node bench.js  # Cross-language comparison
 ```
 
 ---

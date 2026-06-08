@@ -3,11 +3,11 @@
 /**
  * Cross-Language Benchmark Runner
  *
- * Compares three validators side-by-side:
+ * Compares two validators side-by-side:
  *   1. TypeScript Zod (in-process)
- *   2. MoonZod (Wasm) via moonrun
- *   3. Handcrafted Match (Wasm) via moonrun
+ *   2. MoonZod (native via @bench library, in-process)
  *
+ * Both run in-process with no subprocess overhead.
  * Run: node bench.js
  *       npm run bench
  */
@@ -15,22 +15,10 @@
 const { performance } = require('perf_hooks');
 const { execFileSync } = require('child_process');
 const path = require('path');
-const fs = require('fs');
 
 // ── Configuration ─────────────────────────────────────────────────
 const ITERATIONS = 100_000;
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const WASM_PATH = path.join(
-  PROJECT_ROOT,
-  '_build/wasm/release/build/cmd/wasm/wasm.wasm',
-);
-const MOONRUN_PATH = path.join(
-  PROJECT_ROOT,
-  '..',
-  '..',
-  '..',
-  '.moon/bin/moonrun',
-);
 
 // ── Try loading Zod (optional) ────────────────────────────────────
 let z;
@@ -132,90 +120,18 @@ function benchZod(schema, data) {
   return elapsed;
 }
 
-// ── Benchmark: Wasm via moonrun ───────────────────────────────────
-function benchWasm(mode) {
-  const start = performance.now();
-  try {
-    execFileSync(MOONRUN_PATH, [WASM_PATH, mode], {
-      cwd: PROJECT_ROOT,
-      timeout: 120_000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-  } catch (e) {
-    // If moonrun fails, try alternative wasm runtime
-    tryFallback(mode);
-  }
-  const elapsed = performance.now() - start;
-  return elapsed;
-}
-
-// ── Fallback: try existing wasm file with Node WASI ───────────────
-function tryFallback(mode) {
-  // Check if a wasm-gc debug file exists
-  const gcPath = path.join(
-    PROJECT_ROOT,
-    '_build/wasm-gc/debug/build/cmd/wasm/wasm.wasm',
-  );
-  if (fs.existsSync(gcPath)) {
-    const wasi = getWASI();
-    if (wasi) {
-      return runWASI(gcPath, wasi, mode);
-    }
-  }
-  console.error(
-    '✘  Could not run Wasm benchmark. Ensure moonrun is available.',
-  );
-  console.error('   Tried:', MOONRUN_PATH);
-  process.exit(1);
-}
-
-// ── Helper: get WASI instance ──────────────────────────────────────
-function getWASI() {
-  try {
-    const { WASI } = require('wasi');
-    return WASI;
-  } catch {
-    return null;
-  }
-}
-
-// ── Run wasm directly with Node WASI (timed) ───────────────────────
-function runWASI(wasmPath, WASI, mode) {
-  const wasmBuffer = fs.readFileSync(wasmPath);
-  const wasi = new WASI({
-    version: 'unstable',
-    args: ['wasm', mode],
-    env: {},
-    preopens: {},
-    returnOnExit: true,
+// ── Benchmark: MoonZod (native via @bench) ────────────────────────
+function benchMoonZod() {
+  const stdout = execFileSync('moon', ['run', 'cmd/main'], {
+    cwd: PROJECT_ROOT,
+    timeout: 120_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf-8',
   });
-
-  return new Promise((resolve, reject) => {
-    WebAssembly.instantiate(wasmBuffer, {
-      wasi_snapshot_preview1: wasi.wasiImport,
-    })
-      .then(({ instance }) => {
-        try {
-          wasi.start(instance);
-          resolve();
-        } catch (e) {
-          // WASI start throws on exit — that's expected
-          resolve();
-        }
-      })
-      .catch(reject);
-  });
-}
-
-// ── Discover export functions from wasm module (for auto-detect) ──
-function discoverWasmExports(wasmPath) {
-  try {
-    const buf = fs.readFileSync(wasmPath);
-    const mod = new WebAssembly.Module(buf);
-    return WebAssembly.Module.exports(mod).map((e) => e.name);
-  } catch {
-    return [];
-  }
+  // Last line is JSON from bench.dump_summaries()
+  const lines = stdout.trim().split('\n');
+  const jsonLine = lines[lines.length - 1];
+  return JSON.parse(jsonLine);
 }
 
 // ── Format helpers ────────────────────────────────────────────────
@@ -223,9 +139,8 @@ function fmtNum(n) {
   return n.toLocaleString('en-US', { maximumFractionDigits: 1 });
 }
 
-function fmtOps(ms) {
-  const opsPerSec = (ITERATIONS / ms) * 1000;
-  return opsPerSec.toLocaleString('en-US', { maximumFractionDigits: 0 });
+function fmtOps(n) {
+  return Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
 }
 
 // ── Main ──────────────────────────────────────────────────────────
@@ -245,73 +160,79 @@ function main() {
     // Warm-up
     for (let i = 0; i < 100; i++) schema.parse(data);
     zodMs = benchZod(schema, data);
-    console.log('  ✔  Zod          :', fmtNum(zodMs), 'ms  (' + fmtOps(zodMs) + ' ops/sec)');
+    console.log(
+      '  ✔  Zod          :',
+      fmtNum(zodMs),
+      'ms  (' + fmtOps((ITERATIONS / zodMs) * 1000) + ' ops/sec)',
+    );
   } else {
     console.log('  ⚠  Zod          : skipped (zod not installed)');
   }
 
-  // ── Wasm export discovery ───────────────────────────────────────
+  // ── MoonZod native benchmark ───────────────────────────────────
   console.log();
-  if (fs.existsSync(WASM_PATH)) {
-    const exports = discoverWasmExports(WASM_PATH);
-    console.log('  Wasm exports    :', exports.length === 0 ? '(only _start)' : exports.join(', '));
-    console.log('  Wasm file       :', path.relative(PROJECT_ROOT, WASM_PATH));
-  } else {
-    console.log('  Wasm file not found:', WASM_PATH);
-    console.log('  Run: moon build --target wasm --release');
-  }
+  console.log('  Running MoonZod native benchmark...');
+  const mzResults = benchMoonZod();
   console.log();
 
-  // ── Startup overhead measurement ────────────────────────────────
-  console.log('  Measuring Wasm startup overhead...');
-  const startupMs = benchWasm('startup');
-  console.log('  ✔  Startup (no-op):', fmtNum(startupMs), 'ms');
-  console.log();
-
-  // ── MoonZod Wasm benchmark ──────────────────────────────────────
-  console.log('  Running MoonZod Wasm benchmark...');
-  const mzRaw = benchWasm('moonzod');
-  const mzMs = Math.max(mzRaw - startupMs, 1);
-  console.log('  ✔  MoonZod (Wasm):', fmtNum(mzRaw), 'ms raw,');
-
-  // ── Handcrafted Wasm benchmark ──────────────────────────────────
-  console.log('  Running Handcrafted Wasm benchmark...');
-  const hcRaw = benchWasm('handcrafted');
-  const hcMs = Math.max(hcRaw - startupMs, 1);
-  console.log('  ✔  Handcrafted   :', fmtNum(hcRaw), 'ms raw');
-
-  // ── Summary ─────────────────────────────────────────────────────
-  console.log();
+  // Parse @bench JSON results
   console.log('─'.repeat(60));
-  console.log('  Summary (', ITERATIONS.toLocaleString(), ' iterations each )');
-  console.log('  (Wasm times adjusted: raw minus', fmtNum(startupMs), 'ms startup)');
+  console.log('  MoonZod @bench Results (calibrated ns/op)');
   console.log('─'.repeat(60));
-
-  if (zodMs !== null) {
+  for (const b of mzResults) {
+    const nsPerOp = (b.mean / b.batch_size) * 1e6;
+    const opsPerSec = (b.batch_size / b.mean) * 1000;
     console.log(
-      `  ${'TS Zod'.padEnd(22)} ${fmtNum(zodMs).padStart(8)} ms  ${fmtOps(zodMs).padStart(12)} ops/sec`,
+      `  ${b.name.padEnd(26)} ${fmtNum(nsPerOp).padStart(10)} ns/op  ${fmtOps(opsPerSec).padStart(12)} ops/sec`,
     );
   }
-  console.log(
-    `  ${'MoonZod (Wasm)'.padEnd(22)} ${fmtNum(mzMs).padStart(8)} ms  ${fmtOps(mzMs).padStart(12)} ops/sec  (raw: ${fmtNum(mzRaw)} ms)`,
-  );
-  console.log(
-    `  ${'Handcrafted (Wasm)'.padEnd(22)} ${fmtNum(hcMs).padStart(8)} ms  ${fmtOps(hcMs).padStart(12)} ops/sec  (raw: ${fmtNum(hcRaw)} ms)`,
-  );
 
-  if (zodMs !== null) {
-    const ratio = (zodMs / mzMs).toFixed(2);
-    const rel = parseFloat(ratio) > 1 ? 'faster' : 'slower';
-    console.log();
-    console.log(`  MoonZod is ${ratio}x ${rel} than TS Zod (after startup adjustment)`);
+  // ── Summary comparison ─────────────────────────────────────────
+  console.log();
+  console.log('─'.repeat(60));
+  console.log('  Summary Comparison (ops/sec)');
+  console.log('─'.repeat(60));
+
+  const zodOps = zodMs !== null ? (ITERATIONS / zodMs) * 1000 : null;
+
+  if (zodOps !== null) {
+    console.log(
+      `  ${'TS Zod'.padEnd(26)} ${fmtOps(zodOps).padStart(14)} ops/sec`,
+    );
   }
+
+  // Use "Valid Throughput" for cross-comparison
+  const validBench = mzResults.find((b) => b.name === 'Valid Throughput');
+  if (validBench) {
+    const mzOpsPerSec = (validBench.batch_size / validBench.mean) * 1000;
+    console.log(
+      `  ${'MoonZod (native)'.padEnd(26)} ${fmtOps(mzOpsPerSec).padStart(14)} ops/sec`,
+    );
+
+    if (zodOps !== null) {
+      const ratio = (mzOpsPerSec / zodOps).toFixed(1);
+      console.log();
+      console.log(`  MoonZod is ${ratio}x faster than TS Zod`);
+    }
+  }
+
   console.log();
   console.log('  Notes:');
-  console.log('  - TS Zod runs in-process (V8). No startup overhead.');
-  console.log('  - Wasm benchmarks include moonrun process + module instantiation.');
-  console.log('  - Adjusted = raw - startup, isolating pure validation time.');
-  console.log('  - Mutable Path Stack (Phase 5) enables zero-string');
-  console.log('    allocation on the validation success path.');
+  console.log('  - Both validators run in-process (no subprocess overhead).');
+  console.log(
+    '  - TS Zod: wall-clock time for',
+    ITERATIONS.toLocaleString(),
+    'manual parse() calls.',
+  );
+  console.log(
+    '  - MoonZod: calibrated by @bench library (automatic iteration count).',
+  );
+  console.log(
+    '  - @bench reports mean time per batch; ns/op = (mean / batch_size) * 1e6.',
+  );
+  console.log(
+    '  - MoonZod includes 3 benchmarks: Valid Throughput, Adversarial, Redundancy.',
+  );
   console.log('─'.repeat(60));
 }
 
