@@ -8,6 +8,7 @@
 ## Phase 1 — 核心类型与基础校验器
 
 **目标**: 搭建 Schema 类型系统和基本校验骨架。
+**BASE_COMMIT**: `6466b60b4a6b331868457fd2a9d96615bef386e8`
 
 | 新增文件 | 用途 |
 |---|---|
@@ -131,6 +132,7 @@
 ## Phase 10 — JSON-to-Schema 代码生成器 CLI
 
 **目标**: 构建零依赖 CLI 工具，将 JSON 自动转为 `@moon_zod` 源码。
+**BASE_COMMIT**: `b5a2d1edd6a757a6d92bc2c695bbe2eaa46a6169`
 
 | 新增文件 | 用途 |
 |---|---|
