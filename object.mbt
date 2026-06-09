@@ -5,7 +5,7 @@
 /// By default, extra fields in the input JSON are silently stripped (Strip mode).
 /// Use `.passthrough()` to allow extra fields, or `.strict()` to reject them.
 pub fn object(spec : Map[String, Schema]) -> Schema {
-  { schema_type: ObjectType(spec, Strip), rules: [] }
+  { schema_type: ObjectType(spec, Strip), rules: [], description: "" }
 }
 
 ///|

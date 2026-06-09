@@ -1,7 +1,7 @@
 ///|
 /// Create a schema that validates JSON strings.
 pub fn string() -> Schema {
-  { schema_type: StringType, rules: [] }
+  { schema_type: StringType, rules: [], description: "" }
 }
 
 ///|

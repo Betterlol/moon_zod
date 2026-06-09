@@ -1087,3 +1087,82 @@ test "schema_to_prompt default with constraints" {
   let s = string().min(3).default(Json::string("abc"))
   @debug.assert_eq(schema_to_prompt(s), "string | null  // [min: 3]")
 }
+
+///|
+test "schema_to_prompt describe alone" {
+  @debug.assert_eq(
+    schema_to_prompt(string().describe("用户名")),
+    "string  // 用户名",
+  )
+}
+
+///|
+test "schema_to_prompt describe with constraints" {
+  @debug.assert_eq(
+    schema_to_prompt(string().min(3).max(50).describe("用户名")),
+    "string  // [3-50 chars] — 用户名",
+  )
+}
+
+///|
+test "schema_to_prompt describe on optional" {
+  @debug.assert_eq(
+    schema_to_prompt(string().min(3).optional().describe("昵称")),
+    "string | null  // [min: 3] — 昵称",
+  )
+}
+
+///|
+test "schema_to_prompt describe alone on optional" {
+  @debug.assert_eq(
+    schema_to_prompt(string().optional().describe("备注")),
+    "string | null  // 备注",
+  )
+}
+
+///|
+test "schema_to_prompt describe on object fields" {
+  let s = object({
+    "name": string().min(2).max(50).describe("产品名称"),
+    "price": number().positive().describe("产品价格"),
+    "url": string().url().describe("产品链接"),
+  })
+  let expected = "{\n" +
+    "  name: string,  // [2-50 chars] — 产品名称\n" +
+    "  price: number,  // [positive] — 产品价格\n" +
+    "  url: string,  // [url] — 产品链接\n" +
+    "}"
+  @debug.assert_eq(schema_to_prompt(s), expected)
+}
+
+///|
+test "schema_to_prompt describe on optional object field" {
+  let s = object({
+    "email": string().email().optional().describe("用户邮箱"),
+  })
+  let expected = "{\n" +
+    "  email?: string,  // [email] — 用户邮箱\n" +
+    "}"
+  @debug.assert_eq(schema_to_prompt(s), expected)
+}
+
+///|
+test "schema_to_prompt describe on nested object field" {
+  let s = object({
+    "profile": object({
+      "bio": string().min(10).max(500).describe("个人简介"),
+    }).describe("用户资料"),
+  })
+  let expected = "{\n" +
+    "  profile: {\n" +
+    "    bio: string,  // [10-500 chars] — 个人简介\n" +
+    "  },  // 用户资料\n" +
+    "}"
+  @debug.assert_eq(schema_to_prompt(s), expected)
+}
+
+///|
+test "schema_to_prompt describe through transform" {
+  let s = string().describe("保持原样").transform(fn(j) { Ok(j) })
+  @debug.assert_eq(schema_to_prompt(s), "string  // 保持原样")
+}

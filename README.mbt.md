@@ -241,6 +241,7 @@ cd bench_cross_lang && node bench.js  # Cross-language comparison
 | `.strict()` | object | Reject undefined fields |
 | `.passthrough()` | object | Keep undefined fields as-is |
 | `.strip()` | object | Silently remove undefined fields (default) |
+| `.describe(text)` | Any | Attach description rendered by `schema_to_prompt()` for LLM prompts |
 | `.refine(check, msg)` | Any | Custom validation predicate |
 | `.transform(fn)` | Any | Validate then transform output via `(Json) -> Result[Json, String]` |
 
@@ -297,7 +298,7 @@ moon_zod/
 ├── cmd/main/           # Benchmark
 ├── examples/llm_agent/ # LLM self-correction demo
 ├── examples/real_llm_agent/ # Real LLM Agent — full pipeline demo
-├── moon_zod_test.mbt   # Black-box tests (108)
+├── moon_zod_test.mbt   # Black-box tests (116)
 └── moon_zod_wbtest.mbt # White-box tests (4)
 ```
 
@@ -306,7 +307,7 @@ moon_zod/
 ## Development
 
 ```bash
-moon test                # Run all tests (112 total)
+moon test                # Run all tests (120 total)
 moon build               # Build the library
 moon run cmd/main        # Run benchmark
 moon run cmd/json2schema -- '{"hello":"world"}'  # Generate schema from JSON

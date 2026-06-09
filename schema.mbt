@@ -41,6 +41,15 @@ pub(all) struct Rule {
 pub struct Schema {
   schema_type : SchemaType
   rules : Array[Rule]
+  description : String
+}
+
+///|
+/// Attach a human-readable description to a schema.
+/// The description is rendered by `schema_to_prompt()` alongside type and constraints,
+/// helping LLMs understand the semantic meaning of each field.
+pub fn Schema::describe(self : Schema, text : String) -> Schema {
+  { ..self, description: text }
 }
 
 ///|
@@ -79,19 +88,19 @@ pub fn append_rule_with_annotation(
       let new_inner = append_rule_with_annotation(
         inner, check, message, annotation,
       )
-      { schema_type: OptionalType(new_inner), rules: [] }
+      { schema_type: OptionalType(new_inner), rules: [], description: "" }
     }
     DefaultType(inner, default_val) => {
       let new_inner = append_rule_with_annotation(
         inner, check, message, annotation,
       )
-      { schema_type: DefaultType(new_inner, default_val), rules: [] }
+      { schema_type: DefaultType(new_inner, default_val), rules: [], description: "" }
     }
     TransformType(inner, closure) => {
       let new_inner = append_rule_with_annotation(
         inner, check, message, annotation,
       )
-      { schema_type: TransformType(new_inner, closure), rules: [] }
+      { schema_type: TransformType(new_inner, closure), rules: [], description: "" }
     }
     _ => { ..schema, rules: schema.rules + [{ check, message, annotation }] }
   }

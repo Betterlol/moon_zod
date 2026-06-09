@@ -96,7 +96,7 @@ fn object_to_prompt(spec : Map[String, Schema], indent : Int) -> String {
     }
 
     let field_type = type_to_prompt(inner, inner_indent)
-    let comment = schema_comment(inner)
+    let comment = schema_comment(val_schema)
     let opt_mark = if key_is_optional { "?" } else { "" }
     let line = indent_str(inner_indent) + key + opt_mark + ": " + field_type
 
@@ -152,10 +152,20 @@ fn schema_comment(schema : Schema) -> String {
     }
     _ => inner
   }
-  if merged.is_empty() {
+  let constraint_part = if merged.is_empty() {
     ""
   } else {
     "[" + merged + "]"
+  }
+  let desc = schema.description
+  if constraint_part.is_empty() && desc.is_empty() {
+    ""
+  } else if constraint_part.is_empty() {
+    desc
+  } else if desc.is_empty() {
+    constraint_part
+  } else {
+    constraint_part + " — " + desc
   }
 }
 
