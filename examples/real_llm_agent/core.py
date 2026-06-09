@@ -33,6 +33,25 @@ def fetch_schema(schema_name: str) -> dict:
     return json.loads(proc.stdout)
 
 
+def fetch_moon_prompt(schema_name: str) -> str:
+    """Run validator --prompt and return the TypeScript interface prompt string.
+
+    Uses moon_zod's schema_to_prompt() to generate an LLM-friendly type
+    definition with constraint annotations as inline comments.
+    """
+    proc = subprocess.run(
+        ["moon", "run", VALIDATOR_PKG, "--", schema_name, "prompt"],
+        capture_output=True,
+        text=True,
+        cwd=PROJECT_ROOT,
+        timeout=30,
+    )
+    if proc.returncode != 0:
+        print(f"  [validator stderr]: {proc.stderr.strip()}")
+        sys.exit(1)
+    return proc.stdout.strip()
+
+
 def validate_json(json_str: str, schema_name: str) -> tuple[bool, object]:
     """Run the moon_zod validator via subprocess.
 
@@ -64,60 +83,6 @@ def validate_json(json_str: str, schema_name: str) -> tuple[bool, object]:
         return False, errors
 
     return False, [f"(unexpected output: {lines[0]!r})"]
-
-
-# ── schema to prompt ─────────────────────────────────────────────────
-
-
-def _describe_type(schema: dict, indent: int = 0) -> str:
-    """Translate a JSON Schema property into a concise type string."""
-    pad = "  " * indent
-    t = schema.get("type", "any")
-    if "enum" in schema:
-        vals = ", ".join(repr(v) for v in schema["enum"])
-        return f"enum [{vals}]"
-    if t == "array":
-        items = schema.get("items", {})
-        return f"array of {_describe_type(items, indent)}"
-    if t == "object":
-        props = schema.get("properties", {})
-        req = schema.get("required", [])
-        parts = []
-        for name, ps in props.items():
-            label = name if name in req else f"{name} (optional)"
-            parts.append(f"{pad}  - {label}: {_describe_type(ps, indent + 1)}")
-        return "object\n" + "\n".join(parts)
-    return t  # string, number, integer, boolean, null
-
-
-def schema_to_prompt(schema: dict) -> str:
-    """Convert a JSON Schema dict to a concise, LLM-friendly text description."""
-    props = schema.get("properties", {})
-    required = set(schema.get("required", []))
-
-    req_lines = []
-    opt_lines = []
-
-    for name, ps in props.items():
-        desc = _describe_type(ps)
-        if name in required:
-            req_lines.append(f"  - {name}: {desc}")
-        else:
-            opt_lines.append(f"  - {name}: {desc}")
-
-    lines = ["Required fields:"]
-    lines.extend(req_lines)
-
-    if opt_lines:
-        lines.append("")
-        lines.append("Optional fields:")
-        lines.extend(opt_lines)
-
-    extra = schema.get("additionalProperties", True)
-    lines.append("")
-    lines.append(f"Extra fields: {'allowed' if extra else 'not allowed'}")
-
-    return "\n".join(lines)
 
 
 # ── LLM helpers ───────────────────────────────────────────────────────
@@ -154,9 +119,9 @@ def extract_json(text: str) -> str:
 
 def build_correction_prompt(case, errors: list[str], schema_str: str) -> str:
     """Build a detailed correction prompt with schema context and errors."""
-    prompt = "Your previous JSON had validation errors. Fix them by following the original schema.\n\n"
+    prompt = "Your previous JSON had validation errors. Fix them by following the type definition.\n\n"
     prompt += "Task:\n" + case.user_task() + "\n\n"
-    prompt += f"JSON Schema specification:\n{schema_str}\n\n"
+    prompt += f"Expected type:\n{schema_str}\n\n"
     prompt += "Validation errors:\n"
     for e in errors:
         prompt += f"  - {e}\n"
@@ -177,16 +142,25 @@ def run_prompt_mode(
     api_url: str = "",
     model: str = "",
     mock: bool = False,
+    use_moon_prompt: bool = False,
 ):
-    """Self-correction loop: LLM generates text → extract → validate → fix."""
+    """Self-correction loop: LLM generates text → extract → validate → fix.
+
+    When use_moon_prompt is True, the initial prompt uses moon_zod's
+    schema_to_prompt() output (TypeScript-interface style) instead of
+    raw JSON Schema.  This is more compact and LLM-friendly, and the
+    self-correction loop handles any gaps.
+    """
     schema_str = json.dumps(schema_json, indent=2)
+    schema_display = (
+        fetch_moon_prompt(case.SCHEMA_NAME) if use_moon_prompt
+        else schema_str
+    )
     system_prompt = case.system_prompt()
-    user_prompt = case.user_task() + f"\n\nJSON Schema specification:\n{schema_str}"
-    # ==== 重要注释，不要删除 ====
-    # 使用 schema_to_prompt 生成的提示虽然对人类友好，但可能会导致 LLM 漏掉 schema 中的某些细节。
-    # 不过，可以用来展示出自愈的能力！第一次生成可能不完全正确，但后续的自我修正会引导 LLM 逐步理解并满足 schema 要求。
-    # user_prompt = case.user_task() + "\n\n" + schema_to_prompt(schema_json)
-    # ============================
+    user_prompt = (
+        case.user_task()
+        + f"\n\nExpected type:\n{schema_display}"
+    )
     print("  user prompt:")
     for line in user_prompt.split("\n"):
         print(f"  {line}")
@@ -235,7 +209,7 @@ def run_prompt_mode(
             print()
 
             if attempt < MAX_RETRIES:
-                current_user_prompt = build_correction_prompt(case, errors, schema_str)
+                current_user_prompt = build_correction_prompt(case, errors, schema_display)
                 print("  ↻ Sending correction prompt back to LLM...")
                 print()
         print()

@@ -5,6 +5,7 @@
 ///
 /// Usage:
 ///   Output JSON Schema:   moon run examples/real_llm_agent -- <name> schema
+///   Output TS Prompt:     moon run examples/real_llm_agent -- <name> prompt
 ///   Validate JSON:        moon run examples/real_llm_agent -- <name> validate '<json>'
 ///
 /// Schemas: product, movie
@@ -60,7 +61,7 @@ fn main {
   let args = @env.args()
   if args.length() < 3 {
     println(
-      "Usage: moon run examples/real_llm_agent -- <schema_name> [schema|validate] [json]",
+      "Usage: moon run examples/real_llm_agent -- <schema_name> [schema|prompt|validate] [json]",
     )
     println("")
     println("Schemas: product, movie")
@@ -70,10 +71,10 @@ fn main {
       "  Output JSON Schema:  moon run examples/real_llm_agent -- product schema",
     )
     println(
-      "  Validate JSON:       moon run examples/real_llm_agent -- product validate '<json>'",
+      "  Output TS Prompt:    moon run examples/real_llm_agent -- product prompt",
     )
     println(
-      "  Movie JSON Schema:   moon run examples/real_llm_agent -- movie schema",
+      "  Validate JSON:       moon run examples/real_llm_agent -- product validate '<json>'",
     )
     return
   }
@@ -95,6 +96,9 @@ fn main {
     "schema" => {
       let schema_json = @moon_zod.to_json_schema(schema)
       println(schema_json.stringify(indent=2))
+    }
+    "prompt" => {
+      println(@moon_zod.schema_to_prompt(schema))
     }
     "validate" => {
       if args.length() < 4 {
@@ -129,7 +133,7 @@ fn main {
     _ => {
       println("ERR")
       println("1")
-      println("Unknown command: " + command + ". Use 'schema' or 'validate'.")
+      println("Unknown command: " + command + ". Use 'schema', 'prompt', or 'validate'.")
     }
   }
 }
