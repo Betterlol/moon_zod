@@ -137,20 +137,25 @@ fn unwrap_schema(schema : Schema) -> Schema {
 /// For arrays, also merges element-level constraints.
 fn schema_comment(schema : Schema) -> String {
   let unwrapped = unwrap_schema(schema)
-  let comment = constraint_comment(unwrapped.rules, unwrapped.schema_type)
-  match unwrapped.schema_type {
+  let inner = constraint_comment(unwrapped.rules, unwrapped.schema_type)
+  let merged = match unwrapped.schema_type {
     ArrayType(elem) => {
       let euw = unwrap_schema(elem)
       let ec = constraint_comment(euw.rules, euw.schema_type)
-      if comment.is_empty() {
+      if inner.is_empty() {
         ec
       } else if ec.is_empty() {
-        comment
+        inner
       } else {
-        comment + ", " + ec
+        inner + ", " + ec
       }
     }
-    _ => comment
+    _ => inner
+  }
+  if merged.is_empty() {
+    ""
+  } else {
+    "[" + merged + "]"
   }
 }
 

@@ -907,32 +907,32 @@ test "schema_to_prompt optional and default" {
 test "schema_to_prompt string constraints" {
   @debug.assert_eq(
     schema_to_prompt(string().min(2).max(50)),
-    "string  // 2-50 chars",
+    "string  // [2-50 chars]",
   )
-  @debug.assert_eq(schema_to_prompt(string().min(3)), "string  // min: 3")
-  @debug.assert_eq(schema_to_prompt(string().max(100)), "string  // max: 100")
-  @debug.assert_eq(schema_to_prompt(string().email()), "string  // email")
-  @debug.assert_eq(schema_to_prompt(string().url()), "string  // url")
+  @debug.assert_eq(schema_to_prompt(string().min(3)), "string  // [min: 3]")
+  @debug.assert_eq(schema_to_prompt(string().max(100)), "string  // [max: 100]")
+  @debug.assert_eq(schema_to_prompt(string().email()), "string  // [email]")
+  @debug.assert_eq(schema_to_prompt(string().url()), "string  // [url]")
   @debug.assert_eq(
     schema_to_prompt(string().regex("hello")),
-    "string  // pattern: hello",
+    "string  // [pattern: hello]",
   )
 }
 
 ///|
 test "schema_to_prompt number constraints" {
-  @debug.assert_eq(schema_to_prompt(number().int()), "number  // int")
-  @debug.assert_eq(schema_to_prompt(number().positive()), "number  // positive")
-  @debug.assert_eq(schema_to_prompt(number().negative()), "number  // negative")
+  @debug.assert_eq(schema_to_prompt(number().int()), "number  // [int]")
+  @debug.assert_eq(schema_to_prompt(number().positive()), "number  // [positive]")
+  @debug.assert_eq(schema_to_prompt(number().negative()), "number  // [negative]")
   @debug.assert_eq(
     schema_to_prompt(number().int().min(0).max(150)),
-    "number  // int, 0-150",
+    "number  // [int, 0-150]",
   )
-  @debug.assert_eq(schema_to_prompt(number().min(10)), "number  // min: 10")
-  @debug.assert_eq(schema_to_prompt(number().max(100)), "number  // max: 100")
+  @debug.assert_eq(schema_to_prompt(number().min(10)), "number  // [min: 10]")
+  @debug.assert_eq(schema_to_prompt(number().max(100)), "number  // [max: 100]")
   @debug.assert_eq(
     schema_to_prompt(number().multipleOf(5)),
-    "number  // multiple of 5",
+    "number  // [multiple of 5]",
   )
 }
 
@@ -950,19 +950,19 @@ test "schema_to_prompt array" {
   @debug.assert_eq(schema_to_prompt(array(string())), "string[]")
   @debug.assert_eq(
     schema_to_prompt(array(string()).min(2)),
-    "string[]  // min: 2 items",
+    "string[]  // [min: 2 items]",
   )
   @debug.assert_eq(
     schema_to_prompt(array(string()).max(5)),
-    "string[]  // max: 5 items",
+    "string[]  // [max: 5 items]",
   )
   @debug.assert_eq(
     schema_to_prompt(array(string()).min(1).max(10)),
-    "string[]  // min: 1 items, max: 10 items",
+    "string[]  // [min: 1 items, max: 10 items]",
   )
   @debug.assert_eq(
     schema_to_prompt(array(string().email())),
-    "string[]  // email",
+    "string[]  // [email]",
   )
 }
 
@@ -982,11 +982,11 @@ test "schema_to_prompt union" {
 test "schema_to_prompt optional with constraints" {
   @debug.assert_eq(
     schema_to_prompt(string().min(3).optional()),
-    "string | null  // min: 3",
+    "string | null  // [min: 3]",
   )
   @debug.assert_eq(
     schema_to_prompt(number().int().optional()),
-    "number | null  // int",
+    "number | null  // [int]",
   )
 }
 
@@ -995,7 +995,7 @@ test "schema_to_prompt transform transparent" {
   let s = string().transform(fn(json) { Ok(json) })
   @debug.assert_eq(schema_to_prompt(s), "string")
   let s2 = number().int().transform(fn(j) { Ok(j) })
-  @debug.assert_eq(schema_to_prompt(s2), "number  // int")
+  @debug.assert_eq(schema_to_prompt(s2), "number  // [int]")
 }
 
 ///|
@@ -1010,8 +1010,8 @@ test "schema_to_prompt simple object" {
     "age": number().int().min(0).max(150),
   })
   let expected = "{\n" +
-    "  name: string,  // 2-50 chars\n" +
-    "  age: number,  // int, 0-150\n" +
+    "  name: string,  // [2-50 chars]\n" +
+    "  age: number,  // [int, 0-150]\n" +
     "}"
   @debug.assert_eq(schema_to_prompt(s), expected)
 }
@@ -1025,7 +1025,7 @@ test "schema_to_prompt object with optional fields" {
   })
   let expected = "{\n" +
     "  name: string,\n" +
-    "  email?: string,  // email\n" +
+    "  email?: string,  // [email]\n" +
     "  role: \"admin\" | \"user\",\n" +
     "}"
   @debug.assert_eq(schema_to_prompt(s), expected)
@@ -1041,8 +1041,8 @@ test "schema_to_prompt nested object" {
   })
   let expected = "{\n" +
     "  profile: {\n" +
-    "    age: number,  // int, 0-150\n" +
-    "    tags: string[],  // min: 1\n" +
+    "    age: number,  // [int, 0-150]\n" +
+    "    tags: string[],  // [min: 1]\n" +
     "  },\n" +
     "}"
   @debug.assert_eq(schema_to_prompt(s), expected)
@@ -1055,7 +1055,7 @@ test "schema_to_prompt nested optional object" {
   })
   let expected = "{\n" +
     "  metadata?: {\n" +
-    "    level: number,  // int, 1-10\n" +
+    "    level: number,  // [int, 1-10]\n" +
     "  },\n" +
     "}"
   @debug.assert_eq(schema_to_prompt(s), expected)
@@ -1072,7 +1072,7 @@ test "schema_to_prompt refine custom message" {
     },
     "Value must be > 10",
   )
-  @debug.assert_eq(schema_to_prompt(s), "number  // Value must be > 10")
+  @debug.assert_eq(schema_to_prompt(s), "number  // [Value must be > 10]")
 }
 
 ///|
@@ -1085,5 +1085,5 @@ test "schema_to_prompt nonempty is filtered" {
 ///|
 test "schema_to_prompt default with constraints" {
   let s = string().min(3).default(Json::string("abc"))
-  @debug.assert_eq(schema_to_prompt(s), "string | null  // min: 3")
+  @debug.assert_eq(schema_to_prompt(s), "string | null  // [min: 3]")
 }
