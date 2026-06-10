@@ -39,6 +39,7 @@ fn type_to_prompt(schema : Schema, indent : Int) -> String {
     EnumType(values) => enum_to_prompt(values)
     ArrayType(elem) => type_to_prompt(elem, indent) + "[]"
     UnionType(schemas) => union_to_prompt(schemas, indent)
+    IntersectionType(schemas) => intersection_to_prompt(schemas, indent)
     ObjectType(spec, _) => object_to_prompt(spec, indent)
   }
 }
@@ -69,6 +70,22 @@ fn union_to_prompt(schemas : Array[Schema], indent : Int) -> String {
       result = type_to_prompt(s, indent)
     } else {
       result = result + " | " + type_to_prompt(s, indent)
+    }
+    first = false
+  }
+  result
+}
+
+///|
+/// Render an intersection as "A & B & C".
+fn intersection_to_prompt(schemas : Array[Schema], indent : Int) -> String {
+  let mut result = ""
+  let mut first = true
+  for s in schemas {
+    if first {
+      result = type_to_prompt(s, indent)
+    } else {
+      result = result + " & " + type_to_prompt(s, indent)
     }
     first = false
   }

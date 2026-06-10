@@ -16,6 +16,8 @@ pub fn format_path(Array[String]) -> String
 
 pub fn inner_type(SchemaType) -> SchemaType
 
+pub fn intersection(Array[Schema]) -> Schema
+
 pub fn is_optional_schema(Schema) -> Bool
 
 pub fn null() -> Schema
@@ -64,6 +66,7 @@ pub fn Schema::default(Self, Json) -> Self
 pub fn Schema::describe(Self, String) -> Self
 pub fn Schema::email(Self) -> Self
 pub fn Schema::int(Self) -> Self
+pub fn Schema::intersect(Self, Self) -> Self
 pub fn Schema::max(Self, Int) -> Self
 pub fn Schema::min(Self, Int) -> Self
 pub fn Schema::multipleOf(Self, Int) -> Self
@@ -74,6 +77,7 @@ pub fn Schema::parse(Self, Json, path? : String) -> Result[Json, Array[Validatio
 pub fn Schema::parse_array(Self, Self, Json, Array[String]) -> Result[Json, Array[ValidationError]]
 pub fn Schema::parse_default(Self, Self, Json, Json, Array[String]) -> Result[Json, Array[ValidationError]]
 pub fn Schema::parse_enum(Self, Array[String], Json, Array[String]) -> Result[Json, Array[ValidationError]]
+pub fn Schema::parse_intersection(Self, Array[Self], Json, Array[String]) -> Result[Json, Array[ValidationError]]
 pub fn Schema::parse_object(Self, Map[String, Self], ObjectMode, Json, Array[String]) -> Result[Json, Array[ValidationError]]
 pub fn Schema::parse_optional(Self, Self, Json, Array[String]) -> Result[Json, Array[ValidationError]]
 pub fn Schema::parse_transform(Self, Self, TransformClosure, Json, Array[String]) -> Result[Json, Array[ValidationError]]
@@ -98,6 +102,7 @@ pub(all) enum SchemaType {
   DefaultType(Schema, Json)
   EnumType(Array[String])
   UnionType(Array[Schema])
+  IntersectionType(Array[Schema])
   TransformType(Schema, TransformClosure)
 }
 

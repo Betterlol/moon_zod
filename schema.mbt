@@ -19,6 +19,7 @@ pub(all) enum SchemaType {
   DefaultType(Schema, Json)
   EnumType(Array[String])
   UnionType(Array[Schema])
+  IntersectionType(Array[Schema])
   TransformType(Schema, TransformClosure)
 }
 
@@ -124,6 +125,7 @@ fn expected_msg(schema_type : SchemaType) -> String {
     ObjectType(_, _) => "Expected object"
     ArrayType(_) => "Expected array"
     EnumType(_) => "Invalid enum value"
+    IntersectionType(_) => "Expected intersection match"
     TransformType(_, _) => "Validation failed"
     _ => "Validation failed"
   }
@@ -216,6 +218,8 @@ fn parse_inner(
       schema.parse_default(inner, default_val, json, path_stack)
     EnumType(values) => schema.parse_enum(values, json, path_stack)
     UnionType(schemas) => schema.parse_union(schemas, json, path_stack)
+    IntersectionType(schemas) =>
+      schema.parse_intersection(schemas, json, path_stack)
     TransformType(inner, closure) =>
       schema.parse_transform(inner, closure, json, path_stack)
     _ => {

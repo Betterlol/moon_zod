@@ -66,6 +66,10 @@ fn to_json_schema_full(schema : Schema) -> Json {
       Json::object({
         "anyOf": Json::array(schemas.map(fn(s) { to_json_schema_full(s) })),
       })
+    IntersectionType(schemas) =>
+      Json::object({
+        "allOf": Json::array(schemas.map(fn(s) { to_json_schema_full(s) })),
+      })
   }
   merge_annotations(base, schema.rules)
 }
@@ -129,6 +133,12 @@ fn to_json_schema_inner(t : SchemaType) -> Json {
     UnionType(schemas) =>
       Json::object({
         "anyOf": Json::array(
+          schemas.map(fn(s) { to_json_schema_inner(s.schema_type) }),
+        ),
+      })
+    IntersectionType(schemas) =>
+      Json::object({
+        "allOf": Json::array(
           schemas.map(fn(s) { to_json_schema_inner(s.schema_type) }),
         ),
       })

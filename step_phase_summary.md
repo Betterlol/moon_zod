@@ -287,11 +287,32 @@
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 120（116 黑盒 + 4 白盒） |
+| 测试数量 | 149（145 黑盒 + 4 白盒） |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
 | 核心源码模块 | 14 个 `.mbt` 文件 |
 | CLI 工具 | 3 个（`cmd/main` 基准, `cmd/wasm` 跨语言, `cmd/json2schema` 代码生成） |
 | 展示示例 | 5 个（`llm_agent`, `educational_agent`, `real_llm_agent`, `json2schema`, `schema2json`） |
+
+## Phase 18 — Intersection 类型组合子 (Schema::intersect)
+
+**目标**: 实现 `Schema::intersect()` / `IntersectionType` — 要求输入同时满足多个 Schema，对象字段自动合并。
+
+| 修改文件 | 变更 |
+|---|---|
+| `schema.mbt` | `SchemaType` 新增 `IntersectionType(Array[Schema])` 变体；`parse_inner`/`expected_msg` 分发 |
+| `union.mbt` | 新增 `intersection(Array[Schema])` 工厂、`Schema::intersect(Schema)` 方法、`Schema::parse_intersection()` 内部 helper |
+| `json_schema.mbt` | `to_json_schema_full`/`to_json_schema_inner` 添加 IntersectionType → `allOf` 分支 |
+| `prompt.mbt` | `type_to_prompt` 添加 IntersectionType → `"A & B & C"` 渲染；新增 `intersection_to_prompt` 函数 |
+| `moon_zod_test.mbt` | 10 个新测试覆盖：基本解析、对象字段合并、跨类型失败、`.intersect()` 方法、三 Schema 组合、错误收集、JSON Schema allOf、骨架 allOf、prompt 输出、单 Schema |
+| `pkg.generated.mbti` | 新增 `intersection`、`Schema::intersect`、`Schema::parse_intersection`、`IntersectionType` |
+
+**关键决策**:
+- `parse_intersection` 依次运行每个子 Schema，收集所有错误；若全部成功则合并结果（对象字段用 Map.set 逐 key 合并，非对象保留最后一个解析值）
+- `intersect` 用作方法名（`and` 是 MoonBit 关键字，不可用）
+- JSON Schema 使用 `allOf` 表达交集约束
+- Prompt 使用 `&` 分隔符（`"string & number"`）
+
+**产出**: 149/149 测试全部通过 0 警告；核心源码 ~4012 行覆盖 4k 竞争基准线。
 
 详情见各 `step_phase_details/step_phase_*.md` 文件。

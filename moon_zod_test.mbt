@@ -1347,3 +1347,111 @@ test "schema_to_prompt describe through transform" {
   let s = string().describe("保持原样").transform(fn(j) { Ok(j) })
   @debug.assert_eq(schema_to_prompt(s), "string  // 保持原样")
 }
+
+///|
+test "intersection parse basic" {
+  let s = intersection([string().min(3), string().max(10)])
+  match s.parse(Json::string("hello")) {
+    Ok(v) => @debug.assert_eq(v, Json::string("hello"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "intersection fails when one schema fails" {
+  let s = intersection([string(), number()])
+  match s.parse(Json::string("not a number")) {
+    Err(_) => ()
+    Ok(_) => fail("expected Err")
+  }
+}
+
+///|
+test "intersection merges object fields" {
+  let s = intersection([object({ "a": string() }), object({ "b": number() })])
+  match
+    s.parse(
+      Json::object({ "a": Json::string("hello"), "b": Json::number(42.0) }),
+    ) {
+    Ok(v) =>
+      @debug.assert_eq(
+        v,
+        Json::object({ "a": Json::string("hello"), "b": Json::number(42.0) }),
+      )
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "intersection with .intersect() method" {
+  let s = string().min(3).intersect(string().max(10))
+  match s.parse(Json::string("hello")) {
+    Ok(v) => @debug.assert_eq(v, Json::string("hello"))
+    Err(_) => fail("expected Ok")
+  }
+  match s.parse(Json::string("ab")) {
+    Err(_) => ()
+    Ok(_) => fail("expected Err")
+  }
+}
+
+///|
+test "intersection with three schemas" {
+  let s = intersection([string().min(2), string().max(20), string().email()])
+  match s.parse(Json::string("test@example.com")) {
+    Ok(v) => @debug.assert_eq(v, Json::string("test@example.com"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "intersection collects all errors" {
+  let s = intersection([number().positive(), string().min(5)])
+  match s.parse(Json::number(0.0)) {
+    Err(errors) => @debug.assert_eq(errors.length(), 2)
+    Ok(_) => fail("expected Err")
+  }
+}
+
+///|
+test "to_json_schema intersection" {
+  let result = to_json_schema(intersection([string(), number()]))
+  let expected = parse_json(
+    "{\"allOf\":[{\"type\":\"string\"},{\"type\":\"number\"}]}",
+  )
+  @debug.assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema skeleton intersection" {
+  let result = to_json_schema_skeleton(intersection([string(), boolean()]))
+  let expected = parse_json(
+    "{\"allOf\":[{\"type\":\"string\"},{\"type\":\"boolean\"}]}",
+  )
+  @debug.assert_eq(result, expected)
+}
+
+///|
+test "schema_to_prompt intersection" {
+  @debug.assert_eq(
+    schema_to_prompt(intersection([string(), number()])),
+    "string & number",
+  )
+  @debug.assert_eq(
+    schema_to_prompt(intersection([string(), number(), boolean()])),
+    "string & number & boolean",
+  )
+}
+
+///|
+test "intersection single schema" {
+  let s = intersection([string().min(3)])
+  match s.parse(Json::string("hello")) {
+    Ok(v) => @debug.assert_eq(v, Json::string("hello"))
+    Err(_) => fail("expected Ok")
+  }
+  match s.parse(Json::string("ab")) {
+    Err(_) => ()
+    Ok(_) => fail("expected Err")
+  }
+}
