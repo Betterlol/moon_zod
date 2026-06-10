@@ -129,20 +129,38 @@ pub fn Schema::nonempty(self : Schema, msg? : String = "") -> Schema {
 }
 
 ///|
-fn has_at_and_dot(s : String) -> Bool {
+fn is_valid_email(s : String) -> Bool {
   let chars = s.to_array()
-  let mut at_pos : Int = -1
+  let n = chars.length()
+  // Find the single @ and validate local/domain parts
+  let mut at_count = 0
+  let mut at_pos = -1
   for i, c in chars {
     if c == '@' {
+      at_count = at_count + 1
       at_pos = i
-      break
     }
   }
+  if at_count != 1 {
+    return false
+  }
+  // Local part: non-empty, no leading/trailing dot
   if at_pos <= 0 {
     return false
   }
-  for i = at_pos + 1; i < chars.length(); i = i + 1 {
-    if chars[i] == '.' && i > at_pos + 1 && i < chars.length() - 1 {
+  if chars[0] == '.' || chars[at_pos - 1] == '.' {
+    return false
+  }
+  // Domain part: after @, at least one dot, no leading/trailing dot
+  if at_pos >= n - 1 {
+    return false
+  }
+  if chars[at_pos + 1] == '.' || chars[n - 1] == '.' {
+    return false
+  }
+  // At least one dot in domain
+  for i = at_pos + 1; i < n; i = i + 1 {
+    if chars[i] == '.' {
       return true
     }
   }
@@ -165,7 +183,7 @@ pub fn Schema::email(self : Schema, msg? : String = "") -> Schema {
     self,
     fn(json) {
       match json {
-        String(s) => has_at_and_dot(s)
+        String(s) => is_valid_email(s)
         _ => false
       }
     },
@@ -226,5 +244,158 @@ pub fn Schema::regex(
     },
     message,
     Json::object({ "pattern": Json::string(pattern) }),
+  )
+}
+
+///|
+/// Require the string to start with the given prefix.
+pub fn Schema::startsWith(
+  self : Schema,
+  prefix : String,
+  msg? : String = "",
+) -> Schema {
+  match inner_type(self.schema_type) {
+    StringType => ()
+    _ => abort("startsWith() is only valid for string schemas")
+  }
+  let message = if msg.is_empty() {
+    "String must start with \"\{prefix}\""
+  } else {
+    msg
+  }
+  append_rule_with_annotation(
+    self,
+    fn(json) {
+      match json {
+        String(s) => s.has_prefix(prefix)
+        _ => false
+      }
+    },
+    message,
+    Json::object({ "pattern": Json::string("^" + prefix) }),
+  )
+}
+
+///|
+/// Require the string to end with the given suffix.
+pub fn Schema::endsWith(
+  self : Schema,
+  suffix : String,
+  msg? : String = "",
+) -> Schema {
+  match inner_type(self.schema_type) {
+    StringType => ()
+    _ => abort("endsWith() is only valid for string schemas")
+  }
+  let message = if msg.is_empty() {
+    "String must end with \"\{suffix}\""
+  } else {
+    msg
+  }
+  append_rule_with_annotation(
+    self,
+    fn(json) {
+      match json {
+        String(s) => s.has_suffix(suffix)
+        _ => false
+      }
+    },
+    message,
+    Json::object({ "pattern": Json::string(suffix + "$") }),
+  )
+}
+
+///|
+/// Require the string to contain the given substring.
+pub fn Schema::includes(
+  self : Schema,
+  substring : String,
+  msg? : String = "",
+) -> Schema {
+  match inner_type(self.schema_type) {
+    StringType => ()
+    _ => abort("includes() is only valid for string schemas")
+  }
+  let message = if msg.is_empty() {
+    "String must include \"\{substring}\""
+  } else {
+    msg
+  }
+  append_rule(
+    self,
+    fn(json) {
+      match json {
+        String(s) => s.contains(substring)
+        _ => false
+      }
+    },
+    message,
+  )
+}
+
+///|
+fn is_hex_digit(c : Char) -> Bool {
+  (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+}
+
+///|
+/// Require the string to be a valid UUID v4.
+/// Format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+pub fn Schema::uuid(self : Schema, msg? : String = "") -> Schema {
+  match inner_type(self.schema_type) {
+    StringType => ()
+    _ => abort("uuid() is only valid for string schemas")
+  }
+  let message = if msg.is_empty() {
+    "String must be a valid UUID v4"
+  } else {
+    msg
+  }
+  append_rule_with_annotation(
+    self,
+    fn(json) {
+      match json {
+        String(s) => {
+          let chars = s.to_array()
+          if chars.length() != 36 {
+            return false
+          }
+          // Dashes at positions 8, 13, 18, 23
+          if chars[8] != '-' ||
+            chars[13] != '-' ||
+            chars[18] != '-' ||
+            chars[23] != '-' {
+            return false
+          }
+          // Version digit at position 14 must be '4'
+          if chars[14] != '4' {
+            return false
+          }
+          // Variant at position 19 must be 8/9/a/b/A/B
+          if chars[19] != '8' &&
+            chars[19] != '9' &&
+            chars[19] != 'a' &&
+            chars[19] != 'b' &&
+            chars[19] != 'A' &&
+            chars[19] != 'B' {
+            return false
+          }
+          // All other chars must be hex digits
+          let positions = [
+            0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 15, 16, 17, 20, 21, 22, 24, 25,
+            26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
+          ]
+          for i in positions {
+            if !is_hex_digit(chars[i]) {
+              return false
+            }
+          }
+          true
+        }
+        _ => false
+      }
+    },
+    message,
+    Json::object({ "format": Json::string("uuid") }),
   )
 }
