@@ -6,9 +6,9 @@
 
 - **语言**: MoonBit
 - **模块名**: `Betterlol/moon_zod`
-- **版本**: 0.3.0（含 schema_to_prompt + .describe() 字段描述）
+- **版本**: 0.4.0（含自定义错误消息 + 增强验证器集）
 - **依赖**: 仅 `moonbitlang/core/json`、`moonbitlang/core/debug`
-- **测试**: 120 个测试（116 黑盒 + 4 白盒），全部通过
+- **测试**: 189 个测试（185 黑盒 + 4 白盒），全部通过
 - **编译器警告**: 0
 - **CI**: GitHub Actions (ubuntu-latest)，覆盖 fmt check → native build → wasm build → test
 - **发布**: https://github.com/Betterlol/moon_zod/releases/tag/v0.2.2
@@ -26,7 +26,7 @@ moon_zod/
 ├── README.mbt.md             # 用户 README（含 API 参考、Benchmark 数据、LLM 自愈示例）
 ├── summary_handover.md       # 本文件
 ├── step_phase_summary.md     # Phase 1-13 合并总结
-├── step_phase_details/       # 各阶段详细总结（13 个 .md）
+├── step_phase_details/       # 各阶段详细总结（20 个 .md）
 │
 ├── .github/workflows/
 │   └── ci.yml                # CI: checkout → setup-moonbit → install → fmt → build → test
@@ -46,7 +46,7 @@ moon_zod/
 ├── json_schema.mbt           # to_json_schema() 导出标准 JSON Schema
 ├── moon_zod.mbt              # 包级文档（doc comment）
 │
-├── moon_zod_test.mbt         # 黑盒测试（116 tests）
+├── moon_zod_test.mbt         # 黑盒测试（185 tests）
 ├── moon_zod_wbtest.mbt       # 白盒测试（4 tests）
 │
 ├── cmd/main/
@@ -111,18 +111,24 @@ moon_zod/
 | 方法 | 适用类型 | 说明 |
 |---|---|---|
 | `.parse(Json, path?: String) -> SchemaResult` | 所有 | 执行校验，返回 `Ok(Json)` 或 `Err(Array[ValidationError])` |
-| `.min(n)` | string / number / array | 最小长度/最小值 |
-| `.max(n)` | string / number / array | 最大长度/最大值 |
-| `.nonempty()` | string | 字符串非空 |
-| `.email()` | string | 类似 email 格式（含 @ 和 .）|
-| `.url()` | string | 以 `http://` 或 `https://` 开头 |
-| `.regex(pattern)` | string | 包含子串 pattern |
-| `.int()` | number | 整数值（无小数部分）|
-| `.positive()` | number | > 0 |
-| `.negative()` | number | < 0 |
-| `.multipleOf(n)` | number | n 的整数倍 |
+| `.min(n[, msg])` | string / number / array | 最小长度/最小值 |
+| `.max(n[, msg])` | string / number / array | 最大长度/最大值 |
+| `.nonempty([msg])` | string | 字符串非空 |
+| `.email([msg])` | string | 校验 email 格式（改进版：恰好一个 @、local 无首尾点、domain 至少一个点）|
+| `.url([msg])` | string | 以 `http://` 或 `https://` 开头 |
+| `.regex(pattern[, msg])` | string | 包含子串 pattern |
+| `.startsWith(prefix[, msg])` | string | 以特定前缀开始 |
+| `.endsWith(suffix[, msg])` | string | 以特定后缀结束 |
+| `.includes(substring[, msg])` | string | 包含特定子串 |
+| `.uuid([msg])` | string | UUID v4 格式校验 |
+| `.int([msg])` | number | 整数值（无小数部分）|
+| `.positive([msg])` | number | > 0 |
+| `.negative([msg])` | number | < 0 |
+| `.multipleOf(n[, msg])` | number | n 的整数倍 |
 | `.optional()` | 任意 | null 或缺失时跳过校验。**规则链穿透**：`.optional().min(3)` 正确工作 |
 | `.default(value)` | 任意 | null 时替换为默认值。**规则链穿透** |
+| `.message(text)` | 任意 | 覆写上一条规则的消息，链式调用 |
+| `.intersect(other)` | 任意 | 交集组合：输入必须同时满足两个 Schema；对象字段自动合并 |
 | `.strict()` | object | 拒绝未定义字段 |
 | `.passthrough()` | object | 允许未定义字段原样保留 |
 | `.strip()` | object | 静默移除未定义字段（默认行为）|
@@ -150,6 +156,7 @@ pub(all) enum SchemaType { StringType; NumberType; BooleanType; NullType;
     ObjectType(Map[String, Schema], ObjectMode); ArrayType(Schema);
     OptionalType(Schema); DefaultType(Schema, Json);
     EnumType(Array[String]); UnionType(Array[Schema]);
+    IntersectionType(Array[Schema]);
     TransformType(Schema, TransformClosure) }
 pub(all) struct TransformClosure { f: (Json) -> Result[Json, String] }
 pub(all) struct Rule { check: (Json) -> Bool; message: String; annotation: Json }
@@ -254,12 +261,15 @@ pub fn append_rule(schema, check, message) -> Schema {
 | 15 (v0.2.2) | `e320010` | JSON Schema 完整约束导出 + `to_json_schema_skeleton()` |
 | 16 | `ce103e6` | `schema_to_prompt()` — Schema → TypeScript Interface 生成，含约束注释 |
 | 17 (v0.3.0) | `3fba0fe` | `.describe()` 字段描述 + `schema_to_prompt()` 渲染描述文本 |
+| 18 | `41170f0` | Intersection 类型组合子 (`Schema::intersect()` / `IntersectionType`) |
+| 19 (v0.4.0) | `5a67755` | 自定义错误消息: 每规则 `msg?` 参数 + `.message()` 方法 |
+| 20 | `49aae66` | 增强验证器集: `.startsWith()`, `.endsWith()`, `.includes()`, `.uuid()`, 改进 `.email()` |
 
 ---
 
 ## 6. 测试概况
 
-- **116 个黑盒测试**（`moon_zod_test.mbt`）+ **4 个白盒测试**（`moon_zod_wbtest.mbt`）= **120 个测试**
+- **185 个黑盒测试**（`moon_zod_test.mbt`）+ **4 个白盒测试**（`moon_zod_wbtest.mbt`）= **189 个测试**
 - 无外部依赖测试框架，使用 MoonBit 内建 `test` 块
 - `parse_json()` 辅助函数用于从字符串构造 JSON（避免 `@json.parse` 的异常处理）
 - 测试覆盖：
@@ -274,6 +284,9 @@ pub fn append_rule(schema, check, message) -> Schema {
   - to_json_schema 输出
   - schema_to_prompt 输出格式（所有类型、约束组合、嵌套、optional、refine）
   - .describe() 描述渲染（单独、联合约束、optional、对象字段、嵌套对象、transform）
+  - Intersection 类型组合子（基本解析、对象合并、allOf 导出）
+  - 自定义错误消息 (`msg?` 参数 + `.message()` 方法，含装饰器穿透)
+  - 增强验证器 (`startsWith`, `endsWith`, `includes`, `uuid`, 改进 email 边缘 case)
 
 **运行测试**: `moon test`（需在项目目录下）
 
@@ -297,23 +310,32 @@ pub fn append_rule(schema, check, message) -> Schema {
 > 编译器警告已在 Phase 12 全部消除（unused self × 4、unreachable_code × 1、Show deprecation × 30+）。  
 > 白盒测试已在 Phase 13 新增（4 个 path_stack 不变性测试）。  
 > 原生 Benchmark 已在 Phase 14 迁移至 `@bench` 标准库（校准 ns/op 指标）。  
-> schema_to_prompt() 已在 Phase 16 实现（17 测试，112 总）。  
-> .describe() 字段描述已在 Phase 17 实现（8 测试，120 总）。
+> schema_to_prompt() 已在 Phase 16 实现（17 测试）。  
+> .describe() 字段描述已在 Phase 17 实现（8 测试，120 总）。  
+> Intersection 组合子已在 Phase 18 实现（10 测试，149 总）。  
+> `.message()` 自定义错误消息已在 Phase 19 实现（22 测试，171 总）。  
+> 增强验证器集已在 Phase 20 实现（18 测试，189 总）。
+
+> **与 Zod/Pydantic 对比，未实现的差异化特性**（当前实现对 LLM Tool Calling 场景已生产就绪，以下为锦上添花）：
+> - **类型级错误消息**：Zod 可在 schema 级别定制 `{ required_error, invalid_type_error }`，我们只能覆写规则错误
+> - **`msg` 只接受字符串**：Zod 可传 `{ message, code }` 对象，我们只接受 `String`
+> - **全局错误映射**：Zod 有 `z.setErrorMap()` 全局替换所有内置消息，我们没有
+> - **`.url()` 深度**：我们只检查 `http://`/`https://` 前缀，Zod 用 `new URL()` 做完整格式校验
+> - **缺失验证器**：`.cuid()`, `.ulid()`, `.datetime()`, `.ip()`, `.nan()`, `.finite()`, `.length()` 等
+> - **`.email()` 仍比 Zod 弱**：Zod 用接近 RFC 5322 的复杂正则；我们在 `a@b@c.com` 等边缘 case 上优于旧版，但还有 quoted local parts、IP literal domains 等未覆盖
 
 ### 建议下一步
-1. **`.message()` 自定义错误消息** — 允许为每个规则覆写错误消息，使 self-correction loop 更精准
-2. **Schema 组合器**: `Schema::pick()`, `Schema::omit()`, `Schema::partial()` 从已有 schema 派生子集
-3. **增强验证器集**: `.uuid()`, `.startsWith()`, `.endsWith()`, `.includes()`, 更好的 `.email()` regex
-4. **多平台 CI**: 扩展 GitHub Actions 到 macos-latest / windows-latest
-5. **derive 宏**: `derive(ZodSchema)` 从 MoonBit struct 自动生成 schema
-6. **wasm-gc target**: 验证 `--target wasm-gc` 的兼容性并优化 instantiation 开销
+1. **Schema 组合器**: `Schema::pick()`, `Schema::omit()`, `Schema::partial()` 从已有 schema 派生子集
+2. **多平台 CI**: 扩展 GitHub Actions 到 macos-latest / windows-latest
+3. **derive 宏**: `derive(ZodSchema)` 从 MoonBit struct 自动生成 schema
+4. **wasm-gc target**: 验证 `--target wasm-gc` 的兼容性并优化 instantiation 开销
 
 ---
 
 ## 9. 快速命令
 
 ```bash
-moon test                          # 运行全部测试（120 tests, 0 warnings）
+moon test                          # 运行全部测试（189 tests, 0 warnings）
 moon build                         # 编译库（0 warnings）
 moon build --target wasm --release # 编译 Wasm benchmark
 moon run cmd/main                  # 运行 MoonZod 吞吐 Benchmark（3 项）
@@ -329,4 +351,4 @@ moon info && moon fmt              # 更新接口 + 格式化
 
 ---
 
-*最后更新: 2026-06-09 | v0.3.0 发布 — Phase 1-17 全部完成*
+*最后更新: 2026-06-10 | v0.4.0 发布 — Phase 1-20 全部完成*

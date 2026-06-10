@@ -1,4 +1,4 @@
-# moon_zod 开发阶段总结 (Phase 1–17)
+# moon_zod 开发阶段总结 (Phase 1–20)
 
 > 本项目为 MoonBit 语言实现的 JSON Schema 运行时校验库，灵感来自 Zod/Pydantic。
 > 以下按阶段总结每个 Phase 的核心交付物、关键设计决策及文件变更。
@@ -287,7 +287,7 @@
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 149（145 黑盒 + 4 白盒） |
+| 测试数量 | 189（185 黑盒 + 4 白盒） |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
 | 核心源码模块 | 14 个 `.mbt` 文件 |
@@ -314,5 +314,43 @@
 - Prompt 使用 `&` 分隔符（`"string & number"`）
 
 **产出**: 149/149 测试全部通过 0 警告；核心源码 ~4012 行覆盖 4k 竞争基准线。
+
+---
+
+## Phase 19 — 自定义错误消息 (v0.4.0)
+
+**目标**: 让调用者能为每个规则覆写错误消息，使 LLM 自修正循环获得语义更精准的反馈。
+
+| 修改文件 | 变更 |
+|---|---|
+| `string.mbt` | `min`, `max`, `nonempty`, `email`, `url`, `regex` 添加 `msg?: String = ""` 参数 |
+| `number.mbt` | `int`, `positive`, `negative`, `multipleOf` 添加 `msg?: String = ""` 参数 |
+| `schema.mbt` | 新增 `Schema::message(text)` 方法，穿透 OptionalType/DefaultType/TransformType 覆盖最后一条规则消息 |
+| `moon_zod_test.mbt` | 22 个测试：14 个 `msg?` 参数 + 8 个 `.message()` 方法 |
+
+**关键决策**:
+- `msg?` 默认 `""`，非空时取代默认消息。零破坏性。
+- `.message()` 递归穿透装饰器包装，找到 rules 所在的内层 schema，替换最后一条规则消息
+- 两种调用方式等价：`string().min(3, msg="太短")` 与 `string().min(3).message("太短")`
+
+**产出**: 171/171 测试全部通过 0 警告。
+
+---
+
+## Phase 20 — 增强验证器集
+
+**目标**: 填补常用字符串验证器空白，改进 email 校验健壮性。
+
+| 修改文件 | 变更 |
+|---|---|
+| `string.mbt` | 新增 `startsWith(prefix, msg?)`, `endsWith(suffix, msg?)`, `includes(substring, msg?)`, `uuid(msg?)`；`is_valid_email` 替代 `has_at_and_dot` |
+| `moon_zod_test.mbt` | 18 个测试覆盖全部新验证器 + email 边缘 case |
+
+**关键决策**:
+- UUID v4 逐字符校验（8-4-4-4-12 布局，版本位 4，变体位 8/9/a/b），纯字符遍历 O(1)，无正则依赖
+- 改进 email 校验：要求恰好一个 @、local 无首尾点、domain 至少一个点
+- 所有验证器均支持 `msg?` 参数和 JSON Schema annotation
+
+**产出**: 189/189 测试全部通过 0 警告。
 
 详情见各 `step_phase_details/step_phase_*.md` 文件。

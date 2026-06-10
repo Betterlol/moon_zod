@@ -62,6 +62,11 @@ let result = schema.parse(json_data)
 | 13 (v0.2.0) | 路径栈白盒测试 + `.transform()` 管线 | 4 白盒测试 + `Schema::transform()` 数据变换 |
 | 14 | Bench 重构 + 示例优化 | `@bench` 库迁移 + `examples/real_llm_agent/` 重构成 CLI |
 | 15 (v0.2.2) | JSON Schema 完整约束导出 | `to_json_schema()` 带约束注解 + `to_json_schema_skeleton()` 骨架导出 |
+| 16 (v0.2.3) | `schema_to_prompt()` | Schema → TypeScript Interface 生成，含约束注释 |
+| 17 (v0.3.0) | `.describe()` 字段描述 | 描述文本嵌入 prompt |
+| 18 | Intersection 组合子 | `Schema::intersect()` / `IntersectionType` + `allOf` 导出 |
+| 19 | 自定义错误消息 | 每规则 `msg?` 参数 + `.message()` 链式方法 |
+| 20 | 增强验证器集 | `.startsWith()`, `.endsWith()`, `.includes()`, `.uuid()`, 改进 `.email()` |
 
 ---
 
@@ -137,21 +142,25 @@ moon_zod/
 ├── union.mbt              # optional / default / enum_values / union
 ├── refine.mbt             # refine() 自定义规则
 ├── transform.mbt          # transform() 数据变换管线
-├── json_schema.mbt        # to_json_schema() 导出
+├── prompt.mbt          # schema_to_prompt() — TS Interface 生成
+├── json_schema.mbt        # to_json_schema() / to_json_schema_skeleton() 导出
 ├── moon_zod.mbt           # 包级文档注释
-├── moon_zod_test.mbt      # 黑盒测试（81 tests）
+├── moon_zod_test.mbt      # 黑盒测试（185 tests）
 ├── moon_zod_wbtest.mbt    # 白盒测试（4 tests）
 │
-├── cmd/main/              # 基准测试入口
+├── cmd/main/              # @bench 基准测试入口
 ├── cmd/wasm/              # WASM 跨语言对比基准
 ├── cmd/json2schema/       # JSON-to-Schema 代码生成器 CLI
 │
 ├── examples/llm_agent/        # LLM 工具调用自愈演示
 ├── examples/educational_agent/ # AI 教育 Agent 3 轮自纠正演示
+├── examples/real_llm_agent/   # 真实 LLM Agent — 完整管线演示
+├── examples/json2schema/      # JSON → Schema 生成示例
+├── examples/schema2json/      # Schema → JSON 反向转换示例
 │
 ├── bench_cross_lang/      # Node.js 三路对比编排器
-├── step_phase_details/    # 各阶段详细总结
-├── step_phase_summary.md  # Phase 1-13 合并总结
+├── step_phase_details/    # 各阶段详细总结（20 个 .md）
+├── step_phase_summary.md  # Phase 1-20 合并总结
 ├── summary_handover.md    # 项目交接文档
 ├── DESIGN.md              # 本文件（架构设计）
 ├── README.mbt.md          # 用户 README

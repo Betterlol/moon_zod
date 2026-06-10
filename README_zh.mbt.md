@@ -118,7 +118,7 @@ Schema-to-Prompt (TS interface):         ← schema_to_prompt() 自动生成
 
 - **基本类型**: `string()`, `number()`, `boolean()`, `null()`
 - **复合类型**: `object(Map)`, `array(Schema)`, `union(Array[Schema])`, `enum_values(Array[String])`
-- **校验规则**: `.min(n)`, `.max(n)`, `.nonempty()`, `.email()`, `.url()`, `.regex(pattern)`, `.int()`, `.positive()`, `.negative()`, `.multipleOf(n)`
+- **校验规则**: `.min(n)`, `.max(n)`, `.nonempty()`, `.email()`, `.url()`, `.regex(pattern)`, `.startsWith(prefix)`, `.endsWith(suffix)`, `.includes(substring)`, `.uuid()`, `.int()`, `.positive()`, `.negative()`, `.multipleOf(n)` — 全部支持可选 `msg?` 自定义错误消息
 - **可选/默认值**: `.optional()` 和 `.default(value)`，规则链正确穿透包装类型
 - **对象模式**: `.strict()` 拒绝多余字段；`.passthrough()` 保留多余字段；`.strip()`（默认）静默移除
 - **数据变换**: `.transform(fn)` 校验通过后变换输出
@@ -211,22 +211,28 @@ cd bench_cross_lang && node bench.js  # 跨语言对比
 | 方法 | 适用类型 | 说明 |
 |---|---|---|
 | `.parse(Json, path?)` | 所有 | 校验，返回 `Ok(Json)` 或 `Err(Array[ValidationError])` |
-| `.min(n)` | string / number / array | 最小长度/最小值 |
-| `.max(n)` | string / number / array | 最大长度/最大值 |
-| `.nonempty()` | string | 字符串非空 |
-| `.email()` | string | 须包含 `@` 和 `.` |
-| `.url()` | string | 须以 `http://` 或 `https://` 开头 |
-| `.regex(pattern)` | string | 须包含 `pattern` 子串 |
-| `.int()` | number | 须为整数（无小数部分） |
-| `.positive()` | number | 须 > 0 |
-| `.negative()` | number | 须 < 0 |
-| `.multipleOf(n)` | number | 须是 n 的整数倍 |
+| `.min(n[, msg])` | string / number / array | 最小长度/最小值 |
+| `.max(n[, msg])` | string / number / array | 最大长度/最大值 |
+| `.nonempty([msg])` | string | 字符串非空 |
+| `.email([msg])` | string | 校验 email 格式（改进版：恰好一个 @、local 无首尾点、domain 至少一个点）|
+| `.url([msg])` | string | 须以 `http://` 或 `https://` 开头 |
+| `.regex(pattern[, msg])` | string | 须包含 `pattern` 子串 |
+| `.startsWith(prefix[, msg])` | string | 以特定前缀开始 |
+| `.endsWith(suffix[, msg])` | string | 以特定后缀结束 |
+| `.includes(substring[, msg])` | string | 包含特定子串 |
+| `.uuid([msg])` | string | UUID v4 格式校验 |
+| `.int([msg])` | number | 须为整数（无小数部分） |
+| `.positive([msg])` | number | 须 > 0 |
+| `.negative([msg])` | number | 须 < 0 |
+| `.multipleOf(n[, msg])` | number | 须是 n 的整数倍 |
 | `.optional()` | 任意 | null 或缺失时跳过校验。**规则链穿透**：`.optional().min(3)` 正确工作 |
 | `.default(value)` | 任意 | null 时替换为默认值。**规则链穿透** |
 | `.strict()` | object | 拒绝未定义字段 |
 | `.passthrough()` | object | 保留未定义字段原样 |
 | `.strip()` | object | 静默移除未定义字段（默认行为）|
 | `.describe(text)` | 任意 | 附加人类可读描述，由 `schema_to_prompt()` 渲染到 LLM prompt |
+| `.message(text)` | 任意 | 覆写上一条规则的消息 |
+| `.intersect(other)` | 任意 | 交集组合：输入须同时满足两个 Schema；对象字段自动合并 |
 | `.refine(check, msg)` | 任意 | 自定义校验谓词 |
 | `.transform(fn)` | 任意 | 校验通过后变换输出值，`fn: (Json) -> Result[Json, String]` |
 
@@ -283,7 +289,7 @@ moon_zod/
 ├── cmd/main/           # 基准测试
 ├── examples/llm_agent/ # LLM 自修正演示
 ├── examples/real_llm_agent/ # 真实 LLM Agent — 完整管线演示
-├── moon_zod_test.mbt   # 黑盒测试（116）
+├── moon_zod_test.mbt   # 黑盒测试（185）
 └── moon_zod_wbtest.mbt # 白盒测试（4）
 ```
 
@@ -292,7 +298,7 @@ moon_zod/
 ## 开发
 
 ```bash
-moon test                # 运行全部测试（共 120 项）
+moon test                # 运行全部测试（共 189 项）
 moon build               # 构建库
 moon run cmd/main        # 运行基准测试
 moon run cmd/json2schema -- '{"hello":"world"}'  # 从 JSON 生成 Schema
