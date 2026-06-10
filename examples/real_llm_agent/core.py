@@ -174,7 +174,9 @@ def run_prompt_mode(
 
         if mock:
             print("  (mock mode) Generating fake LLM output...")
-            raw_response = json.dumps(case.mock_data(attempt))
+            # raw_response = json.dumps(case.mock_data(attempt))
+            print("  No longer supporting mock mode. Please refer README for instructions on running with real LLMs.")
+            return
         else:
             print(f"  Calling {model}...")
             raw_response = call_llm(system_prompt, current_user_prompt,

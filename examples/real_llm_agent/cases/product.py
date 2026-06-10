@@ -4,8 +4,8 @@
 
 NAME = "product"
 SCHEMA_NAME = "product"
-TOOL_NAME = "create_product"
-TOOL_DESCRIPTION = "Create a product listing with name, description, price, currency, category, tags, stock, and optional metadata."
+TOOL_NAME = "create"
+TOOL_DESCRIPTION = "Create a product."
 
 
 def system_prompt() -> str:

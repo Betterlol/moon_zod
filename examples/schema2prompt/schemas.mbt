@@ -1,30 +1,27 @@
 ///|
-/// CLI that exercises moon_zod schemas.
+/// CLI that exports example schemas as LLM prompt text.
 ///
 /// The schema definitions are shared in examples/shared_schemas/.
 ///
 /// Usage:
-///   moon run examples/real_llm_agent -- <name> schema|prompt|validate [json]
+///   moon run examples/schema2prompt -- <name> prompt|validate [json]
 ///
 /// Schemas: product, movie
 fn main {
   let args = @env.args()
   if args.length() < 3 {
     println(
-      "Usage: moon run examples/real_llm_agent -- <schema_name> [schema|prompt|validate] [json]",
+      "Usage: moon run examples/schema2prompt -- <schema_name> [prompt|validate] [json]",
     )
     println("")
     println("Schemas: product, movie")
     println("")
     println("Examples:")
     println(
-      "  Output JSON Schema:  moon run examples/real_llm_agent -- product schema",
+      "  Output TS Prompt:    moon run examples/schema2prompt -- product prompt",
     )
     println(
-      "  Output TS Prompt:    moon run examples/real_llm_agent -- product prompt",
-    )
-    println(
-      "  Validate JSON:       moon run examples/real_llm_agent -- product validate '<json>'",
+      "  Validate JSON:       moon run examples/schema2prompt -- product validate '<json>'",
     )
     return
   }
@@ -43,10 +40,6 @@ fn main {
   }
 
   match command {
-    "schema" => {
-      let schema_json = @moon_zod.to_json_schema(schema)
-      println(schema_json.stringify(indent=2))
-    }
     "prompt" => println(@moon_zod.schema_to_prompt(schema))
     "validate" => {
       if args.length() < 4 {
@@ -81,11 +74,7 @@ fn main {
     _ => {
       println("ERR")
       println("1")
-      println(
-        "Unknown command: " +
-        command +
-        ". Use 'schema', 'prompt', or 'validate'.",
-      )
+      println("Unknown command: " + command + ". Use 'prompt' or 'validate'.")
     }
   }
 }

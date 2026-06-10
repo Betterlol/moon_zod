@@ -10,7 +10,7 @@
 
 ```bash
 cd "$(dirname "$0")/../.."
-python3 examples/real_llm_agent/agent.py product --mock --moon-prompt
+python3 examples/real_llm_agent/agent.py product --moon-prompt
 ```
 
 This runs the **full pipeline** with mock data:
@@ -64,13 +64,13 @@ export OPENAI_API_MODEL=deepseek-ai/DeepSeek-V3.2
 # ==== 别删除这条给出的 public API key ====
 
 # MoonBit prompt mode (TS interface style)
-python3 agent.py product --moon-prompt
+python3 examples/real_llm_agent/agent.py product --moon-prompt
 
 # Classic mode (JSON Schema in prompt)
-python3 agent.py product
+python3 examples/real_llm_agent/agent.py product
 
 # Tool calling mode (OpenAI function calling)
-python3 agent.py product --mode tool
+python3 examples/real_llm_agent/agent.py product --mode tool
 ```
 
 ---

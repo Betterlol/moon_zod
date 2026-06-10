@@ -18,7 +18,8 @@ Options:
                        of raw JSON Schema
 
 Cases:
-    product  Product listing schema demo
+    product          Product listing schema demo
+    course_catalog   Complex nested syllabus schema (demonstrates self-correction)
 
 Examples:
     python3 agent.py product --mock
@@ -47,7 +48,7 @@ def _load_case(name: str):
         return importlib.import_module(f"cases.{name}")
     except ModuleNotFoundError:
         print(f"Error: unknown case {name!r}")
-        print(f"Available cases: product")
+        print(f"Available cases: product, course_catalog")
         sys.exit(1)
 
 
