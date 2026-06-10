@@ -22,11 +22,39 @@ jobs:
       - name: Check Formatting
         run: moon fmt --check
 
-      - name: Build Native
-        run: moon build
+      - name: Build with Warnings Check
+        run: |
+          output=$(moon build 2>&1); echo "$output"
+          warn_count=$(echo "$output" | grep -c 'warning' || true)
+          echo "::notice title=Build Warnings::$warn_count warning(s)"
+          [ "$warn_count" -eq 0 ] || echo "::warning title=Build Warnings::Found $warn_count warning(s)"
 
       - name: Build Wasm
         run: moon build --target wasm --release
 
       - name: Run Tests
         run: moon test
+
+      - name: Code Line Count
+        run: |
+          echo "=== Source Code Lines ==="
+          core=$(find . -maxdepth 1 -name "*.mbt" ! -name "*_test*" ! -name "moon_zod.mbt" | xargs wc -l | tail -1)
+          test_files=$(wc -l moon_zod_test.mbt moon_zod_wbtest.mbt | tail -1)
+          cli=$(find cmd examples -name "*.mbt" -exec wc -l {} + | tail -1)
+          total=$(find . -maxdepth 1 -name "*.mbt" -exec wc -l {} + | tail -1)
+          echo "  Core library:   $core"
+          echo "  Test files:     $test_files"
+          echo "  CLI/Examples:   $cli"
+          echo "  Total (root):   $total"
+          echo "::notice title=Lines of Code::Core: $core | Tests: $test_files | CLI: $cli"
+
+      - name: Coverage Analysis
+        run: |
+          moon coverage analyze > coverage_caret.log 2>&1
+          total_line=$(tail -1 coverage_caret.log)
+          echo "$total_line"
+          echo ""
+          echo "=== Per-File Coverage (covered / total) ==="
+          moon coverage report -f summary 2>&1
+          echo ""
+          echo "::notice title=Coverage::$total_line"
