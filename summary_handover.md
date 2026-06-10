@@ -6,9 +6,9 @@
 
 - **语言**: MoonBit
 - **模块名**: `Betterlol/moon_zod`
-- **版本**: 0.2.2（含 v0.2.1 hotfix + JSON Schema 完整约束导出）
+- **版本**: 0.3.0（含 schema_to_prompt + .describe() 字段描述）
 - **依赖**: 仅 `moonbitlang/core/json`、`moonbitlang/core/debug`
-- **测试**: 95 个黑盒测试，全部通过
+- **测试**: 120 个测试（116 黑盒 + 4 白盒），全部通过
 - **编译器警告**: 0
 - **CI**: GitHub Actions (ubuntu-latest)，覆盖 fmt check → native build → wasm build → test
 - **发布**: https://github.com/Betterlol/moon_zod/releases/tag/v0.2.2
@@ -42,10 +42,11 @@ moon_zod/
 ├── union.mbt                 # optional / default / enum_values / union 工厂 + parse helpers
 ├── refine.mbt                # refine() 自定义规则
 ├── transform.mbt             # transform() 数据变换管线
+├── prompt.mbt                # schema_to_prompt() — LLM 可读 TypeScript Interface 生成
 ├── json_schema.mbt           # to_json_schema() 导出标准 JSON Schema
 ├── moon_zod.mbt              # 包级文档（doc comment）
 │
-├── moon_zod_test.mbt         # 黑盒测试（81 tests）
+├── moon_zod_test.mbt         # 黑盒测试（116 tests）
 ├── moon_zod_wbtest.mbt       # 白盒测试（4 tests）
 │
 ├── cmd/main/
@@ -71,6 +72,19 @@ moon_zod/
 ├── examples/educational_agent/
 │   ├── moon.pkg              # 教育 Agent 可执行包声明
 │   └── main.mbt              # 3 轮自纠正：类型错误 → 规则违例 → Strip 清洗
+│
+├── examples/real_llm_agent/
+│   ├── schemas.mbt           # 真实 LLM API 调用示例（含 API Key 配置）
+│   └── validator.mbt         # LLM 输出的结构化校验与重试逻辑
+│
+├── examples/json2schema/
+│   ├── main.mbt              # JSON → Schema 代码生成示例（从文件读取 JSON）
+│   ├── moon.pkg
+│   └── test_*.json           # 测试用 JSON 数据文件
+│
+├── examples/schema2json/
+│   ├── schemas.mbt           # Schema → JSON 反向转换示例
+│   └── run.sh                # 运行脚本
 │
 └── pkg.generated.mbti        # 自动生成的接口描述，**勿手动编辑**
 ```
@@ -112,6 +126,7 @@ moon_zod/
 | `.strict()` | object | 拒绝未定义字段 |
 | `.passthrough()` | object | 允许未定义字段原样保留 |
 | `.strip()` | object | 静默移除未定义字段（默认行为）|
+| `.describe(text)` | 任意 | 附加人类可读描述，由 `schema_to_prompt()` 渲染到 LLM prompt |
 | `.refine(check, msg)` | 任意 | 自定义校验谓词 |
 | `.transform(fn)` | 任意 | 校验通过后变换输出值，`fn: (Json) -> Result[Json, String]` |
 
@@ -119,8 +134,11 @@ moon_zod/
 
 | 函数 | 说明 |
 |---|---|
-| `to_json_schema(Schema) -> Json` | 导出为标准 JSON Schema 对象 |
+| `schema_to_prompt(Schema) -> String` | 生成 TypeScript-interface 风格 prompt 字符串（含约束注释 + 描述）|
+| `to_json_schema(Schema) -> Json` | 导出为标准 JSON Schema 对象（含完整约束注解）|
+| `to_json_schema_skeleton(Schema) -> Json` | 导出轻量 JSON Schema 骨架（仅结构，无约束）|
 | `format_path(Array[String]) -> String` | 将路径栈拼接为点号路径字符串 |
+| `ValidationError::to_string() -> String` | 格式化错误为 `[path] message (got: value)` |
 
 > 内部辅助函数（`append_rule`, `inner_type`, `is_optional_schema`, `value_in_array`, `sub_path`, `sub_index` 等）**未暴露**在公有 API 中。`parse_inner` 已在 v0.1.0 发布时从公共接口移除。
 
@@ -134,8 +152,8 @@ pub(all) enum SchemaType { StringType; NumberType; BooleanType; NullType;
     EnumType(Array[String]); UnionType(Array[Schema]);
     TransformType(Schema, TransformClosure) }
 pub(all) struct TransformClosure { f: (Json) -> Result[Json, String] }
-pub(all) struct Rule { check: (Json) -> Bool; message: String }
-pub struct Schema { schema_type: SchemaType; rules: Array[Rule] }
+pub(all) struct Rule { check: (Json) -> Bool; message: String; annotation: Json }
+pub struct Schema { schema_type: SchemaType; rules: Array[Rule]; description: String }
 pub struct ValidationError { path: String; message: String; got: Json }
 pub type SchemaResult = Result[Json, Array[ValidationError]]
 ```
@@ -232,12 +250,16 @@ pub fn append_rule(schema, check, message) -> Schema {
 | 11 | `ef93d1a` | 生产级 CLI 升级（`@env.args()` + 键名安全转义 + 优雅错误处理）|
 | 12 | `aee6143` | 零警告清理 + `ValidationError::to_string()` + README 完善 |
 | 13 (v0.2.0) | `f6f4bf5` | 路径栈白盒测试 + `Schema::transform()` 数据变换管线 |
+| 14 (v0.2.1) | `97b526a` | Bench 重构：迁移到 `@bench` 标准库（Valid/Adversarial/Redundancy 三场景）|
+| 15 (v0.2.2) | `e320010` | JSON Schema 完整约束导出 + `to_json_schema_skeleton()` |
+| 16 | `ce103e6` | `schema_to_prompt()` — Schema → TypeScript Interface 生成，含约束注释 |
+| 17 (v0.3.0) | `3fba0fe` | `.describe()` 字段描述 + `schema_to_prompt()` 渲染描述文本 |
 
 ---
 
 ## 6. 测试概况
 
-- **81 个黑盒测试**（`moon_zod_test.mbt`）+ **4 个白盒测试**（`moon_zod_wbtest.mbt`）= **85 个测试**
+- **116 个黑盒测试**（`moon_zod_test.mbt`）+ **4 个白盒测试**（`moon_zod_wbtest.mbt`）= **120 个测试**
 - 无外部依赖测试框架，使用 MoonBit 内建 `test` 块
 - `parse_json()` 辅助函数用于从字符串构造 JSON（避免 `@json.parse` 的异常处理）
 - 测试覆盖：
@@ -250,6 +272,8 @@ pub fn append_rule(schema, check, message) -> Schema {
   - Transform 数据变换管线（成功、失败、链式组合）
   - 错误消息内容
   - to_json_schema 输出
+  - schema_to_prompt 输出格式（所有类型、约束组合、嵌套、optional、refine）
+  - .describe() 描述渲染（单独、联合约束、optional、对象字段、嵌套对象、transform）
 
 **运行测试**: `moon test`（需在项目目录下）
 
@@ -268,26 +292,28 @@ pub fn append_rule(schema, check, message) -> Schema {
 ## 8. 已知问题 / 未来方向
 
 ### 已知
-- Benchmark 精确计时：Wasm 基准通过子进程 + 启动开销抵扣估算，而非进程内精确计时
-- 无白盒测试
+- Wasm 基准通过子进程 + 启动开销抵扣估算，而非进程内精确计时（MoonBit wasm target 的限制）
 
-> Phase 12 已消除全部编译器警告（unused self × 4、unreachable_code × 1、Show deprecation × 30+）。
+> 编译器警告已在 Phase 12 全部消除（unused self × 4、unreachable_code × 1、Show deprecation × 30+）。  
+> 白盒测试已在 Phase 13 新增（4 个 path_stack 不变性测试）。  
+> 原生 Benchmark 已在 Phase 14 迁移至 `@bench` 标准库（校准 ns/op 指标）。  
+> schema_to_prompt() 已在 Phase 16 实现（17 测试，112 总）。  
+> .describe() 字段描述已在 Phase 17 实现（8 测试，120 总）。
 
 ### 建议下一步
-1. **多平台 CI**: 扩展 GitHub Actions 到 macos-latest / windows-latest
-2. **refine 类型安全**: 允许用户定义 `refine<T>(fn(T) -> Bool)` 而不是 `fn(Json) -> Bool`
-3. **Schema 组合器**: `Schema::or()`, `Schema::and()` 等（`Schema::transform()` 已在 v0.2.0 实现）
-4. **错误本地化**: Error message 支持多语言模板
+1. **`.message()` 自定义错误消息** — 允许为每个规则覆写错误消息，使 self-correction loop 更精准
+2. **Schema 组合器**: `Schema::pick()`, `Schema::omit()`, `Schema::partial()` 从已有 schema 派生子集
+3. **增强验证器集**: `.uuid()`, `.startsWith()`, `.endsWith()`, `.includes()`, 更好的 `.email()` regex
+4. **多平台 CI**: 扩展 GitHub Actions 到 macos-latest / windows-latest
 5. **derive 宏**: `derive(ZodSchema)` 从 MoonBit struct 自动生成 schema
-6. **Benchmark 精确计时**: 用 `@bench` 包替代手动循环
-7. **wasm-gc target**: 验证 `--target wasm-gc` 的兼容性并优化 instantiation 开销
+6. **wasm-gc target**: 验证 `--target wasm-gc` 的兼容性并优化 instantiation 开销
 
 ---
 
 ## 9. 快速命令
 
 ```bash
-moon test                          # 运行全部测试（85 tests, 0 warnings）
+moon test                          # 运行全部测试（120 tests, 0 warnings）
 moon build                         # 编译库（0 warnings）
 moon build --target wasm --release # 编译 Wasm benchmark
 moon run cmd/main                  # 运行 MoonZod 吞吐 Benchmark（3 项）
@@ -303,4 +329,4 @@ moon info && moon fmt              # 更新接口 + 格式化
 
 ---
 
-*最后更新: 2026-06-06 | v0.2.0 发布 — Phase 1-13 全部完成*
+*最后更新: 2026-06-09 | v0.3.0 发布 — Phase 1-17 全部完成*

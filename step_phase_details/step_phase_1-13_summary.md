@@ -1,4 +1,4 @@
-# moon_zod 开发阶段总结 (Phase 1–17)
+# moon_zod 开发阶段总结 (Phase 1–13)
 
 > 本项目为 MoonBit 语言实现的 JSON Schema 运行时校验库，灵感来自 Zod/Pydantic。
 > 以下按阶段总结每个 Phase 的核心交付物、关键设计决策及文件变更。
@@ -8,6 +8,7 @@
 ## Phase 1 — 核心类型与基础校验器
 
 **目标**: 搭建 Schema 类型系统和基本校验骨架。
+**BASE_COMMIT**: `6466b60b4a6b331868457fd2a9d96615bef386e8`
 
 | 新增文件 | 用途 |
 |---|---|
@@ -131,6 +132,7 @@
 ## Phase 10 — JSON-to-Schema 代码生成器 CLI
 
 **目标**: 构建零依赖 CLI 工具，将 JSON 自动转为 `@moon_zod` 源码。
+**BASE_COMMIT**: `b5a2d1edd6a757a6d92bc2c695bbe2eaa46a6169`
 
 | 新增文件 | 用途 |
 |---|---|
@@ -199,99 +201,15 @@
 
 ---
 
-## Phase 14 — Bench 重构 + 示例优化 (v0.2.1)
-
-**目标**: 将基准测试从手动循环计时迁移到 MoonBit 官方 `@bench` 标准库，获得校准的 ns/op 指标。
-
-| 文件 | 变更 |
-|---|---|
-| `cmd/main/main.mbt` | 替换手动 for 循环为 `@bench.bench()` 调用，保留相同 schema/输入；添加合理性检查 |
-| `cmd/main/moon.pkg` | 添加 `"moonbitlang/core/bench"` 依赖 |
-
-**关键决策**: `@bench` 自动校准每批迭代次数（约 100ms/样本），Valid ~18.5k/批, Adversarial ~53k/批, Strip ~56k/批。`bench.keep()` 防止 DCE 优化掉 parse 结果。
-
-**产出**: 核心库无变动，85/85 测试通过 0 警告。
-
----
-
-## Phase 15 — JSON Schema 完整约束导出 (v0.2.2)
-
-**目标**: 实现 `to_json_schema()` 带约束注解（minLength, maximum, pattern, format 等）的完整导出，新增 `to_json_schema_skeleton()` 轻量骨架导出。
-
-| 文件 | 变更 |
-|---|---|
-| `schema.mbt` | `Rule` 增加 `annotation: Json` 字段；新增 `append_rule_with_annotation()` |
-| `string.mbt` | `min`/`max` → minLength/maxLength(minItems/maxItems)；`email` → `format: "email"`；`url` → `format: "uri"`；`regex` → `pattern` |
-| `number.mbt` | `int` → `type: "integer"`；`positive` → `exclusiveMinimum: 0`；`negative` → `exclusiveMaximum: 0`；`multipleOf` → `multipleOf: n` |
-| `json_schema.mbt` | 新增 `to_json_schema_skeleton()`；重写 `to_json_schema()` 为递归 `to_json_schema_full` + `merge_annotations` |
-| `moon_zod_test.mbt` | 8 个新增测试覆盖约束导出和骨架 |
-
-**关键决策**: 非破坏性变更 — 无规则 schema 输出与之前完全一致。`nonempty()` 不产生 `minLength` 注解，避免与更严格的 `min(n)` 冲突。注解合并采用后写覆盖（`map.set`），使 `int()` 正确将 `"type":"number"` 升级为 `"type":"integer"`。
-
-**产出**: 95/95 测试全部通过 0 警告。
-
----
-
-## Phase 16 — `schema_to_prompt()` TypeScript Interface 生成
-
-**目标**: 填补 LLM 工作流的缺失环节 — 给定 Schema，自动生成 TypeScript-interface 风格的可读类型描述，直接嵌入 system prompt 或修正 prompt。
-
-| 新增文件 | 用途 |
-|---|---|
-| `prompt.mbt` | `schema_to_prompt()` 及其内部递归辅助（14 个函数，412 行） |
-
-| 修改文件 | 变更 |
-|---|---|
-| `moon_zod_test.mbt` | 17 个新增测试覆盖所有类型和约束的输出格式 |
-| `examples/real_llm_agent/schemas.mbt` | 新增 `prompt` CLI 命令：调用 `schema_to_prompt()` 输出 TS interface |
-| `examples/real_llm_agent/core.py` | 新增 `fetch_moon_prompt()` 调用 MoonBit CLI 获取 prompt |
-| `examples/real_llm_agent/agent.py` | 新增 `--moon-prompt` / `-p` 标志 |
-| `examples/real_llm_agent/README.md` | 重写：显眼的 Mock Demo + 真实 LLM + CLI 使用说明 |
-| `README.mbt.md` | 新增 Demo 章节 + `schema_to_prompt` API 参考 + 项目布局更新 |
-| `AGENTS.md` | 新增 MoonBit 陷阱章节，链接到 `moonbit_syntax_pitfalls.md` |
-
-**关键决策**:
-- 约束注释使用 `[]` 括号格式（`// [min: 2, max: 50]`），与错误消息的 key-value 词汇对齐
-- 内联 TypeScript Interface 风格，所有嵌套类型内联展开，不生成独立 interface
-- `OptionalType`/`DefaultType`/`TransformType` 通过 `unwrap_schema()` 穿透取最内层规则
-
-**产出**: 112/112 测试全部通过 0 警告。
-
----
-
-## Phase 17 — `.describe()` 字段描述嵌入 Prompt (v0.3.0)
-
-**目标**: 允许 schema 作者为字段附加人类可读的描述文本，通过 `schema_to_prompt()` 渲染到 LLM prompt 中，使 LLM 除了类型约束外还能理解字段语义。
-
-| 修改文件 | 变更 |
-|---|---|
-| `schema.mbt` | `Schema` 结构体新增 `description: String` 字段；新增 `pub fn Schema::describe(text)` 方法；`append_rule_with_annotation` 3 个 wrapper 分支添加 `description: ""` |
-| `string.mbt` / `number.mbt` / `boolean.mbt` / `null.mbt` | 工厂函数添加 `description: ""` |
-| `array.mbt` / `object.mbt` | 工厂函数添加 `description: ""` |
-| `union.mbt` | `optional()` / `default()` 传播 `self.description`；`enum_values()` / `union()` 添加 `description: ""` |
-| `transform.mbt` | `transform()` 传播 `self.description` |
-| `prompt.mbt` | `schema_comment()` 合并约束与描述（`// [constraints] — description`）；`object_to_prompt` 使用 `val_schema` 保留 optional 字段描述 |
-| `moon_zod_test.mbt` | 8 个测试：describe 单独、describe+约束、optional、object 字段、嵌套对象、transform |
-| `README.mbt.md` | 添加 `.describe()` 到 API 参考表；更新测试计数 |
-
-**关键决策**:
-- `.describe()` 使用 `{ ..self, description: text }` 结构体展开，可在链式调用末尾或任意位置调用
-- `optional()` / `default()` / `transform()` 自动传播 `self.description`，确保 `describe()` 在 wrapper 之前调用也能正确传递
-- 输出格式：有约束时 `// [constraints] — description`，仅描述时 `// description`
-
-**产出**: 120/120 测试全部通过 0 警告。
-
----
-
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 120（116 黑盒 + 4 白盒） |
+| 测试数量 | 85（81 黑盒 + 4 白盒） |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
 | 核心源码模块 | 14 个 `.mbt` 文件 |
 | CLI 工具 | 3 个（`cmd/main` 基准, `cmd/wasm` 跨语言, `cmd/json2schema` 代码生成） |
-| 展示示例 | 5 个（`llm_agent`, `educational_agent`, `real_llm_agent`, `json2schema`, `schema2json`） |
+| 展示示例 | 2 个（`llm_agent`, `educational_agent`） |
 
 详情见各 `step_phase_details/step_phase_*.md` 文件。

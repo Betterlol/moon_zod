@@ -1,24 +1,29 @@
 ///|
 /// moon_zod Schema Generator — JSON to `@moon_zod` source code
 ///
-/// A zero-dependency CLI utility that accepts a JSON string via CLI
-/// argument and generates the corresponding moon_zod schema expression.
+/// Accepts a JSON string via CLI argument and generates the
+/// corresponding moon_zod schema expression.
 ///
-/// Since MoonBit targets WASM without filesystem I/O, pass the JSON
-/// directly as a string argument.
-///
-/// Usage: moon run cmd/json2schema -- '<json-string>'
-///        moon run cmd/json2schema -- --help
+/// Usage:
+///   moon run cmd/json2schema -- '<json-string>'
+///   sh cmd/json2schema/cli.sh --file <path>
+///   moon run cmd/json2schema -- --help
 fn main {
   let args = @env.args()
   if args.length() < 2 || args[1] == "--help" {
     println("Usage: moon run cmd/json2schema -- '<json-string>'")
+    println("       sh cmd/json2schema/cli.sh --file <path>")
     println("")
     println("Generate a moon_zod schema from a JSON payload.")
     println("")
     println("Examples:")
     println("  moon run cmd/json2schema -- '{\"name\": \"Alice\"}'")
     println("  moon run cmd/json2schema -- --help")
+    println("")
+    println("File input:")
+    println("  sh cmd/json2schema/cli.sh --file data.json")
+    let shell_example = "  moon run cmd/json2schema -- \"$(cat data.json)\""
+    println(shell_example)
     return
   }
 
@@ -26,7 +31,10 @@ fn main {
   let json = @json.parse(raw) catch {
     _ => {
       println("Error: invalid JSON string")
-      println("Please provide valid JSON as the first argument.")
+      println(
+        "Note: wrap the JSON in single quotes to prevent shell interpretation.",
+      )
+      println("  moon run cmd/json2schema -- '{\"key\": \"value\"}'")
       println("Use --help for usage information.")
       return
     }

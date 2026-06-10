@@ -24,6 +24,8 @@ pub fn number() -> Schema
 
 pub fn object(Map[String, Schema]) -> Schema
 
+pub fn schema_to_prompt(Schema) -> String
+
 pub fn string() -> Schema
 
 pub fn sub_index(String, Int) -> String
@@ -56,8 +58,10 @@ pub(all) struct Rule {
 pub struct Schema {
   schema_type : SchemaType
   rules : Array[Rule]
+  description : String
 }
 pub fn Schema::default(Self, Json) -> Self
+pub fn Schema::describe(Self, String) -> Self
 pub fn Schema::email(Self) -> Self
 pub fn Schema::int(Self) -> Self
 pub fn Schema::max(Self, Int) -> Self

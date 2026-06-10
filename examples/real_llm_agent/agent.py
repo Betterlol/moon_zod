@@ -3,7 +3,7 @@
 Real LLM Agent — Python Entry Point
 
 Usage:
-    python3 agent.py <case> [--mode prompt|tool] [--mock]
+    python3 agent.py <case> [--mode prompt|tool] [--mock] [--moon-prompt]
 
 Modes:
     prompt   Self-correction loop (default): LLM generates text,
@@ -11,13 +11,19 @@ Modes:
     tool     OpenAI tool calling / structured outputs: schema passed
              via tools parameter, guaranteed valid JSON.
 
+Options:
+    --mock, -m         Use mock data (no API key needed)
+    --moon-prompt, -p  Use moon_zod schema_to_prompt() for the
+                       initial prompt (TS-interface style) instead
+                       of raw JSON Schema
+
 Cases:
     product  Product listing schema demo
 
 Examples:
     python3 agent.py product --mock
-    python3 agent.py product --mode tool --mock
-    OPENAI_API_KEY=sk-... python3 agent.py product
+    python3 agent.py product --mock --moon-prompt
+    OPENAI_API_KEY=sk-... python3 agent.py product --moon-prompt
     OPENAI_API_KEY=sk-... python3 agent.py product --mode tool
 """
 
@@ -26,6 +32,7 @@ import sys
 
 from core import (
     fetch_schema,
+    fetch_moon_prompt,
     run_prompt_mode,
     run_tool_mode,
 )
@@ -57,9 +64,12 @@ def main():
     # parse optional flags
     mode = "prompt"
     is_mock = False
+    use_moon_prompt = False
     for arg in sys.argv[2:]:
         if arg == "--mock":
             is_mock = True
+        elif arg in ("--moon-prompt", "-p"):
+            use_moon_prompt = True
         elif arg == "--mode" or arg == "-m":
             pass  # handled below with next arg
         elif arg in ("prompt", "tool"):
@@ -95,6 +105,12 @@ def main():
     print(f"  Fetching schema for {case_name!r}...")
     schema_json = fetch_schema(case.SCHEMA_NAME)
     print(f"  Schema loaded ({len(schema_json.get('properties', {}))} fields)")
+
+    if use_moon_prompt:
+        moon_prompt = fetch_moon_prompt(case.SCHEMA_NAME)
+        print(f"  Schema-to-Prompt (TS interface):")
+        for line in moon_prompt.split("\n"):
+            print(f"    {line}")
     print()
 
     if mode == "tool":
@@ -108,6 +124,7 @@ def main():
             case, schema_json,
             api_key=api_key, api_url=api_url, model=model,
             mock=is_mock,
+            use_moon_prompt=use_moon_prompt,
         )
 
 

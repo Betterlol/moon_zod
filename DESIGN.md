@@ -41,7 +41,7 @@ let result = schema.parse(json_data)
 
 ## 开发阶段总览
 
-完整阶段记录见 [`step_phase_summary.md`](./step_phase_summary.md)（Phase 1-13 详细总结，含每个阶段的文件变更、关键决策、产出指标）。
+完整阶段记录见 [`step_phase_summary.md`](./step_phase_summary.md)（详细总结，含每个阶段的文件变更、关键决策、产出指标）。
 
 简明对照：
 

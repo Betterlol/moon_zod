@@ -5,7 +5,6 @@
 ///
 /// Usage:
 ///   Output JSON Schema:   moon run examples/real_llm_agent -- <name> schema
-///   Output TS Prompt:     moon run examples/real_llm_agent -- <name> prompt
 ///   Validate JSON:        moon run examples/real_llm_agent -- <name> validate '<json>'
 ///
 /// Schemas: product, movie
@@ -37,12 +36,10 @@ fn movie_schema() -> @moon_zod.Schema {
     "year": @moon_zod.number().int().min(1888),
     "rating": @moon_zod.number().min(0).max(10),
     "genres": @moon_zod.array(@moon_zod.string().min(1)),
-    "cast": @moon_zod.array(
-      @moon_zod.object({
-        "name": @moon_zod.string().min(1),
-        "role": @moon_zod.string().min(1),
-      }),
-    ),
+    "cast": @moon_zod.array(@moon_zod.object({
+      "name": @moon_zod.string().min(1),
+      "role": @moon_zod.string().min(1),
+    })),
     "duration_minutes": @moon_zod.number().int().positive(),
   })
 }
@@ -60,22 +57,14 @@ fn get_schema(name : String) -> Result[@moon_zod.Schema, String] {
 fn main {
   let args = @env.args()
   if args.length() < 3 {
-    println(
-      "Usage: moon run examples/real_llm_agent -- <schema_name> [schema|prompt|validate] [json]",
-    )
+    println("Usage: moon run examples/real_llm_agent -- <schema_name> [schema|validate] [json]")
     println("")
     println("Schemas: product, movie")
     println("")
     println("Examples:")
-    println(
-      "  Output JSON Schema:  moon run examples/real_llm_agent -- product schema",
-    )
-    println(
-      "  Output TS Prompt:    moon run examples/real_llm_agent -- product prompt",
-    )
-    println(
-      "  Validate JSON:       moon run examples/real_llm_agent -- product validate '<json>'",
-    )
+    println("  Output JSON Schema:  moon run examples/real_llm_agent -- product schema")
+    println("  Validate JSON:       moon run examples/real_llm_agent -- product validate '<json>'")
+    println("  Movie JSON Schema:   moon run examples/real_llm_agent -- movie schema")
     return
   }
 
@@ -96,9 +85,6 @@ fn main {
     "schema" => {
       let schema_json = @moon_zod.to_json_schema(schema)
       println(schema_json.stringify(indent=2))
-    }
-    "prompt" => {
-      println(@moon_zod.schema_to_prompt(schema))
     }
     "validate" => {
       if args.length() < 4 {
@@ -133,7 +119,7 @@ fn main {
     _ => {
       println("ERR")
       println("1")
-      println("Unknown command: " + command + ". Use 'schema', 'prompt', or 'validate'.")
+      println("Unknown command: " + command + ". Use 'schema' or 'validate'.")
     }
   }
 }

@@ -131,6 +131,7 @@
 ## Phase 10 — JSON-to-Schema 代码生成器 CLI
 
 **目标**: 构建零依赖 CLI 工具，将 JSON 自动转为 `@moon_zod` 源码。
+**BASE_COMMIT**: `b5a2d1edd6a757a6d92bc2c695bbe2eaa46a6169`
 
 | 新增文件 | 用途 |
 |---|---|
@@ -144,6 +145,7 @@
 ## Phase 11 — 生产级 CLI 升级
 
 **目标**: 将 json2schema 从硬编码 mock 升级为真正的 CLI 工具。
+**BASE_COMMIT**: `545fbd5`
 
 | 文件 | 变更 |
 |---|---|
@@ -262,6 +264,7 @@
 ## Phase 17 — `.describe()` 字段描述嵌入 Prompt (v0.3.0)
 
 **目标**: 允许 schema 作者为字段附加人类可读的描述文本，通过 `schema_to_prompt()` 渲染到 LLM prompt 中，使 LLM 除了类型约束外还能理解字段语义。
+**BASE_COMMIT**: `7d6524e`
 
 | 修改文件 | 变更 |
 |---|---|
