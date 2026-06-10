@@ -922,8 +922,14 @@ test "schema_to_prompt string constraints" {
 ///|
 test "schema_to_prompt number constraints" {
   @debug.assert_eq(schema_to_prompt(number().int()), "number  // [int]")
-  @debug.assert_eq(schema_to_prompt(number().positive()), "number  // [positive]")
-  @debug.assert_eq(schema_to_prompt(number().negative()), "number  // [negative]")
+  @debug.assert_eq(
+    schema_to_prompt(number().positive()),
+    "number  // [positive]",
+  )
+  @debug.assert_eq(
+    schema_to_prompt(number().negative()),
+    "number  // [negative]",
+  )
   @debug.assert_eq(
     schema_to_prompt(number().int().min(0).max(150)),
     "number  // [int, 0-150]",

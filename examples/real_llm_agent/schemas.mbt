@@ -97,9 +97,7 @@ fn main {
       let schema_json = @moon_zod.to_json_schema(schema)
       println(schema_json.stringify(indent=2))
     }
-    "prompt" => {
-      println(@moon_zod.schema_to_prompt(schema))
-    }
+    "prompt" => println(@moon_zod.schema_to_prompt(schema))
     "validate" => {
       if args.length() < 4 {
         println("ERR")
@@ -133,7 +131,11 @@ fn main {
     _ => {
       println("ERR")
       println("1")
-      println("Unknown command: " + command + ". Use 'schema', 'prompt', or 'validate'.")
+      println(
+        "Unknown command: " +
+        command +
+        ". Use 'schema', 'prompt', or 'validate'.",
+      )
     }
   }
 }

@@ -152,11 +152,7 @@ fn schema_comment(schema : Schema) -> String {
     }
     _ => inner
   }
-  let constraint_part = if merged.is_empty() {
-    ""
-  } else {
-    "[" + merged + "]"
-  }
+  let constraint_part = if merged.is_empty() { "" } else { "[" + merged + "]" }
   let desc = schema.description
   if constraint_part.is_empty() && desc.is_empty() {
     ""

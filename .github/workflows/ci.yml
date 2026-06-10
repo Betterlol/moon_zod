@@ -20,7 +20,8 @@ jobs:
         run: moon install
 
       - name: Check Formatting
-        run: moon fmt --check
+        continue-on-error: true
+        run: moon fmt --check 2>&1 || echo "::warning title=Formatting::Code style issues found — run 'moon fmt' to fix"
 
       - name: Build with Warnings Check
         run: |

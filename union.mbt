@@ -11,7 +11,11 @@ pub fn Schema::optional(self : Schema) -> Schema {
 /// Rules chained after `.default()` are pushed through to the inner schema
 /// via `append_rule`.
 pub fn Schema::default(self : Schema, value : Json) -> Schema {
-  { schema_type: DefaultType(self, value), rules: [], description: self.description }
+  {
+    schema_type: DefaultType(self, value),
+    rules: [],
+    description: self.description,
+  }
 }
 
 ///|
