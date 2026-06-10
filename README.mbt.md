@@ -1,5 +1,7 @@
 # moon_zod
 
+> 🌏 [中文版 README](./README_zh.mbt.md)
+
 A runtime JSON schema validation library for MoonBit, inspired by [Zod](https://zod.dev) and [Pydantic](https://docs.pydantic.dev).
 
 **Designed for LLM Tool Calling** — validate structured JSON output from large language models at runtime, with precise error reporting and self-correction support.
