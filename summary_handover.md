@@ -252,7 +252,7 @@ pub fn append_rule(schema, check, message) -> Schema {
 | 13 (v0.2.0) | `f6f4bf5` | 路径栈白盒测试 + `Schema::transform()` 数据变换管线 |
 | 14 (v0.2.1) | `97b526a` | Bench 重构：迁移到 `@bench` 标准库（Valid/Adversarial/Redundancy 三场景）|
 | 15 (v0.2.2) | `e320010` | JSON Schema 完整约束导出 + `to_json_schema_skeleton()` |
-| 16 (v0.2.3) | `ce103e6` | `schema_to_prompt()` — Schema → TypeScript Interface 生成，含约束注释 |
+| 16 | `ce103e6` | `schema_to_prompt()` — Schema → TypeScript Interface 生成，含约束注释 |
 | 17 (v0.3.0) | `3fba0fe` | `.describe()` 字段描述 + `schema_to_prompt()` 渲染描述文本 |
 
 ---

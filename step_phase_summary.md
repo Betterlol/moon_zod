@@ -232,7 +232,7 @@
 
 ---
 
-## Phase 16 — `schema_to_prompt()` TypeScript Interface 生成 (v0.2.3)
+## Phase 16 — `schema_to_prompt()` TypeScript Interface 生成
 
 **目标**: 填补 LLM 工作流的缺失环节 — 给定 Schema，自动生成 TypeScript-interface 风格的可读类型描述，直接嵌入 system prompt 或修正 prompt。
 
