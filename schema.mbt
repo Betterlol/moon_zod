@@ -54,6 +54,59 @@ pub fn Schema::describe(self : Schema, text : String) -> Schema {
 }
 
 ///|
+/// Override the error message of the last rule in the chain.
+/// Peels through OptionalType / DefaultType / TransformType wrappers
+/// to find the base schema with the rules array.
+///
+/// # Example
+/// ```
+/// string().min(2).message("姓名至少需要 2 个字符")
+/// ```
+pub fn Schema::message(self : Schema, text : String) -> Schema {
+  match self.schema_type {
+    OptionalType(inner) => {
+      let new_inner = inner.message(text)
+      {
+        schema_type: OptionalType(new_inner),
+        rules: [],
+        description: self.description,
+      }
+    }
+    DefaultType(inner, val) => {
+      let new_inner = inner.message(text)
+      {
+        schema_type: DefaultType(new_inner, val),
+        rules: [],
+        description: self.description,
+      }
+    }
+    TransformType(inner, cls) => {
+      let new_inner = inner.message(text)
+      {
+        schema_type: TransformType(new_inner, cls),
+        rules: [],
+        description: self.description,
+      }
+    }
+    _ => {
+      let n = self.rules.length()
+      if n == 0 {
+        abort("message() must follow a rule method")
+      }
+      let new_rules : Array[Rule] = []
+      for i = 0; i < n; i = i + 1 {
+        if i == n - 1 {
+          new_rules.push({ ..self.rules[i], message: text })
+        } else {
+          new_rules.push(self.rules[i])
+        }
+      }
+      { ..self, rules: new_rules }
+    }
+  }
+}
+
+///|
 /// Peel OptionalType / DefaultType wrappers to find the effective base type.
 pub fn inner_type(t : SchemaType) -> SchemaType {
   match t {

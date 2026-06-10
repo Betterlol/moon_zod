@@ -44,9 +44,9 @@ fn schema_min_msg(s : Schema, n : Int) -> String {
 
 ///|
 /// Require the string length to be at least `n`.
-pub fn Schema::min(self : Schema, n : Int) -> Schema {
+pub fn Schema::min(self : Schema, n : Int, msg? : String = "") -> Schema {
   let check = schema_min_check(self, n)
-  let message = schema_min_msg(self, n)
+  let message = if msg.is_empty() { schema_min_msg(self, n) } else { msg }
   let annotation = match inner_type(self.schema_type) {
     StringType => Json::object({ "minLength": Json::number(n.to_double()) })
     NumberType => Json::object({ "minimum": Json::number(n.to_double()) })
@@ -96,9 +96,9 @@ fn schema_max_msg(s : Schema, n : Int) -> String {
 
 ///|
 /// Require the string length to be at most `n`.
-pub fn Schema::max(self : Schema, n : Int) -> Schema {
+pub fn Schema::max(self : Schema, n : Int, msg? : String = "") -> Schema {
   let check = schema_max_check(self, n)
-  let message = schema_max_msg(self, n)
+  let message = if msg.is_empty() { schema_max_msg(self, n) } else { msg }
   let annotation = match inner_type(self.schema_type) {
     StringType => Json::object({ "maxLength": Json::number(n.to_double()) })
     NumberType => Json::object({ "maximum": Json::number(n.to_double()) })
@@ -110,11 +110,12 @@ pub fn Schema::max(self : Schema, n : Int) -> Schema {
 
 ///|
 /// Require the string to be non-empty.
-pub fn Schema::nonempty(self : Schema) -> Schema {
+pub fn Schema::nonempty(self : Schema, msg? : String = "") -> Schema {
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("nonempty() is only valid for string schemas")
   }
+  let message = if msg.is_empty() { "String must not be empty" } else { msg }
   append_rule(
     self,
     fn(json) {
@@ -123,7 +124,7 @@ pub fn Schema::nonempty(self : Schema) -> Schema {
         _ => false
       }
     },
-    "String must not be empty",
+    message,
   )
 }
 
@@ -150,10 +151,15 @@ fn has_at_and_dot(s : String) -> Bool {
 
 ///|
 /// Require the string to be a valid email.
-pub fn Schema::email(self : Schema) -> Schema {
+pub fn Schema::email(self : Schema, msg? : String = "") -> Schema {
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("email() is only valid for string schemas")
+  }
+  let message = if msg.is_empty() {
+    "String must be a valid email address"
+  } else {
+    msg
   }
   append_rule_with_annotation(
     self,
@@ -163,7 +169,7 @@ pub fn Schema::email(self : Schema) -> Schema {
         _ => false
       }
     },
-    "String must be a valid email address",
+    message,
     Json::object({ "format": Json::string("email") }),
   )
 }
@@ -175,11 +181,12 @@ fn has_url_prefix(s : String) -> Bool {
 
 ///|
 /// Require the string to start with `http://` or `https://`.
-pub fn Schema::url(self : Schema) -> Schema {
+pub fn Schema::url(self : Schema, msg? : String = "") -> Schema {
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("url() is only valid for string schemas")
   }
+  let message = if msg.is_empty() { "String must be a valid URL" } else { msg }
   append_rule_with_annotation(
     self,
     fn(json) {
@@ -188,17 +195,26 @@ pub fn Schema::url(self : Schema) -> Schema {
         _ => false
       }
     },
-    "String must be a valid URL",
+    message,
     Json::object({ "format": Json::string("uri") }),
   )
 }
 
 ///|
 /// Require the string to contain the given substring.
-pub fn Schema::regex(self : Schema, pattern : String) -> Schema {
+pub fn Schema::regex(
+  self : Schema,
+  pattern : String,
+  msg? : String = "",
+) -> Schema {
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("regex() is only valid for string schemas")
+  }
+  let message = if msg.is_empty() {
+    "String must match pattern: \{pattern}"
+  } else {
+    msg
   }
   append_rule_with_annotation(
     self,
@@ -208,7 +224,7 @@ pub fn Schema::regex(self : Schema, pattern : String) -> Schema {
         _ => false
       }
     },
-    "String must match pattern: \{pattern}",
+    message,
     Json::object({ "pattern": Json::string(pattern) }),
   )
 }

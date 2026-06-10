@@ -6,11 +6,12 @@ pub fn number() -> Schema {
 
 ///|
 /// Require the number to be an integer (no fractional part).
-pub fn Schema::int(self : Schema) -> Schema {
+pub fn Schema::int(self : Schema, msg? : String = "") -> Schema {
   match inner_type(self.schema_type) {
     NumberType => ()
     _ => abort("int() is only valid for number schemas")
   }
+  let message = if msg.is_empty() { "Value must be an integer" } else { msg }
   append_rule_with_annotation(
     self,
     fn(json) {
@@ -19,18 +20,19 @@ pub fn Schema::int(self : Schema) -> Schema {
         _ => false
       }
     },
-    "Value must be an integer",
+    message,
     Json::object({ "type": Json::string("integer") }),
   )
 }
 
 ///|
 /// Require the number to be positive (> 0).
-pub fn Schema::positive(self : Schema) -> Schema {
+pub fn Schema::positive(self : Schema, msg? : String = "") -> Schema {
   match inner_type(self.schema_type) {
     NumberType => ()
     _ => abort("positive() is only valid for number schemas")
   }
+  let message = if msg.is_empty() { "Value must be positive" } else { msg }
   append_rule_with_annotation(
     self,
     fn(json) {
@@ -39,18 +41,19 @@ pub fn Schema::positive(self : Schema) -> Schema {
         _ => false
       }
     },
-    "Value must be positive",
+    message,
     Json::object({ "exclusiveMinimum": Json::number(0.0) }),
   )
 }
 
 ///|
 /// Require the number to be negative (< 0).
-pub fn Schema::negative(self : Schema) -> Schema {
+pub fn Schema::negative(self : Schema, msg? : String = "") -> Schema {
   match inner_type(self.schema_type) {
     NumberType => ()
     _ => abort("negative() is only valid for number schemas")
   }
+  let message = if msg.is_empty() { "Value must be negative" } else { msg }
   append_rule_with_annotation(
     self,
     fn(json) {
@@ -59,17 +62,22 @@ pub fn Schema::negative(self : Schema) -> Schema {
         _ => false
       }
     },
-    "Value must be negative",
+    message,
     Json::object({ "exclusiveMaximum": Json::number(0.0) }),
   )
 }
 
 ///|
 /// Require the number to be a multiple of `n`.
-pub fn Schema::multipleOf(self : Schema, n : Int) -> Schema {
+pub fn Schema::multipleOf(self : Schema, n : Int, msg? : String = "") -> Schema {
   match inner_type(self.schema_type) {
     NumberType => ()
     _ => abort("multipleOf() is only valid for number schemas")
+  }
+  let message = if msg.is_empty() {
+    "Value must be a multiple of \{n}"
+  } else {
+    msg
   }
   append_rule_with_annotation(
     self,
@@ -80,7 +88,7 @@ pub fn Schema::multipleOf(self : Schema, n : Int) -> Schema {
         _ => false
       }
     },
-    "Value must be a multiple of \{n}",
+    message,
     Json::object({ "multipleOf": Json::number(n.to_double()) }),
   )
 }
