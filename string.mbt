@@ -222,35 +222,33 @@ pub fn Schema::url(self : Schema, msg? : String = "") -> Schema {
 /// Not implemented — MoonBit has no built-in regex.
 /// Use `includes()` for substring matching instead.
 pub fn Schema::regex(
-  _self : Schema,
-  _pattern : String,
-  _msg? : String = "",
+  self : Schema,
+  pattern : String,
+  msg? : String = "",
 ) -> Schema {
-  match inner_type(_self.schema_type) {
+  match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("regex() is only valid for string schemas")
   }
-  let message = if _msg.is_empty() {
-    "String must match pattern: \{_pattern}"
+  let message = if msg.is_empty() {
+    "String must match pattern: \{pattern}"
   } else {
-    _msg
+    msg
   }
+  // MoonBit has no built-in regex; this is a simple substring check.
   println(
-    "Warning: regex() is not implemented. Use includes() for substring matching.",
-  )
-  abort(
-    "regex() is not implemented in MoonBit, as it has no built-in regex support. Consider using includes() for simple substring checks.",
+    "Warning: regex() is not fully implemented; it only checks for substring match.",
   )
   append_rule_with_annotation(
-    _self,
+    self,
     fn(json) {
       match json {
-        String(s) => s.contains(_pattern) // Placeholder: just check if pattern is a substring
+        String(s) => s.contains(pattern)
         _ => false
       }
     },
     message,
-    Json::object({ "pattern": Json::string(_pattern) }),
+    Json::object({ "pattern": Json::string(pattern) }),
   )
 }
 

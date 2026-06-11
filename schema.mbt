@@ -142,7 +142,11 @@ pub fn append_rule_with_annotation(
       let new_inner = append_rule_with_annotation(
         inner, check, message, annotation,
       )
-      { schema_type: OptionalType(new_inner), rules: [], description: "" }
+      {
+        schema_type: OptionalType(new_inner),
+        rules: [],
+        description: schema.description,
+      }
     }
     DefaultType(inner, default_val) => {
       let new_inner = append_rule_with_annotation(
@@ -151,7 +155,7 @@ pub fn append_rule_with_annotation(
       {
         schema_type: DefaultType(new_inner, default_val),
         rules: [],
-        description: "",
+        description: schema.description,
       }
     }
     TransformType(inner, closure) => {
@@ -161,7 +165,7 @@ pub fn append_rule_with_annotation(
       {
         schema_type: TransformType(new_inner, closure),
         rules: [],
-        description: "",
+        description: schema.description,
       }
     }
     _ => { ..schema, rules: schema.rules + [{ check, message, annotation }] }

@@ -1,12 +1,4 @@
 ///|
-/// Parse a JSON string, aborting on malformed test input.
-fn parse_json(input : String) -> Json {
-  @json.parse(input) catch {
-    _ => abort("bad test json: " + input)
-  }
-}
-
-///|
 /// White-box tests for the mutable path_stack invariant.
 ///
 /// The path_stack is a shared mutable Array[String] passed through
