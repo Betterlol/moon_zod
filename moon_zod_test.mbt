@@ -1337,6 +1337,78 @@ test "schema_to_prompt describe through transform" {
 }
 
 ///|
+/// Schema composition — prompt output
+test "schema_to_prompt pick" {
+  let s = object({
+    "a": string().min(2),
+    "b": number(),
+  }).pick(["a"])
+  let expected = "{\n" +
+    "  a: string,  // [min: 2]\n" +
+    "}"
+  @debug.assert_eq(schema_to_prompt(s), expected)
+}
+
+///|
+test "schema_to_prompt omit" {
+  let s = object({
+    "a": string(),
+    "b": number().int(),
+  }).omit(["b"])
+  let expected = "{\n" +
+    "  a: string,\n" +
+    "}"
+  @debug.assert_eq(schema_to_prompt(s), expected)
+}
+
+///|
+test "schema_to_prompt partial" {
+  let s = object({
+    "a": string().min(2),
+    "b": number().int(),
+  }).partial()
+  let expected = "{\n" +
+    "  a?: string,  // [min: 2]\n" +
+    "  b?: number,  // [int]\n" +
+    "}"
+  @debug.assert_eq(schema_to_prompt(s), expected)
+}
+
+///|
+test "schema_to_prompt pick with field description" {
+  let s = object({
+    "name": string().min(2).describe("用户名"),
+    "age": number().int().describe("年龄"),
+  }).pick(["name"])
+  let expected = "{\n" +
+    "  name: string,  // [min: 2] — 用户名\n" +
+    "}"
+  @debug.assert_eq(schema_to_prompt(s), expected)
+}
+
+///|
+/// Description preservation through composition
+test "pick preserves schema description" {
+  let s = object({"a": string(), "b": number()}).describe("my schema")
+  let p = s.pick(["a"])
+  @debug.assert_eq(p.description, "my schema")
+}
+
+///|
+test "omit preserves schema description" {
+  let s = object({"a": string(), "b": number()}).describe("my schema")
+  let o = s.omit(["b"])
+  @debug.assert_eq(o.description, "my schema")
+}
+
+///|
+test "partial preserves schema description" {
+  let s = object({"a": string(), "b": number()}).describe("my schema")
+  let p = s.partial()
+  @debug.assert_eq(p.description, "my schema")
+}
+
+///|
 test "intersection parse basic" {
   let s = intersection([string().min(3), string().max(10)])
   match s.parse(Json::string("hello")) {
@@ -1794,5 +1866,120 @@ test "email improved rejects single-char domain" {
   let s = string().email()
   guard s.parse(Json::string("user@domain")) is Err(_) else {
     fail("expected Err")
+  }
+}
+
+///|
+/// Schema composition — pick()
+test "pick selects specific fields" {
+  let s = object({ "a": string(), "b": number(), "c": boolean() })
+  let p = s.pick(["a", "c"])
+  match
+    p.parse(Json::object({ "a": Json::string("x"), "c": Json::boolean(true) })) {
+    Ok(v) =>
+      @debug.assert_eq(
+        v,
+        Json::object({ "a": Json::string("x"), "c": Json::boolean(true) }),
+      )
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "pick ignores keys not in original spec" {
+  let p = object({ "x": string() }).pick(["x", "y"])
+  guard p.parse(Json::object({ "x": Json::string("ok") })) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "pick preserves field rules" {
+  let p = object({ "a": string().min(3) }).pick(["a"])
+  guard p.parse(Json::object({ "a": Json::string("ab") })) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "pick preserves object mode" {
+  let p = object({ "a": string() }).strict().pick(["a"])
+  guard p.parse(Json::object({ "a": Json::string("x"), "b": Json::number(1) }))
+    is Err(_) else {
+    fail("expected Err for strict mode")
+  }
+}
+
+///|
+/// Schema composition — omit()
+test "omit removes specific fields" {
+  let s = object({ "a": string(), "b": number(), "c": boolean() })
+  let o = s.omit(["b"])
+  match
+    o.parse(Json::object({ "a": Json::string("x"), "c": Json::boolean(true) })) {
+    Ok(_) => ()
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "omit all fields produces empty object" {
+  let o = object({ "a": string() }).omit(["a"])
+  match o.parse(Json::object({})) {
+    Ok(v) => @debug.assert_eq(v, Json::object({}))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "omit preserves field rules on remaining fields" {
+  let o = object({ "a": string().min(3), "b": number() }).omit(["b"])
+  guard o.parse(Json::object({ "a": Json::string("ab") })) is Err(_) else {
+    fail("expected Err from min(3)")
+  }
+}
+
+///|
+/// Schema composition — partial()
+test "partial makes all fields optional" {
+  let p = object({ "a": string(), "b": number() }).partial()
+  match p.parse(Json::object({})) {
+    Ok(_) => ()
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "partial allows null on all fields" {
+  let p = object({ "a": string(), "b": number() }).partial()
+  match p.parse(Json::object({ "a": Json::null(), "b": Json::null() })) {
+    Ok(_) => ()
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "partial still validates present values" {
+  let p = object({ "a": string().min(3) }).partial()
+  guard p.parse(Json::object({ "a": Json::string("ab") })) is Err(_) else {
+    fail("expected Err from min(3)")
+  }
+}
+
+///|
+test "partial preserves object mode" {
+  let p = object({ "a": string() }).strict().partial()
+  guard p.parse(Json::object({ "a": Json::string("x"), "b": Json::number(1) }))
+    is Err(_) else {
+    fail("expected Err for strict mode")
+  }
+}
+
+///|
+test "partial on already partial keeps all fields optional" {
+  let p = object({ "a": string() }).partial().partial()
+  match p.parse(Json::object({})) {
+    Ok(_) => ()
+    Err(_) => fail("expected Ok")
   }
 }

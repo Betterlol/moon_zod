@@ -38,6 +38,97 @@ pub fn Schema::strip(self : Schema) -> Schema {
 }
 
 ///|
+/// Select only the specified fields from an object schema.
+/// Returns a new object schema with the same mode (Strip/Passthrough/Strict).
+/// Keys not present in the original spec are silently ignored.
+///
+/// # Example
+/// ```
+/// let s = object({"a": string(), "b": number()}).pick(["a"])
+/// s.parse(json)  // validates only field "a"
+/// ```
+pub fn Schema::pick(self : Schema, keys : Array[String]) -> Schema {
+  match self.schema_type {
+    ObjectType(spec, mode) => {
+      let new_spec : Map[String, Schema] = {}
+      for key in keys {
+        match spec.get(key) {
+          Some(s) => new_spec.set(key, s)
+          None => ()
+        }
+      }
+      {
+        schema_type: ObjectType(new_spec, mode),
+        rules: self.rules,
+        description: self.description,
+      }
+    }
+    _ => abort("pick() is only valid for object schemas")
+  }
+}
+
+///|
+/// Omit the specified fields from an object schema.
+/// Returns a new object schema with the same mode (Strip/Passthrough/Strict).
+///
+/// # Example
+/// ```
+/// let s = object({"a": string(), "b": number()}).omit(["b"])
+/// s.parse(json)  // validates only field "a"
+/// ```
+pub fn Schema::omit(self : Schema, keys : Array[String]) -> Schema {
+  match self.schema_type {
+    ObjectType(spec, mode) => {
+      let new_spec : Map[String, Schema] = {}
+      for key in spec.keys() {
+        if !value_in_array(key, keys) {
+          match spec.get(key) {
+            Some(s) => new_spec.set(key, s)
+            None => ()
+          }
+        }
+      }
+      {
+        schema_type: ObjectType(new_spec, mode),
+        rules: self.rules,
+        description: self.description,
+      }
+    }
+    _ => abort("omit() is only valid for object schemas")
+  }
+}
+
+///|
+/// Make all fields of an object schema optional.
+/// Useful for partial updates (e.g., PATCH operations).
+/// Existing optional fields remain optional.
+///
+/// # Example
+/// ```
+/// let s = object({"name": string(), "age": number()}).partial()
+/// s.parse(json)  // all fields are now optional
+/// ```
+pub fn Schema::partial(self : Schema) -> Schema {
+  match self.schema_type {
+    ObjectType(spec, mode) => {
+      let new_spec : Map[String, Schema] = {}
+      for key in spec.keys() {
+        match spec.get(key) {
+          Some(s) => new_spec.set(key, s.optional())
+          None => ()
+        }
+      }
+      {
+        schema_type: ObjectType(new_spec, mode),
+        rules: self.rules,
+        description: self.description,
+      }
+    }
+    _ => abort("partial() is only valid for object schemas")
+  }
+}
+
+///|
 pub fn Schema::parse_object(
   self : Schema,
   spec : Map[String, Schema],
