@@ -46,7 +46,7 @@ The **full LLM Tool Calling pipeline** in four steps, with **zero hand-written p
 ```
 define Schema  →  schema_to_prompt()  →  feed to LLM  →  schema.parse()
    (MoonBit)        (auto-generated         (model         (auto-validate
-                     TS interface)           response)      + strip extra fields)
+                     TS interface)           response)      + strip extra) fields)
 ```
 
 ```bash
@@ -352,4 +352,6 @@ The generator recursively infers types (`string`, `number`, `boolean`, `null`, `
 
 ---
 
-See [DESIGN.md](./DESIGN.md) for architecture and development history.
+- [DESIGN.md](./DESIGN.md) for architecture and development history.
+- [DEVELOPMENT_RETROSPECTIVE.md](./DEVELOPMENT_RETROSPECTIVE.md) for a full retrospective and lessons learned.
+- [中文 README](./README_zh.mbt.md) for Chinese documentation.

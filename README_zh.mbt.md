@@ -45,8 +45,8 @@ match schema.parse(input_json) {
 
 ```
 定义 Schema  →  schema_to_prompt()  →  喂给 LLM  →  schema.parse()
-   (MoonBit)       (自动生成          (模型响应      (自动校验
-                    TS 接口)                            + Strip 清洗)
+（MoonBit）       （自动生成          （模型响应）      (自动校验
+                     TS 接口）                            + Strip 清洗)
 ```
 
 ```bash
