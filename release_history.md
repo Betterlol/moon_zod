@@ -1,5 +1,18 @@
 # Release History
 
+## v0.4.0 (2026-06-11)
+
+**Intersection type + Custom error messages + Enhanced validators**
+
+- `Schema::intersect(other)` / `intersection(Array[Schema])` — intersection combinator with `allOf` JSON Schema export and object field merging
+- `.min(n, msg?)`, `.max(n, msg?)`, `.nonempty(msg?)`, `.email(msg?)`, `.url(msg?)`, `.regex(pattern, msg?)` — per-rule custom error messages via optional `msg?` parameter
+- `.message(text)` — chainable method to override the last rule's message, penetrating OptionalType/DefaultType/TransformType wrappers
+- `.startsWith(prefix, msg?)` / `.endsWith(suffix, msg?)` / `.includes(substring, msg?)` — prefix, suffix, and substring string validators
+- `.uuid(msg?)` — UUID v4 format validator (character-by-character: 8-4-4-4-12, version 4, variant 8/9/a/b)
+- Improved `.email()` — now rejects multiple `@`, leading/trailing dots, single-char domains
+- All validators emit JSON Schema annotations (`format: "uuid"`, `pattern: "^..."`, etc.)
+- 189 tests (185 black-box + 4 white-box), 0 warnings, 0 external dependencies
+
 ## v0.3.0 (2026-06-10)
 
 **schema_to_prompt() + .describe() field descriptions**
