@@ -187,7 +187,7 @@ moon_zod/
 ## MoonBit 编码要点
 
 1. **Block 风格**：每个公共函数/类型前用 `///|` 分隔，顺序无关。
-2. **Result 模式**：所有可能失败的校验返回 `Result[Json, Array[ValidationError]]`，不要 raise。
+2. **Result 模式**：数据校验路径（`parse()`）返回 `Result[Json, Array[ValidationError]]`，绝不 raise。构造方法（`.min()`、`.email()` 等链式调用）对类型误用允许 `abort()`，视为编程错误而非运行时数据错误。
 3. **Trait 扩展**：利用 MoonBit 的 `derive` 机制，未来可考虑 `derive(ZodSchema)` 的宏（Phase 5+）。
 4. **测试优先**：每个 rule 的实现 → 立即写 test（`_test.mbt` 测公开 API，`_wbtest.mbt` 测内部 helper）。
 5. **提交前**：始终 `moon info && moon fmt`，检查 `.mbti` 变更是否符合预期。

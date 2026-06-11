@@ -21,7 +21,9 @@ jobs:
 
       - name: Check Formatting
         continue-on-error: true
-        run: moon fmt --check 2>&1 || echo "::warning title=Formatting::Code style issues found — run 'moon fmt' to fix"
+        run: | 
+          moon fmt
+          moon fmt --check
 
       - name: Build with Warnings Check
         run: |

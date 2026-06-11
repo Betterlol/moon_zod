@@ -647,14 +647,6 @@ test "to_json_schema string with url format" {
 }
 
 ///|
-test "to_json_schema string with regex pattern" {
-  let s = string().regex("hello")
-  let result = to_json_schema(s)
-  let expected = parse_json("{\"type\":\"string\",\"pattern\":\"hello\"}")
-  @debug.assert_eq(result, expected)
-}
-
-///|
 test "to_json_schema nested object with constraints" {
   let s = object({
     "name": string().min(2).max(50),
@@ -1088,10 +1080,6 @@ test "schema_to_prompt string constraints" {
   @debug.assert_eq(schema_to_prompt(string().max(100)), "string  // [max: 100]")
   @debug.assert_eq(schema_to_prompt(string().email()), "string  // [email]")
   @debug.assert_eq(schema_to_prompt(string().url()), "string  // [url]")
-  @debug.assert_eq(
-    schema_to_prompt(string().regex("hello")),
-    "string  // [pattern: hello]",
-  )
 }
 
 ///|
@@ -1496,15 +1484,6 @@ test "string url custom message" {
     fail("expected Err")
   }
   @debug.assert_eq(errors[0].message, "不是有效网址")
-}
-
-///|
-test "string regex custom message" {
-  let s = string().regex("abc", msg="必须包含abc")
-  guard s.parse(Json::string("xyz")) is Err(errors) else {
-    fail("expected Err")
-  }
-  @debug.assert_eq(errors[0].message, "必须包含abc")
 }
 
 ///|
