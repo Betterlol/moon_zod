@@ -92,3 +92,54 @@ pub fn Schema::multipleOf(self : Schema, n : Int, msg? : String = "") -> Schema 
     Json::object({ "multipleOf": Json::number(n.to_double()) }),
   )
 }
+
+///|
+/// Require the number to be finite (reject Infinity and NaN).
+pub fn Schema::finite(self : Schema, msg? : String = "") -> Schema {
+  match inner_type(self.schema_type) {
+    NumberType => ()
+    _ => abort("finite() is only valid for number schemas")
+  }
+  let message = if msg.is_empty() {
+    "Value must be a finite number"
+  } else {
+    msg
+  }
+  append_rule(
+    self,
+    fn(json) {
+      match json {
+        Number(v, ..) => !v.is_nan() && !v.is_inf()
+        _ => false
+      }
+    },
+    message,
+  )
+}
+
+///|
+/// Require the number to be a safe integer (within ±2^53-1).
+pub fn Schema::safe(self : Schema, msg? : String = "") -> Schema {
+  match inner_type(self.schema_type) {
+    NumberType => ()
+    _ => abort("safe() is only valid for number schemas")
+  }
+  let message = if msg.is_empty() {
+    "Value must be a safe integer"
+  } else {
+    msg
+  }
+  let min_safe = -9007199254740991.0
+  let max_safe = 9007199254740991.0
+  append_rule(
+    self,
+    fn(json) {
+      match json {
+        Number(v, ..) =>
+          v == v.to_int().to_double() && v >= min_safe && v <= max_safe
+        _ => false
+      }
+    },
+    message,
+  )
+}

@@ -272,3 +272,265 @@ test "email improved rejects single-char domain" {
     fail("expected Err")
   }
 }
+
+///|
+/// cuid() — CUID validation
+test "cuid passes valid" {
+  let s = string().cuid()
+  guard s.parse(Json::string("c123456789012345678901234")) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "cuid rejects incorrect start char" {
+  let s = string().cuid()
+  guard s.parse(Json::string("x123456789012345678901234")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "cuid rejects wrong length" {
+  let s = string().cuid()
+  guard s.parse(Json::string("c1234567890")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "cuid custom message" {
+  let s = string().cuid(msg="不是有效的CUID")
+  guard s.parse(Json::string("x123456789012345678901234")) is Err(errors) else {
+    fail("expected Err")
+  }
+  @debug.assert_eq(errors[0].message, "不是有效的CUID")
+}
+
+///|
+/// datetime() — ISO 8601 datetime validation
+test "datetime passes date only" {
+  let s = string().datetime()
+  guard s.parse(Json::string("2024-01-15")) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "datetime passes with time and Z" {
+  let s = string().datetime()
+  guard s.parse(Json::string("2024-01-15T10:30:00Z")) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "datetime passes leap year february" {
+  let s = string().datetime()
+  guard s.parse(Json::string("2024-02-29")) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "datetime rejects invalid month" {
+  let s = string().datetime()
+  guard s.parse(Json::string("2024-13-01")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "datetime rejects non-leap feb 29" {
+  let s = string().datetime()
+  guard s.parse(Json::string("2023-02-29")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "datetime custom message" {
+  let s = string().datetime(msg="不是有效的日期时间")
+  guard s.parse(Json::string("not-a-date")) is Err(errors) else {
+    fail("expected Err")
+  }
+  @debug.assert_eq(errors[0].message, "不是有效的日期时间")
+}
+
+///|
+/// ipv4() — IPv4 address validation
+test "ipv4 passes valid address" {
+  let s = string().ipv4()
+  guard s.parse(Json::string("192.168.1.1")) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "ipv4 rejects out-of-range" {
+  let s = string().ipv4()
+  guard s.parse(Json::string("999.999.999.999")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "ipv4 rejects leading zeros" {
+  let s = string().ipv4()
+  guard s.parse(Json::string("192.168.01.1")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "ipv4 custom message" {
+  let s = string().ipv4(msg="不是有效的IPv4地址")
+  guard s.parse(Json::string("bad")) is Err(errors) else {
+    fail("expected Err")
+  }
+  @debug.assert_eq(errors[0].message, "不是有效的IPv4地址")
+}
+
+///|
+/// ipv6() — IPv6 address validation
+test "ipv6 passes loopback" {
+  let s = string().ipv6()
+  guard s.parse(Json::string("::1")) is Ok(_) else { fail("expected Ok") }
+}
+
+///|
+test "ipv6 passes full address" {
+  let s = string().ipv6()
+  guard s.parse(Json::string("2001:0db8:0000:0000:0000:ff00:0042:8329"))
+    is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "ipv6 passes compressed" {
+  let s = string().ipv6()
+  guard s.parse(Json::string("2001:db8::ff00:42:8329")) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "ipv6 rejects garbage" {
+  let s = string().ipv6()
+  guard s.parse(Json::string("not-an-ipv6")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "ipv6 custom message" {
+  let s = string().ipv6(msg="不是有效的IPv6地址")
+  guard s.parse(Json::string("bad")) is Err(errors) else {
+    fail("expected Err")
+  }
+  @debug.assert_eq(errors[0].message, "不是有效的IPv6地址")
+}
+
+///|
+/// ip() — auto-detect IPv4 or IPv6
+test "ip accepts ipv4" {
+  let s = string().ip()
+  guard s.parse(Json::string("8.8.8.8")) is Ok(_) else { fail("expected Ok") }
+}
+
+///|
+test "ip accepts ipv6" {
+  let s = string().ip()
+  guard s.parse(Json::string("::1")) is Ok(_) else { fail("expected Ok") }
+}
+
+///|
+test "ip rejects invalid" {
+  let s = string().ip()
+  guard s.parse(Json::string("not-an-ip")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "ip custom message" {
+  let s = string().ip(msg="不是有效的IP地址")
+  guard s.parse(Json::string("bad")) is Err(errors) else {
+    fail("expected Err")
+  }
+  @debug.assert_eq(errors[0].message, "不是有效的IP地址")
+}
+
+///|
+/// length() — exact length for string
+test "string length passes exact match" {
+  let s = string().length(3)
+  guard s.parse(Json::string("abc")) is Ok(_) else { fail("expected Ok") }
+}
+
+///|
+test "string length rejects shorter" {
+  let s = string().length(5)
+  guard s.parse(Json::string("ab")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "string length rejects longer" {
+  let s = string().length(2)
+  guard s.parse(Json::string("abc")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "string length custom message" {
+  let s = string().length(5, msg="长度必须为5")
+  guard s.parse(Json::string("abc")) is Err(errors) else {
+    fail("expected Err")
+  }
+  @debug.assert_eq(errors[0].message, "长度必须为5")
+}
+
+///|
+/// ulid() — ULID validation
+test "ulid passes valid" {
+  let s = string().ulid()
+  // ULID example: 01ARZ3NDEKTSV4RRFFQ69G5FAV
+  guard s.parse(Json::string("01ARZ3NDEKTSV4RRFFQ69G5FAV")) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "ulid rejects wrong first char" {
+  let s = string().ulid()
+  // '8' is not in 0-7 range for first char
+  guard s.parse(Json::string("81ARZ3NDEKTSV4RRFFQ69G5FAV")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "ulid rejects wrong length" {
+  let s = string().ulid()
+  guard s.parse(Json::string("01ARZ3NDEKT")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "ulid rejects invalid characters" {
+  let s = string().ulid()
+  // 'I', 'L', 'O', 'U' are not valid Crockford Base32
+  guard s.parse(Json::string("01ARZ3NDEKTSV4RRFFQ69G5FAI")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "ulid custom message" {
+  let s = string().ulid(msg="不是有效的ULID")
+  guard s.parse(Json::string("bad")) is Err(errors) else {
+    fail("expected Err")
+  }
+  @debug.assert_eq(errors[0].message, "不是有效的ULID")
+}

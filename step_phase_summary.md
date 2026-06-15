@@ -395,11 +395,33 @@
 
 ---
 
+## Phase 23 — 补全缺失验证器
+
+**目标**: 填补与 Zod/Pydantic 的验证器差距 — 新增 7 个高频缺失验证器。
+
+| 文件 | 变更 |
+|---|---|
+| `string.mbt` | 新增 `cuid()`、`datetime()`、`ip()`/`ipv4()`/`ipv6()`、`length(n)` (字符串/数组双支持)、`ulid()` |
+| `number.mbt` | 新增 `finite()`（`!v.is_nan() && !v.is_inf()`）、`safe()`（安全整数范围校验） |
+| `test_string.mbt` | 32 个新测试覆盖所有字符串验证器 |
+| `test_number.mbt` | 9 个新测试覆盖 `finite`/`safe` |
+| `test_array.mbt` | 4 个新测试覆盖 `length()` 数组行为 |
+
+**关键决策**:
+- `Double` 无 `is_finite()`，使用 `!v.is_nan() && !v.is_inf()` 替代
+- `split()` 返回 `Iter[StringView]` 而非 `Array[String]`，所有 ip/datetime 函数重写为字符逐位解析
+- `ip()` 自动检测 v4/v6；`ipv4()`/`ipv6()` 分别校验
+- `length()` 不产生 JSON Schema annotation，避免与 `minLength`/`maxLength` 冲突
+
+**产出**: 251/251 测试全部通过 0 警告。
+
+---
+
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 206（202 黑盒 + 4 白盒） |
+| 测试数量 | 251（247 黑盒 + 4 白盒） |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
 | 核心源码模块 | 15 个 `.mbt` 文件（含 `intersection.mbt`） |
@@ -421,7 +443,7 @@
 - **全局错误映射**：Zod 有 `z.setErrorMap()`，我们没有。
 - **`.url()` 深度**：只检查 `http://`/`https://` 前缀，非完整 URL 解析。
 - **`.email()` 仍比 Zod 弱**：无 quoted local parts、IP literal domains。
-- **缺失验证器**：`.cuid()`, `.ulid()`, `.datetime()`, `.ip()`, `.nan()`, `.length()` 等。
+- **缺失验证器**：`.nan()`（MoonBit Double 无 is_nan 构造函数）。
 
 ### 建议下一步
 1. **多平台 CI**: 扩展 GitHub Actions 到 macos-latest / windows-latest。

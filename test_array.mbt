@@ -60,3 +60,37 @@ test "nested array reports matrix path" {
     _ => fail("expected Err")
   }
 }
+
+///|
+/// length() — exact length for array
+test "array length passes exact match" {
+  let s = array(string()).length(3)
+  guard s.parse(parse_json("[\"a\", \"b\", \"c\"]")) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "array length rejects fewer items" {
+  let s = array(string()).length(5)
+  guard s.parse(parse_json("[\"a\", \"b\"]")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "array length rejects more items" {
+  let s = array(string()).length(1)
+  guard s.parse(parse_json("[\"a\", \"b\"]")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "array length custom message" {
+  let s = array(string()).length(2, msg="数组长度必须为2")
+  guard s.parse(parse_json("[\"a\"]")) is Err(errors) else {
+    fail("expected Err")
+  }
+  @debug.assert_eq(errors[0].message, "数组长度必须为2")
+}
