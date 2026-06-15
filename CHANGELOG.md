@@ -67,6 +67,3 @@
 - JSON-to-Schema code generator CLI (`cmd/json2schema/`)
 - 74 tests, 0 warnings, 0 external dependencies
 
----
-
-For detailed phase-by-phase development history, see [`step_phase_summary.md`](./step_phase_summary.md).

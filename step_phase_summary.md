@@ -1,4 +1,4 @@
-# moon_zod 开发阶段总结 (Phase 1–20)
+# moon_zod 开发阶段总结
 
 > 本项目为 MoonBit 语言实现的 JSON Schema 运行时校验库，灵感来自 Zod/Pydantic。
 > 以下按阶段总结每个 Phase 的核心交付物、关键设计决策及文件变更。
@@ -7,33 +7,31 @@
 
 ## Phase 1 — 核心类型与基础校验器
 
-**目标**: 搭建 Schema 类型系统和基本校验骨架。
+**目标**: 搭建 Schema 类型系统和四个基础校验器。
 
 | 新增文件 | 用途 |
 |---|---|
-| `types.mbt` | `Schema` 枚举（Object/Array/String/Number/Boolean/Null/Union）+ `ValidationError` 结构体 + `SchemaResult` 类型 |
-| `schema.mbt` | `parse()` 路由枢纽，`append_rule()` 规则链机制，`inner_type()` 穿透包装类型 |
+| `types.mbt` | `ValidationError` 结构体 + `SchemaResult` 类型 |
+| `schema.mbt` | `Schema` 结构体、`SchemaType` 枚举（StringType/NumberType/BooleanType/NullType）、`Rule` 类型、`Schema::parse()` |
 | `string.mbt` | `string()` 工厂 + 规则 chain（min/max/nonempty/email/url/regex） |
-| `number.mbt` | `number()` 工厂 + 规则 chain（int/positive/negative/multipleOf/min/max） |
+| `number.mbt` | `number()` 工厂 + 规则 chain（int/positive/negative/multipleOf） |
 | `boolean.mbt` | `boolean()` 工厂 |
 | `null.mbt` | `null()` 工厂 |
-| `array.mbt` | `array(Schema)` 工厂 + `parse_array` 逐元素校验 |
-| `refine.mbt` | `refine(check, msg)` 自定义规则 |
 
-**关键决策**: 用 `inner_type()` 规则穿透替代早期 Wrap/Unwrap 模式，使 `.optional().min(3)` 链式调用正确工作。
+**产出**: 28 个基础测试通过。`append_rule`/`inner_type`/`array`/`refine`/`union` 等特性尚未引入。
 
 ---
 
-## Phase 2 — 对象校验与三种模式
+## Phase 2 — 对象校验与两种模式
 
-**目标**: 实现 `object()` 校验器及其三种字段处理模式。
+**目标**: 实现 `object()` 校验器及其两种字段处理模式。
 
 | 文件 | 变更 |
 |---|---|
-| `object.mbt` | `object(Map)` 工厂 + Strip（默认）/ Passthrough / Strict 三种模式 |
-| `types.mbt` | 新增 `ObjectMode` 枚举 |
+| `object.mbt` | `object(Map)` 工厂 + `.strict()` / `.passthrough()` 链式方法 |
+| `schema.mbt` | 新增 `ObjectMode` 枚举（Passthrough/Strict）、`ObjectType` 变体、`collect_errors` 辅助函数 |
 
-**关键决策**: Strip 模式为默认行为 — O(spec) 遍历 spec 字段，未在 spec 中定义的字段自动静默移除，适用于 LLM 幻觉字段过滤。
+**关键决策**: Passthrough 为默认行为（与当时 Zod 行为对齐）。Strip 模式尚未引入（Phase 5 才添加）。10 个新测试，总计 38。
 
 ---
 
@@ -41,49 +39,66 @@
 
 **目标**: 补全组合子类型。
 
-| 文件 | 变更 |
+| 新增文件 | 用途 |
 |---|---|
-| `union.mbt` | `optional()` / `default(value)` / `enum_values(array)` / `union(array)` 四个工厂及其 parse 实现 |
-| `types.mbt` | 扩展 `Schema` 枚举新增四个变体 |
+| `array.mbt` | `array(Schema)` 工厂 |
+| `union.mbt` | `optional()` / `default(value)` / `enum_values(array)` / `union(array)` 四个工厂 |
+| `refine.mbt` | `.refine(check, message)` 自定义规则 |
 
-**关键决策**: `optional()` 和 `default()` 包裹内层 Schema 后清空 `rules`，后续链式调用 `.min()` 等通过 `append_rule` 穿透到内层。
+**关键决策**: `optional()` 和 `default()` 包裹内层 Schema 后清空 `rules`，链式调用需在包装之前调用（Phase 4 的 `append_rule` 才解决穿透）。`min()/max()` 扩展支持 `ArrayType`。19 个新测试，总计 57。
 
 ---
 
-## Phase 4 — JSON Schema 导出与重构
+## Phase 4 — Parse 重构 + JSON Schema 导出
 
-**目标**: 实现 `to_json_schema()` 将内部 Schema 转为标准 JSON Schema 对象 + 代码结构重构。
+**目标**: 引入 `append_rule`/`inner_type` 规则链穿透机制、提取 parse 辅助函数、实现 `to_json_schema()` 导出。
 
-| 文件 | 变更 |
+| 新增文件 | 用途 |
 |---|---|
 | `json_schema.mbt` | `to_json_schema(Schema) -> Json` 导出函数 |
-| `refine.mbt` | 独立抽取 refine 逻辑 |
 
-**关键决策**: `to_json_schema` 递归遍历 Schema 树，为每种 Schema 变体产生对应的 JSON Schema 片段。
+| 修改文件 | 变更 |
+|---|---|
+| `schema.mbt` | 新增 `inner_type()`、`append_rule()`；`collect_errors` 改为就地修改；面向 `Schema::parse` 向内部 helper 分发；`sub_path`/`sub_index` 等提升为 `pub` |
+| `object.mbt` | 提取 `parse_object()` helper |
+| `array.mbt` | 提取 `parse_array()` helper |
+| `union.mbt` | 提取 `parse_optional`/`parse_default`/`parse_enum`/`parse_union` helper |
+| `string.mbt` | 所有规则方法切换为 `append_rule()`，类型守卫使用 `inner_type()` 解包 Optional/Default |
+| `number.mbt` | 同上切换为 `append_rule()` |
+| `refine.mbt` | 切换为 `append_rule()` |
+| `cmd/main/main.mbt` | 替换 stub 为 10k 迭代基准测试 |
+
+**关键决策**: `append_rule` 递归穿透 OptionalType/DefaultType 装饰器，使 `string().optional().min(3)` 正确工作。`inner_type` 剥离装饰器让类型守卫识别真实类型。11 个新测试，总计 68。
 
 ---
 
-## Phase 5 — 性能优化：可变路径栈
+## Phase 5 — 性能优化 + Strip 模式
 
-**目标**: 消除成功路径上的字符串堆分配。
+**目标**: 消除成功路径字符串堆分配 + 新增 Strip 字段静默清洗模式。
 
 | 文件 | 变更 |
 |---|---|
-| `schema.mbt` | 引入 `Array[String]` 可变路径栈，`push`/`pop` 在各 parse 函数间共享 |
-| `types.mbt` | 新增 `format_path(Array[String]) -> String` 仅在错误发生时格式化路径 |
+| `schema.mbt` | 引入 `Array[String]` 可变路径栈 + `format_path()` 错误时延迟格式化 + `parse_inner` 内部递归分发 + `ObjectMode` 新增 `Strip` 变体 |
+| `object.mbt` | 默认模式从 Passthrough 改为 Strip；新增 `Schema::strip()` 方法；parse 重写为 push/pop + 构建 `parsed_fields` Map |
+| `array.mbt` | parse 重写为 push/pop `[index]` 路径段 |
+| `union.mbt` | parse_union 聚合所有失败分支的首次错误消息为 `Branches: [...]` |
 
-**关键决策**: 成功路径零堆分配 — `format_path()` 仅当产生 ValidationError 时才连接路径字符串。
+**关键决策**: 成功路径零堆分配 — `format_path()` 仅在产生 ValidationError 时才连接路径。Strip 模式为默认（O(spec) 遍历，非 spec 字段静默移除）。6 个新测试，总计 74。
 
 ---
 
-## Phase 6 — 场景演示与基准测试
+## Phase 6 — 场景演示与基准测试升级
 
-**目标**: 构建首个端到端展示（AI 中文教学平台）和本地基准测试。
+**目标**: 构建首个端到端 LLM 自愈展示 + 升级基准测试。
 
 | 新增文件 | 用途 |
 |---|---|
 | `examples/llm_agent/` | LLM 工具调用自纠错闭环展示（5 步：定义 Schema → LLM 输出 → 校验 → 反馈 → 重试） |
-| `cmd/main/` | 基准测试入口（10 万次单 Schema 迭代） |
+
+| 修改文件 | 变更 |
+|---|---|
+| `cmd/main/main.mbt` | 从 10k 复杂 schema 升级为 100k 三用户嵌套数据基准测试 |
+| `README.mbt.md` | 全面翻新为产品级 README |
 
 ---
 
@@ -102,16 +117,15 @@
 
 ## Phase 8 — 健壮性增强与 v0.1.0 发布
 
-**目标**: 补全边界 case、错误处理、测试覆盖。
+**目标**: API 边界清理 + benchmark 数据归档 + 发布封板。
 
 | 文件 | 变更 |
 |---|---|
-| `object.mbt` | 修复 `parse_object` 空 spec 正确处理，missing required field 错误收集 |
-| `array.mbt` | 修复 `parse_array` 空数组提前返回避免 `inner_type` panic |
-| `examples/` | LLM Agent 展示升级：Strip 模式演示 + 幻觉字段清理 |
-| `summary_handover.md` | v0.1.0 完整交付文档 |
+| `schema.mbt` | `parse_inner` 从 `pub fn` 降级为 `fn`（隐藏内部函数） |
+| `README.mbt.md` | 添加 Phase 7 跨语言 benchmark 数据表 |
+| `pkg.generated.mbti` | 自动重生成，`parse_inner` 不再对外暴露 |
 
-**产出**: 74 个测试全部通过；零外部依赖；API 冻结。
+**产出**: 74 个测试全部通过；零外部依赖；API 冻结。`pub` 表面 API 仅为 `schema`/`object`/`string`/`number`/`boolean`/`null`/`array`/`enum_values`/`union`/`to_json_schema` 及各 Schema 方法。
 
 ---
 
@@ -283,17 +297,6 @@
 
 ---
 
-## 项目当前状态
-
-| 指标 | 数值 |
-|---|---|
-| 测试数量 | 189（185 黑盒 + 4 白盒） |
-| 外部依赖 | 0（仅 `moonbitlang/core`） |
-| 编译器警告 | 0 |
-| 核心源码模块 | 14 个 `.mbt` 文件 |
-| CLI 工具 | 3 个（`cmd/main` 基准, `cmd/wasm` 跨语言, `cmd/json2schema` 代码生成） |
-| 展示示例 | 5 个（`llm_agent`, `educational_agent`, `real_llm_agent`, `json2schema`, `schema2json`） |
-
 ## Phase 18 — Intersection 类型组合子 (Schema::intersect)
 
 **目标**: 实现 `Schema::intersect()` / `IntersectionType` — 要求输入同时满足多个 Schema，对象字段自动合并。
@@ -352,5 +355,79 @@
 - 所有验证器均支持 `msg?` 参数和 JSON Schema annotation
 
 **产出**: 189/189 测试全部通过 0 警告。
+
+---
+
+## Phase 21 — Schema 组合器 (pick / omit / partial)
+
+**目标**: 实现 Schema 级组合操作 — 从已有对象 Schema 派生子集，支持 `pick`、`omit`、`partial`。
+
+| 修改文件 | 变更 |
+|---|---|
+| `object.mbt` | 新增 `Schema::pick(keys)`, `Schema::omit(keys)`, `Schema::partial()` — 过滤或包装 Object spec 字段，保留 mode/rules/description |
+| `moon_zod_test.mbt` | 15 个测试覆盖 pick/omit/partial 的字段筛选、规则保留、mode 保留、prompt 输出、description 保留 |
+
+**关键决策**:
+- 三个方法均 `abort()` 非 object schema（保持与 `strict()`/`passthrough()` 一致）
+- `partial()` 使用 `s.optional()` 包装每个字段，`partial().partial()` 幂等
+- JSON Schema 导出无需修改：已有 `is_optional_schema` + `required` 排除逻辑正确处理
+
+**产出**: 206/206 测试全部通过 0 警告。
+
+---
+
+## Phase 22 — 代码清理与重构
+
+**目标**: 修复死代码、修复 description 传播、提取 intersection 模块、拆分巨型测试文件。
+
+| 文件 | 操作 | 说明 |
+|---|---|---|
+| `string.mbt` | 修改 | `regex()` 修复：移除死代码阻塞，恢复为 substring match + 注释说明 |
+| `schema.mbt` | 修改 | `append_rule_with_annotation` wrapper 分支的 `description: ""` → `description: schema.description` |
+| `intersection.mbt` | 新建 | 从 `union.mbt` 抽取 intersection/intersect/parse_intersection |
+| `union.mbt` | 修改 | 移除 intersection 相关函数 |
+| `test_utils.mbt` | 新建 | 共享 `parse_json` 辅助 |
+| `test_*.mbt` （11 个） | 新建 | 按类型拆分的专项测试文件（string/number/boolean_null/object/array/combinators/transform_refine/json_schema/prompt/custom_message/errors） |
+| `moon_zod_wbtest.mbt` | 修改 | 移除重复 `parse_json` |
+| `moon_zod_test.mbt` | 删除 | 被 11 个类型专项测试文件取代 |
+
+**产出**: 206/206 测试全部通过 0 警告。单项测试文件总行数降低，定位问题更快。
+
+---
+
+## 项目当前状态
+
+| 指标 | 数值 |
+|---|---|
+| 测试数量 | 206（202 黑盒 + 4 白盒） |
+| 外部依赖 | 0（仅 `moonbitlang/core`） |
+| 编译器警告 | 0 |
+| 核心源码模块 | 15 个 `.mbt` 文件（含 `intersection.mbt`） |
+| 测试文件 | 14 个（13 类型专项 + 1 白盒） |
+| CLI 工具 | 3 个（`cmd/main` 基准, `cmd/wasm` 跨语言, `cmd/json2schema` 代码生成） |
+| 展示示例 | 5 个（`llm_agent`, `educational_agent`, `real_llm_agent`, `json2schema`, `schema2json`） |
+
+---
+
+## 已知问题 / 未来方向
+
+### 已知限制
+- Wasm 基准通过子进程 + 启动开销抵扣估算，而非进程内精确计时（MoonBit wasm target 的限制）。
+- `regex()` 仅做 substring match（MoonBit 无内建 regex 引擎）。
+
+### 与 Zod/Pydantic 的差异
+- **类型级错误消息**：Zod 可在 schema 级别定制 `{ required_error, invalid_type_error }`，我们只能覆写规则错误。
+- **`msg` 只接受字符串**：Zod 可传 `{ message, code }` 对象。
+- **全局错误映射**：Zod 有 `z.setErrorMap()`，我们没有。
+- **`.url()` 深度**：只检查 `http://`/`https://` 前缀，非完整 URL 解析。
+- **`.email()` 仍比 Zod 弱**：无 quoted local parts、IP literal domains。
+- **缺失验证器**：`.cuid()`, `.ulid()`, `.datetime()`, `.ip()`, `.nan()`, `.length()` 等。
+
+### 建议下一步
+1. **多平台 CI**: 扩展 GitHub Actions 到 macos-latest / windows-latest。
+2. **derive 宏**: `derive(ZodSchema)` 从 MoonBit struct 自动生成 schema。
+3. **wasm-gc target**: 验证 `--target wasm-gc` 兼容性并优化 instantiation 开销。
+
+---
 
 详情见各 `step_phase_details/step_phase_*.md` 文件。

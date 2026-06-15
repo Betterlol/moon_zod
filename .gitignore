@@ -6,7 +6,6 @@ target
 .moonagent/
 **/pkg.generated.mbti
 
-doc/
 .claude/
 
 **/__pycache__/

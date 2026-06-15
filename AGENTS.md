@@ -30,6 +30,23 @@ this before writing any MoonBit code.
 - Try to keep deprecated blocks in file called `deprecated.mbt` in each
   directory.
 
+- Every public item needs `///|` doc comment.
+
+- `pub` = package-visible, `pub(all)` = external. Be conservative with `pub`.
+
+- Result pattern: `parse()` returns `Result`, never raise. Constructor methods
+  may `abort()` on type misuse (programming error, not runtime data error).
+
+- One factory function per `.mbt` file, rule methods in the same file.
+
+## Workflow
+
+1. Before writing code: understand the existing patterns first.
+2. After making changes: run `moon test` to verify.
+3. Before commit: `moon info && moon fmt` to regenerate `.mbti` and format code.
+4. Check `.mbti` diff — if nothing changed, the refactoring is likely safe.
+5. Never commit unrelated user changes. Never use `git add .`.
+
 ## Tooling
 
 - `moon fmt` is used to format your code properly.

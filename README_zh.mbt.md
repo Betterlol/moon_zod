@@ -117,10 +117,11 @@ Schema-to-Prompt (TS interface):         ← schema_to_prompt() 自动生成
 ## 功能特性
 
 - **基本类型**: `string()`, `number()`, `boolean()`, `null()`
-- **复合类型**: `object(Map)`, `array(Schema)`, `union(Array[Schema])`, `enum_values(Array[String])`
+- **复合类型**: `object(Map)`, `array(Schema)`, `union(Array[Schema])`, `intersection(Array[Schema])`, `enum_values(Array[String])`
 - **校验规则**: `.min(n)`, `.max(n)`, `.nonempty()`, `.email()`, `.url()`, `.regex(pattern)`, `.startsWith(prefix)`, `.endsWith(suffix)`, `.includes(substring)`, `.uuid()`, `.int()`, `.positive()`, `.negative()`, `.multipleOf(n)` — 全部支持可选 `msg?` 自定义错误消息
 - **可选/默认值**: `.optional()` 和 `.default(value)`，规则链正确穿透包装类型
 - **对象模式**: `.strict()` 拒绝多余字段；`.passthrough()` 保留多余字段；`.strip()`（默认）静默移除
+- **Schema 组合**: `.pick(keys)`, `.omit(keys)`, `.partial()` 从对象 schema 派生子集
 - **数据变换**: `.transform(fn)` 校验通过后变换输出
 - **自定义规则**: `.refine(check, message)`
 - **LLM Prompt**: `schema_to_prompt()` 自动生成带约束注释的 TypeScript 接口文本
@@ -205,6 +206,7 @@ cd bench_cross_lang && node bench.js  # 跨语言对比
 | `object(Map[String, Schema])` | 校验 JSON 对象。**默认: Strip 模式** |
 | `enum_values(Array[String])` | 固定枚举值集合 |
 | `union(Array[Schema])` | 联合类型 — 任一 schema 匹配即通过 |
+| `intersection(Array[Schema])` | 交集类型 — 满足所有 schema；对象字段自动合并 |
 
 ### Schema 方法
 
@@ -232,6 +234,9 @@ cd bench_cross_lang && node bench.js  # 跨语言对比
 | `.strip()` | object | 静默移除未定义字段（默认行为）|
 | `.describe(text)` | 任意 | 附加人类可读描述，由 `schema_to_prompt()` 渲染到 LLM prompt |
 | `.message(text)` | 任意 | 覆写上一条规则的消息 |
+| `.pick(keys)` | object | 从对象 schema 中选取指定字段组成新 schema |
+| `.omit(keys)` | object | 从对象 schema 中排除指定字段组成新 schema |
+| `.partial()` | object | 将对象 schema 的所有字段变为可选 |
 | `.intersect(other)` | 任意 | 交集组合：输入须同时满足两个 Schema；对象字段自动合并 |
 | `.refine(check, msg)` | 任意 | 自定义校验谓词 |
 | `.transform(fn)` | 任意 | 校验通过后变换输出值，`fn: (Json) -> Result[Json, String]` |
@@ -284,12 +289,13 @@ moon_zod/
 ├── union.mbt           # optional / default / enum / union
 ├── refine.mbt          # refine()
 ├── transform.mbt       # transform()
+├── intersection.mbt    # intersection() / intersect() / parse_intersection
 ├── prompt.mbt          # schema_to_prompt() — LLM prompt 生成
 ├── json_schema.mbt     # to_json_schema() / to_json_schema_skeleton()
 ├── cmd/main/           # 基准测试
 ├── examples/llm_agent/ # LLM 自修正演示
 ├── examples/real_llm_agent/ # 真实 LLM Agent — 完整管线演示
-├── moon_zod_test.mbt   # 黑盒测试（185）
+├── test_*.mbt          # 按类型拆分的专项测试（13 个文件）
 └── moon_zod_wbtest.mbt # 白盒测试（4）
 ```
 
@@ -298,7 +304,7 @@ moon_zod/
 ## 开发
 
 ```bash
-moon test                # 运行全部测试（共 189 项）
+moon test                # 运行全部测试（共 206 项）
 moon build               # 构建库
 moon run cmd/main        # 运行基准测试
 moon run cmd/json2schema -- '{"hello":"world"}'  # 从 JSON 生成 Schema
@@ -334,6 +340,6 @@ Object({hello: String(world)})
 
 ## 了解更多
 
-- [架构设计文档](./DESIGN.md) — 核心架构与开发历程
-- [开发历程回顾](./DEVELOPMENT_RETROSPECTIVE.md) — 完整开发回顾与心得体会
+- [架构设计文档](./DESIGN.md) — 核心架构、设计决策与未来方向
+- [发布日志](./CHANGELOG.md) — 版本发布历史
 - [English README](./README.mbt.md) — English version
