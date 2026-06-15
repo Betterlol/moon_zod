@@ -1,5 +1,18 @@
 # Release History
 
+## v0.5.0 (2026-06-15)
+
+**7 new validators + Enhanced email/URL + Type-level error messages**
+
+- New string validators: `.cuid()`, `.datetime()`, `.ip()`/`.ipv4()`/`.ipv6()`, `.ulid()`, `.length(n)`
+- New number validators: `.finite()`, `.safe()`
+- `.url()` — full URL structure parsing (scheme://host[:port][/path][?query][#fragment])
+- `.email()` — enhanced validation (quoted local parts, IP literal domains, +tag, TLD≥2)
+- Type-level error messages: `required_error?` and `invalid_type_error?` parameters on all factory functions (`string()`, `number()`, `boolean()`, `null()`, `array()`, `object()`, `enum_values()`, `union()`, `intersection()`)
+- IPv6 parsing fix: `::` double-colon group counting now uses `while` loop (MoonBit `for` variables are immutable)
+- All error type fields correctly propagate through `.optional()` / `.default()` / `.transform()` wrappers
+- 276 tests (272 black-box + 4 white-box), 0 warnings, 0 external dependencies
+
 ## v0.4.0 (2026-06-11)
 
 **Intersection type + Custom error messages + Enhanced validators**

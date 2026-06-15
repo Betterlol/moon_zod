@@ -118,7 +118,7 @@ Schema-to-Prompt (TS interface):         ← schema_to_prompt() 自动生成
 
 - **基本类型**: `string()`, `number()`, `boolean()`, `null()`
 - **复合类型**: `object(Map)`, `array(Schema)`, `union(Array[Schema])`, `intersection(Array[Schema])`, `enum_values(Array[String])`
-- **校验规则**: `.min(n)`, `.max(n)`, `.nonempty()`, `.email()`, `.url()`, `.regex(pattern)`, `.startsWith(prefix)`, `.endsWith(suffix)`, `.includes(substring)`, `.uuid()`, `.int()`, `.positive()`, `.negative()`, `.multipleOf(n)` — 全部支持可选 `msg?` 自定义错误消息
+- **校验规则**: `.min(n)`, `.max(n)`, `.nonempty()`, `.email()`, `.url()`, `.regex(pattern)`, `.startsWith(prefix)`, `.endsWith(suffix)`, `.includes(substring)`, `.uuid()`, `.cuid()`, `.datetime()`, `.ip()`/`.ipv4()`/`.ipv6()`, `.ulid()`, `.length(n)`, `.int()`, `.positive()`, `.negative()`, `.multipleOf(n)`, `.finite()`, `.safe()` — 全部支持可选 `msg?` 自定义错误消息
 - **可选/默认值**: `.optional()` 和 `.default(value)`，规则链正确穿透包装类型
 - **对象模式**: `.strict()` 拒绝多余字段；`.passthrough()` 保留多余字段；`.strip()`（默认）静默移除
 - **Schema 组合**: `.pick(keys)`, `.omit(keys)`, `.partial()` 从对象 schema 派生子集
@@ -127,6 +127,7 @@ Schema-to-Prompt (TS interface):         ← schema_to_prompt() 自动生成
 - **LLM Prompt**: `schema_to_prompt()` 自动生成带约束注释的 TypeScript 接口文本
 - **字段描述**: `.describe(text)` 附加人类可读描述，由 `schema_to_prompt()` 渲染
 - **JSON Schema 导出**: `to_json_schema(schema)` 生成标准 JSON Schema 对象
+- **类型级错误消息**: `.string(invalid_type_error="...", required_error="...")` — 在工厂函数层面自定义类型不匹配和必填字段错误消息
 - **详细错误**: 每个错误含字段路径、消息、实际接收值
 
 ---
@@ -198,15 +199,15 @@ cd bench_cross_lang && node bench.js  # 跨语言对比
 
 | 函数 | 说明 |
 |---|---|
-| `string()` | 校验 JSON 字符串 |
-| `number()` | 校验 JSON 数字 |
-| `boolean()` | 校验 JSON 布尔值 |
-| `null()` | 校验 JSON null |
-| `array(Schema)` | 校验 JSON 数组，元素按给定 schema 递归校验 |
-| `object(Map[String, Schema])` | 校验 JSON 对象。**默认: Strip 模式** |
-| `enum_values(Array[String])` | 固定枚举值集合 |
-| `union(Array[Schema])` | 联合类型 — 任一 schema 匹配即通过 |
-| `intersection(Array[Schema])` | 交集类型 — 满足所有 schema；对象字段自动合并 |
+| `string(required_error?, invalid_type_error?)` | 校验 JSON 字符串 |
+| `number(required_error?, invalid_type_error?)` | 校验 JSON 数字 |
+| `boolean(required_error?, invalid_type_error?)` | 校验 JSON 布尔值 |
+| `null(required_error?, invalid_type_error?)` | 校验 JSON null |
+| `array(Schema, required_error?, invalid_type_error?)` | 校验 JSON 数组，元素按给定 schema 递归校验 |
+| `object(Map[String, Schema], required_error?, invalid_type_error?)` | 校验 JSON 对象。**默认: Strip 模式** |
+| `enum_values(Array[String], required_error?, invalid_type_error?)` | 固定枚举值集合 |
+| `union(Array[Schema], required_error?, invalid_type_error?)` | 联合类型 — 任一 schema 匹配即通过 |
+| `intersection(Array[Schema], required_error?, invalid_type_error?)` | 交集类型 — 满足所有 schema；对象字段自动合并 |
 
 ### Schema 方法
 
@@ -216,17 +217,26 @@ cd bench_cross_lang && node bench.js  # 跨语言对比
 | `.min(n[, msg])` | string / number / array | 最小长度/最小值 |
 | `.max(n[, msg])` | string / number / array | 最大长度/最大值 |
 | `.nonempty([msg])` | string | 字符串非空 |
-| `.email([msg])` | string | 校验 email 格式（改进版：恰好一个 @、local 无首尾点、domain 至少一个点）|
-| `.url([msg])` | string | 须以 `http://` 或 `https://` 开头 |
+| `.email([msg])` | string | 完整 email 校验（引号 local、IP 字面量、+tag、TLD≥2、唯一 @）|
+| `.url([msg])` | string | 完整 URL 结构：`scheme://host[:port][/path][?query][#fragment]` |
 | `.regex(pattern[, msg])` | string | 须包含 `pattern` 子串 |
 | `.startsWith(prefix[, msg])` | string | 以特定前缀开始 |
 | `.endsWith(suffix[, msg])` | string | 以特定后缀结束 |
 | `.includes(substring[, msg])` | string | 包含特定子串 |
 | `.uuid([msg])` | string | UUID v4 格式校验 |
+| `.cuid([msg])` | string | CUID 格式校验（c + base36 哈希）|
+| `.datetime([msg])` | string | ISO 8601 日期时间（date + T + time ± offset/Z）|
+| `.ip([msg])` | string | IPv4 或 IPv6 地址校验 |
+| `.ipv4([msg])` | string | IPv4 地址校验 |
+| `.ipv6([msg])` | string | IPv6 地址校验（完整/缩写，支持 ::）|
+| `.ulid([msg])` | string | ULID 格式校验（26 字符 Crockford base32）|
 | `.int([msg])` | number | 须为整数（无小数部分） |
 | `.positive([msg])` | number | 须 > 0 |
 | `.negative([msg])` | number | 须 < 0 |
 | `.multipleOf(n[, msg])` | number | 须是 n 的整数倍 |
+| `.length(n[, msg])` | string / array | 精确长度 n |
+| `.finite([msg])` | number | 有限数（非 NaN、非 ±Infinity）|
+| `.safe([msg])` | number | 安全整数（非 NaN、非 ±Infinity、无小数部分）|
 | `.optional()` | 任意 | null 或缺失时跳过校验。**规则链穿透**：`.optional().min(3)` 正确工作 |
 | `.default(value)` | 任意 | null 时替换为默认值。**规则链穿透** |
 | `.strict()` | object | 拒绝未定义字段 |
@@ -295,7 +305,7 @@ moon_zod/
 ├── cmd/main/           # 基准测试
 ├── examples/llm_agent/ # LLM 自修正演示
 ├── examples/real_llm_agent/ # 真实 LLM Agent — 完整管线演示
-├── test_*.mbt          # 按类型拆分的专项测试（13 个文件）
+├── test_*.mbt          # 按类型拆分的专项测试（16 个文件）
 └── moon_zod_wbtest.mbt # 白盒测试（4）
 ```
 
@@ -304,7 +314,7 @@ moon_zod/
 ## 开发
 
 ```bash
-moon test                # 运行全部测试（共 206 项）
+moon test                # 运行全部测试（共 276 项）
 moon build               # 构建库
 moon run cmd/main        # 运行基准测试
 moon run cmd/json2schema -- '{"hello":"world"}'  # 从 JSON 生成 Schema
