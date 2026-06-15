@@ -11,7 +11,7 @@
 
 name = "Betterlol/moon_zod"
 
-version = "0.5.0"
+version = "0.5.1"
 
 readme = "README.mbt.md"
 
@@ -22,3 +22,19 @@ license = "Apache-2.0"
 keywords = [ "json", "schema", "validation", "zod", "llm", "tool-calling" ]
 
 description = "A runtime JSON schema validation library for MoonBit, inspired by Zod and Pydantic"
+
+options(
+  exclude: [
+    "prompt.md",
+    "step_phase_details/",
+    "doc/",
+    "bench_cross_lang/",
+    "moonbit_syntax_pitfalls.md",
+    "AGENTS.md",
+    "_build/",
+    "target/",
+    ".mooncakes/",
+    ".moonagent/",
+    ".claude/",
+  ],
+)

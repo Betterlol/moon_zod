@@ -1,5 +1,12 @@
 # Release History
 
+## v0.5.1 (2026-06-15)
+
+**Publish fix — exclude internal/working files from mooncakes.io package**
+
+- `moon.mod`: add `options(exclude: [...])` to prevent `prompt.md`, `step_phase_details/`, `doc/`, `bench_cross_lang/`, `AGENTS.md`, `moonbit_syntax_pitfalls.md`, and build artifacts from being published to mooncakes.io
+- `moon publish` does not read `.gitignore`; it uses independent `include`/`exclude` in `moon.mod`
+
 ## v0.5.0 (2026-06-15)
 
 **7 new validators + Enhanced email/URL + Type-level error messages**
