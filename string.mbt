@@ -1,7 +1,16 @@
 ///|
 /// Create a schema that validates JSON strings.
-pub fn string() -> Schema {
-  { schema_type: StringType, rules: [], description: "" }
+pub fn string(
+  required_error? : String = "",
+  invalid_type_error? : String = "",
+) -> Schema {
+  {
+    schema_type: StringType,
+    rules: [],
+    description: "",
+    required_error,
+    invalid_type_error,
+  }
 }
 
 ///|
@@ -129,42 +138,119 @@ pub fn Schema::nonempty(self : Schema, msg? : String = "") -> Schema {
 }
 
 ///|
+fn find_unquoted_at(chars : Array[Char]) -> Int {
+  let mut i = 0
+  let n = chars.length()
+  while i < n {
+    if chars[i] == '"' {
+      // Skip quoted content
+      i = i + 1
+      while i < n && chars[i] != '"' {
+        i = i + 1
+      }
+      if i < n {
+        i = i + 1 // skip closing quote
+      }
+    } else if chars[i] == '@' {
+      return i
+    } else {
+      i = i + 1
+    }
+  }
+  -1
+}
+
+///|
+fn chars_to_string(chars : Array[Char], start : Int, end : Int) -> String {
+  let mut result = ""
+  for i = start; i < end; i = i + 1 {
+    result = result + chars[i].to_string()
+  }
+  result
+}
+
+///|
 fn is_valid_email(s : String) -> Bool {
   let chars = s.to_array()
   let n = chars.length()
-  // Find the single @ and validate local/domain parts
-  let mut at_count = 0
-  let mut at_pos = -1
-  for i, c in chars {
-    if c == '@' {
-      at_count = at_count + 1
-      at_pos = i
+  if n < 3 {
+    return false
+  }
+  // Find @, respecting quoted local parts
+  let at_pos = find_unquoted_at(chars)
+  if at_pos <= 0 || at_pos >= n - 1 {
+    return false
+  }
+  // Validate local part
+  // Quoted local: starts with " and ends with " at at_pos-1
+  if chars[0] == '"' {
+    if chars[at_pos - 1] != '"' {
+      return false
+    }
+    // Content between quotes is valid (any char except unescaped quote)
+  } else {
+    // Unquoted local: alphanumeric, dots, +, -, _
+    if chars[0] == '.' || chars[at_pos - 1] == '.' {
+      return false
+    }
+    for i = 0; i < at_pos; i = i + 1 {
+      let c = chars[i]
+      let valid = (c >= 'a' && c <= 'z') ||
+        (c >= 'A' && c <= 'Z') ||
+        (c >= '0' && c <= '9') ||
+        c == '.' ||
+        c == '+' ||
+        c == '-' ||
+        c == '_'
+      if !valid {
+        return false
+      }
     }
   }
-  if at_count != 1 {
-    return false
-  }
-  // Local part: non-empty, no leading/trailing dot
-  if at_pos <= 0 {
-    return false
-  }
-  if chars[0] == '.' || chars[at_pos - 1] == '.' {
-    return false
-  }
-  // Domain part: after @, at least one dot, no leading/trailing dot
-  if at_pos >= n - 1 {
-    return false
-  }
+  // Validate domain part
   if chars[at_pos + 1] == '.' || chars[n - 1] == '.' {
     return false
   }
-  // At least one dot in domain
+  // No additional @ in domain
   for i = at_pos + 1; i < n; i = i + 1 {
-    if chars[i] == '.' {
-      return true
+    if chars[i] == '@' {
+      return false
     }
   }
-  false
+  // Check for IP literal domain: [IPv6:...] or [192.168.1.1]
+  if chars[at_pos + 1] == '[' {
+    if chars[n - 1] != ']' {
+      return false
+    }
+    // Check for IPv6: prefix
+    if n - at_pos >= 10 &&
+      chars[at_pos + 2] == 'I' &&
+      chars[at_pos + 3] == 'P' &&
+      chars[at_pos + 4] == 'v' &&
+      chars[at_pos + 5] == '6' &&
+      chars[at_pos + 6] == ':' {
+      let ipv6_str = chars_to_string(chars, at_pos + 7, n - 1)
+      return is_valid_ipv6(ipv6_str)
+    }
+    let ipv4_str = chars_to_string(chars, at_pos + 2, n - 1)
+    return is_valid_ipv4(ipv4_str)
+  }
+  // Regular domain: find dots, validate last segment (TLD) >= 2 chars
+  let mut last_dot = -1
+  for i = at_pos + 1; i < n; i = i + 1 {
+    if chars[i] == '.' {
+      last_dot = i
+    }
+  }
+  if last_dot < 0 {
+    return false // no dot in domain
+  }
+  // TLD must be at least 2 chars
+  let tld_len = n - 1 - last_dot
+  if tld_len < 2 {
+    return false
+  }
+  true
 }
 
 ///|
@@ -193,12 +279,139 @@ pub fn Schema::email(self : Schema, msg? : String = "") -> Schema {
 }
 
 ///|
-fn has_url_prefix(s : String) -> Bool {
-  s.has_prefix("http://") || s.has_prefix("https://")
+fn is_valid_url(s : String) -> Bool {
+  let chars = s.to_array()
+  let n = chars.length()
+  if n < 8 {
+    return false // minimum: x://x.xx
+  }
+  // Find ://
+  if n < 4 {
+    return false
+  }
+  // Scheme: must be http or https
+  let scheme_end = if chars[0] == 'h' &&
+    chars[1] == 't' &&
+    chars[2] == 't' &&
+    chars[3] == 'p' {
+    if n > 5 && chars[4] == 's' {
+      if n > 7 && chars[5] == ':' && chars[6] == '/' && chars[7] == '/' {
+        8
+      } else {
+        return false
+      }
+    } else if chars[4] == ':' && chars[5] == '/' && chars[6] == '/' {
+      7
+    } else {
+      return false
+    }
+  } else {
+    return false
+  }
+  // Host part: between // and / or : or ? or # or end
+  let mut host_end = n
+  let mut port_start = -1
+  let mut path_start = -1
+  let mut query_start = -1
+  let mut fragment_start = -1
+  for i = scheme_end; i < n; i = i + 1 {
+    if chars[i] == ':' && port_start < 0 {
+      port_start = i
+      host_end = i
+    } else if chars[i] == '/' && path_start < 0 && port_start < 0 {
+      path_start = i
+      host_end = i
+    } else if chars[i] == '/' && path_start < 0 && port_start >= 0 {
+      path_start = i
+    } else if chars[i] == '?' && query_start < 0 {
+      query_start = i
+      if host_end == n {
+        host_end = i
+      }
+      if path_start < 0 {
+        path_start = i
+      }
+    } else if chars[i] == '#' && fragment_start < 0 {
+      fragment_start = i
+      if host_end == n {
+        host_end = i
+      }
+      if path_start < 0 {
+        path_start = i
+      }
+      if query_start < 0 {
+        query_start = i
+      }
+    }
+  }
+  if host_end == n {
+    host_end = if port_start >= 0 { port_start } else { n }
+  }
+  // Validate host
+  if host_end <= scheme_end {
+    return false
+  }
+  let host_part = chars_to_string(chars, scheme_end, host_end)
+  if host_part == "localhost" || is_valid_ipv4(host_part) {
+    // valid
+  } else {
+    // Domain: at least one dot, no leading/trailing dot
+    let host_chars = host_part.to_array()
+    let hn = host_chars.length()
+    if hn < 1 || host_chars[0] == '.' || host_chars[hn - 1] == '.' {
+      return false
+    }
+    let mut has_dot = false
+    for c in host_chars {
+      let valid = (c >= 'a' && c <= 'z') ||
+        (c >= 'A' && c <= 'Z') ||
+        (c >= '0' && c <= '9') ||
+        c == '.' ||
+        c == '-'
+      if !valid {
+        return false
+      }
+      if c == '.' {
+        has_dot = true
+      }
+    }
+    if !has_dot {
+      return false
+    }
+  }
+  // Validate port
+  if port_start >= 0 {
+    let mut port_end = if path_start >= 0 { path_start } else { n }
+    if query_start >= 0 && query_start < port_end {
+      port_end = query_start
+    }
+    if fragment_start >= 0 && fragment_start < port_end {
+      port_end = fragment_start
+    }
+    let port_str = chars_to_string(chars, port_start + 1, port_end)
+    if port_str.is_empty() {
+      return false
+    }
+    let mut port_val = 0
+    for i = 0; i < port_str.length(); i = i + 1 {
+      let c = port_str[i]
+      if c < '0' || c > '9' {
+        return false
+      }
+      port_val = port_val * 10 + (c.to_int() - 48)
+    }
+    if port_val < 1 || port_val > 65535 {
+      return false
+    }
+  }
+  // Path is already structurally valid (/anything)
+  // Query is structurally valid (?anything)
+  // Fragment is structurally valid (#anything)
+  true
 }
 
 ///|
-/// Require the string to start with `http://` or `https://`.
+/// Require the string to be a valid URL with http:// or https:// scheme.
 pub fn Schema::url(self : Schema, msg? : String = "") -> Schema {
   match inner_type(self.schema_type) {
     StringType => ()
@@ -209,7 +422,7 @@ pub fn Schema::url(self : Schema, msg? : String = "") -> Schema {
     self,
     fn(json) {
       match json {
-        String(s) => has_url_prefix(s)
+        String(s) => is_valid_url(s)
         _ => false
       }
     },
@@ -619,48 +832,55 @@ fn is_valid_ipv6(s : String) -> Bool {
   if n < 2 {
     return false
   }
-  // Count colons and detect ::
+  // Count colons and detect :: (treat :: as one separator)
   let mut colon_count = 0
   let mut double_colon = false
-  for i = 0; i < n; i = i + 1 {
+  let mut i = 0
+  while i < n {
     if chars[i] == ':' {
-      colon_count = colon_count + 1
       if i + 1 < n && chars[i + 1] == ':' {
         double_colon = true
+        i = i + 2 // skip both ::
+      } else {
+        colon_count = colon_count + 1
+        i = i + 1
       }
-    } else if !is_hex_digit(chars[i]) {
-      return false
+    } else {
+      if !is_hex_digit(chars[i]) {
+        return false
+      }
+      i = i + 1
     }
   }
-  if double_colon && colon_count > 7 {
+  if double_colon && colon_count > 6 {
     return false
   }
   if !double_colon && colon_count != 7 {
     return false
   }
   // Validate each hex group between colons
+  i = 0
   let mut group_len = 0
   let mut groups = 0
-  for i = 0; i < n; i = i + 1 {
+  while i < n {
     if chars[i] == ':' {
       if i + 1 < n && chars[i + 1] == ':' {
-        // :: counts as 0+ groups
-        groups = groups + 1
-        if group_len > 0 {
-          groups = groups + 1
-        }
+        // :: counts as group separator
         group_len = 0
+        i = i + 2 // skip both ::
       } else {
         if group_len > 0 || groups > 0 {
           groups = groups + 1
         }
         group_len = 0
+        i = i + 1
       }
     } else {
       group_len = group_len + 1
       if group_len > 4 {
         return false
       }
+      i = i + 1
     }
   }
   if group_len > 0 {

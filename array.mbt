@@ -2,8 +2,18 @@
 /// Create a schema that validates JSON arrays.
 ///
 /// Each element in the array is validated against `element_schema`.
-pub fn array(element_schema : Schema) -> Schema {
-  { schema_type: ArrayType(element_schema), rules: [], description: "" }
+pub fn array(
+  element_schema : Schema,
+  required_error? : String = "",
+  invalid_type_error? : String = "",
+) -> Schema {
+  {
+    schema_type: ArrayType(element_schema),
+    rules: [],
+    description: "",
+    required_error,
+    invalid_type_error,
+  }
 }
 
 ///|
@@ -39,13 +49,7 @@ pub fn Schema::parse_array(
     }
     _ => {
       let path = format_path(path_stack)
-      Err([
-        ValidationError::{
-          path,
-          message: expected_msg(self.schema_type),
-          got: json,
-        },
-      ])
+      Err([ValidationError::{ path, message: type_error_msg(self), got: json }])
     }
   }
 }

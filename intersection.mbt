@@ -1,8 +1,18 @@
 ///|
 /// Create a schema that requires all given schemas to match (intersection / and).
 /// For objects, fields from all schemas are merged into one.
-pub fn intersection(schemas : Array[Schema]) -> Schema {
-  { schema_type: IntersectionType(schemas), rules: [], description: "" }
+pub fn intersection(
+  schemas : Array[Schema],
+  required_error? : String = "",
+  invalid_type_error? : String = "",
+) -> Schema {
+  {
+    schema_type: IntersectionType(schemas),
+    rules: [],
+    description: "",
+    required_error,
+    invalid_type_error,
+  }
 }
 
 ///|

@@ -1,7 +1,16 @@
 ///|
 /// Create a schema that validates JSON numbers.
-pub fn number() -> Schema {
-  { schema_type: NumberType, rules: [], description: "" }
+pub fn number(
+  required_error? : String = "",
+  invalid_type_error? : String = "",
+) -> Schema {
+  {
+    schema_type: NumberType,
+    rules: [],
+    description: "",
+    required_error,
+    invalid_type_error,
+  }
 }
 
 ///|

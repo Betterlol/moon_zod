@@ -534,3 +534,140 @@ test "ulid custom message" {
   }
   @debug.assert_eq(errors[0].message, "不是有效的ULID")
 }
+
+///|
+/// IPv6 edge cases with ::
+test "ipv6 passes complex compression" {
+  let s = string().ipv6()
+  guard s.parse(Json::string("::1:2:3:4:5:6:7")) is Ok(_) else {
+    fail("expected Ok: ::1:2:3:4:5:6:7")
+  }
+}
+
+///|
+test "ipv6 passes double colon at start" {
+  let s = string().ipv6()
+  guard s.parse(Json::string("::1")) is Ok(_) else { fail("expected Ok: ::1") }
+}
+
+///|
+test "ipv6 passes double colon at end" {
+  let s = string().ipv6()
+  guard s.parse(Json::string("1::")) is Ok(_) else { fail("expected Ok: 1::") }
+}
+
+///|
+test "ipv6 passes with many groups and compression" {
+  let s = string().ipv6()
+  guard s.parse(Json::string("2001:db8::1:0:0:1")) is Ok(_) else {
+    fail("expected Ok: 2001:db8::1:0:0:1")
+  }
+}
+
+///|
+/// Email enhanced: quoted local part
+test "email passes quoted local" {
+  let s = string().email()
+  guard s.parse(Json::string("\"abc@def\"@example.com")) is Ok(_) else {
+    fail("expected Ok for quoted local")
+  }
+}
+
+///|
+test "email passes ip literal ipv4" {
+  let s = string().email()
+  guard s.parse(Json::string("user@[192.168.1.1]")) is Ok(_) else {
+    fail("expected Ok for IP literal")
+  }
+}
+
+///|
+test "email passes ip literal ipv6" {
+  let s = string().email()
+  guard s.parse(Json::string("user@[IPv6:2001:db8::1]")) is Ok(_) else {
+    fail("expected Ok for IPv6 literal")
+  }
+}
+
+///|
+test "email passes plus tag" {
+  let s = string().email()
+  guard s.parse(Json::string("user+tag@example.com")) is Ok(_) else {
+    fail("expected Ok for +tag")
+  }
+}
+
+///|
+test "email rejects tld too short" {
+  let s = string().email()
+  guard s.parse(Json::string("user@example.c")) is Err(_) else {
+    fail("expected Err for short TLD")
+  }
+}
+
+///|
+/// URL enhanced tests
+test "url passes with path" {
+  let s = string().url()
+  guard s.parse(Json::string("https://example.com/path/to/page")) is Ok(_) else {
+    fail("expected Ok for URL with path")
+  }
+}
+
+///|
+test "url passes with port" {
+  let s = string().url()
+  guard s.parse(Json::string("https://example.com:8080/path")) is Ok(_) else {
+    fail("expected Ok for URL with port")
+  }
+}
+
+///|
+test "url passes with query" {
+  let s = string().url()
+  guard s.parse(Json::string("https://example.com/search?q=hello&page=1"))
+    is Ok(_) else {
+    fail("expected Ok for URL with query")
+  }
+}
+
+///|
+test "url passes with fragment" {
+  let s = string().url()
+  guard s.parse(Json::string("https://example.com/page#section")) is Ok(_) else {
+    fail("expected Ok for URL with fragment")
+  }
+}
+
+///|
+test "url passes ipv4 host" {
+  let s = string().url()
+  guard s.parse(Json::string("https://192.168.1.1/admin")) is Ok(_) else {
+    fail("expected Ok for IPv4 host URL")
+  }
+}
+
+///|
+test "url passes localhost" {
+  let s = string().url()
+  guard s.parse(Json::string("http://localhost:3000/api")) is Ok(_) else {
+    fail("expected Ok for localhost URL")
+  }
+}
+
+///|
+test "url rejects bad port" {
+  let s = string().url()
+  guard s.parse(Json::string("https://example.com:99999")) is Err(_) else {
+    fail("expected Err for bad port")
+  }
+}
+
+///|
+test "url custom message" {
+  let s = string().url(msg="不是有效的URL")
+  guard s.parse(Json::string("not-a-url")) is Err(errors) else {
+    fail("expected Err")
+  }
+  @debug.assert_eq(errors[0].message, "不是有效的URL")
+}

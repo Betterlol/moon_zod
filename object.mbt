@@ -4,8 +4,18 @@
 /// Each key in `spec` defines a required field and its schema.
 /// By default, extra fields in the input JSON are silently stripped (Strip mode).
 /// Use `.passthrough()` to allow extra fields, or `.strict()` to reject them.
-pub fn object(spec : Map[String, Schema]) -> Schema {
-  { schema_type: ObjectType(spec, Strip), rules: [], description: "" }
+pub fn object(
+  spec : Map[String, Schema],
+  required_error? : String = "",
+  invalid_type_error? : String = "",
+) -> Schema {
+  {
+    schema_type: ObjectType(spec, Strip),
+    rules: [],
+    description: "",
+    required_error,
+    invalid_type_error,
+  }
 }
 
 ///|
@@ -61,6 +71,8 @@ pub fn Schema::pick(self : Schema, keys : Array[String]) -> Schema {
         schema_type: ObjectType(new_spec, mode),
         rules: self.rules,
         description: self.description,
+        required_error: self.required_error,
+        invalid_type_error: self.invalid_type_error,
       }
     }
     _ => abort("pick() is only valid for object schemas")
@@ -92,6 +104,8 @@ pub fn Schema::omit(self : Schema, keys : Array[String]) -> Schema {
         schema_type: ObjectType(new_spec, mode),
         rules: self.rules,
         description: self.description,
+        required_error: self.required_error,
+        invalid_type_error: self.invalid_type_error,
       }
     }
     _ => abort("omit() is only valid for object schemas")
@@ -122,6 +136,8 @@ pub fn Schema::partial(self : Schema) -> Schema {
         schema_type: ObjectType(new_spec, mode),
         rules: self.rules,
         description: self.description,
+        required_error: self.required_error,
+        invalid_type_error: self.invalid_type_error,
       }
     }
     _ => abort("partial() is only valid for object schemas")
@@ -148,9 +164,14 @@ pub fn Schema::parse_object(
               None =>
                 if !is_optional_schema(field_schema) {
                   let path = format_path(path_stack)
+                  let req_msg = if !field_schema.required_error.is_empty() {
+                    field_schema.required_error
+                  } else {
+                    "Required"
+                  }
                   errors.push(ValidationError::{
                     path,
-                    message: "Required",
+                    message: req_msg,
                     got: Json::null(),
                   })
                 }
@@ -202,13 +223,7 @@ pub fn Schema::parse_object(
     }
     _ => {
       let path = format_path(path_stack)
-      Err([
-        ValidationError::{
-          path,
-          message: expected_msg(self.schema_type),
-          got: json,
-        },
-      ])
+      Err([ValidationError::{ path, message: type_error_msg(self), got: json }])
     }
   }
 }

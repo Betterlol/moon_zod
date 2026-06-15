@@ -417,11 +417,35 @@
 
 ---
 
+## Phase 24 — 增强验证器 + 类型级错误消息 (v0.5.0)
+
+**目标**: 修复 IPv6 `::` 组计数 bug + 增强 email/url 校验 + 类型级 `required_error`/`invalid_type_error`。
+
+| 文件 | 变更 |
+|---|---|
+| `schema.mbt` | Schema 新增 `required_error`/`invalid_type_error` 字段；`parse_inner` 类型错误使用自定义消息 |
+| `string.mbt` | IPv6 `::` 双倍计数 bug 修复（`while` 循环 + `i=i+2`）；`is_valid_email` 重写（引号 local、IP literal、`+` 标签、TLD≥2）；`is_valid_url` 全新（scheme://host[:port][/path][?query][#fragment]） |
+| `number/boolean/null/array/object/intersection.mbt` | 工厂函数新增加 `required_error?`/`invalid_type_error?` 参数 |
+| `union.mbt` | `optional()`/`default()` 传播内层错误参数；`enum_values()`/`union()` 新增参数 |
+| `transform.mbt` | `transform()` 传播内层错误参数 |
+| `test_string.mbt` | 25 个新测试（IPv6 边缘、email 增强、URL 增强） |
+| `test_errors.mbt` | 8 个类型级错误消息测试 |
+
+**关键决策**:
+- IPv6 修复：`for` 循环变量不可变，改用 `while` 循环手动控制索引
+- Email 增强：`find_unquoted_at()` 跳过引号内容，准确找到分割 `@`
+- URL 增强：完整结构解析而非前缀检查，复用已有的 `is_valid_ipv4`
+- 类型错误消息：`invalid_type_error` 用于类型不匹配，`required_error` 用于缺失必填字段。空字符串=使用默认消息
+
+**产出**: 276/276 测试全部通过 0 警告。12 文件修改，607 insertions。
+
+---
+
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 251（247 黑盒 + 4 白盒） |
+| 测试数量 | 276（272 黑盒 + 4 白盒） |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
 | 核心源码模块 | 15 个 `.mbt` 文件（含 `intersection.mbt`） |

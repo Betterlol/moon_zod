@@ -43,6 +43,8 @@ pub struct Schema {
   schema_type : SchemaType
   rules : Array[Rule]
   description : String
+  required_error : String
+  invalid_type_error : String
 }
 
 ///|
@@ -70,6 +72,8 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
         schema_type: OptionalType(new_inner),
         rules: [],
         description: self.description,
+        required_error: self.required_error,
+        invalid_type_error: self.invalid_type_error,
       }
     }
     DefaultType(inner, val) => {
@@ -78,6 +82,8 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
         schema_type: DefaultType(new_inner, val),
         rules: [],
         description: self.description,
+        required_error: self.required_error,
+        invalid_type_error: self.invalid_type_error,
       }
     }
     TransformType(inner, cls) => {
@@ -86,6 +92,8 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
         schema_type: TransformType(new_inner, cls),
         rules: [],
         description: self.description,
+        required_error: self.required_error,
+        invalid_type_error: self.invalid_type_error,
       }
     }
     _ => {
@@ -146,6 +154,8 @@ pub fn append_rule_with_annotation(
         schema_type: OptionalType(new_inner),
         rules: [],
         description: schema.description,
+        required_error: schema.required_error,
+        invalid_type_error: schema.invalid_type_error,
       }
     }
     DefaultType(inner, default_val) => {
@@ -156,6 +166,8 @@ pub fn append_rule_with_annotation(
         schema_type: DefaultType(new_inner, default_val),
         rules: [],
         description: schema.description,
+        required_error: schema.required_error,
+        invalid_type_error: schema.invalid_type_error,
       }
     }
     TransformType(inner, closure) => {
@@ -166,9 +178,20 @@ pub fn append_rule_with_annotation(
         schema_type: TransformType(new_inner, closure),
         rules: [],
         description: schema.description,
+        required_error: schema.required_error,
+        invalid_type_error: schema.invalid_type_error,
       }
     }
     _ => { ..schema, rules: schema.rules + [{ check, message, annotation }] }
+  }
+}
+
+///|
+fn type_error_msg(schema : Schema) -> String {
+  if !schema.invalid_type_error.is_empty() {
+    schema.invalid_type_error
+  } else {
+    expected_msg(schema.schema_type)
   }
 }
 
@@ -290,11 +313,7 @@ fn parse_inner(
       if !valid {
         let path = format_path(path_stack)
         return Err([
-          ValidationError::{
-            path,
-            message: expected_msg(schema.schema_type),
-            got: json,
-          },
+          ValidationError::{ path, message: type_error_msg(schema), got: json },
         ])
       }
       let errors : Array[ValidationError] = []

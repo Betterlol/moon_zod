@@ -25,6 +25,8 @@ pub fn Schema::transform(
     schema_type: TransformType(self, TransformClosure::{ f, }),
     rules: [],
     description: self.description,
+    required_error: self.required_error,
+    invalid_type_error: self.invalid_type_error,
   }
 }
 
