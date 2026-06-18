@@ -470,11 +470,12 @@
 - **缺失验证器**：`.nan()`（MoonBit Double 无 is_nan 构造函数）。
 
 ### 建议下一步
-1. **多平台 CI**: 扩展 GitHub Actions 到 macos-latest / windows-latest。
-2. **derive 宏**: `derive(ZodSchema)` 从 MoonBit struct 自动生成 schema。
+1. **🔴 最高优先级: `schema_to_prompt_named` — 命名接口导出 (v0.6.0)**
+2. **多平台 CI**: 扩展 GitHub Actions 到 macos-latest / windows-latest。
+3. **derive 宏**: `derive(ZodSchema)` 从 MoonBit struct 自动生成 schema。
 >  然而，MoonBit 当前缺乏稳定的宏系统，只支持内置的几个 derive (Debug/Show/Eq/FromJson/ToJson)，无法实现自定义 derive。需要等待未来 MoonBit 引入稳定的宏系统后才能开发此功能。
 > 当然，先做 Schema 的 FromJson 和 ToJson 也是可行的，然而最需要的还是 ToSchema 的功能...
-3. **wasm-gc target**: 验证 `--target wasm-gc` 兼容性并优化 instantiation 开销。
+4. **wasm-gc target**: 验证 `--target wasm-gc` 兼容性并优化 instantiation 开销。
 
 ---
 
