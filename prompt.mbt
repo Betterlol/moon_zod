@@ -524,12 +524,215 @@ fn collect_named_schemas_impl(
 }
 
 ///|
+/// Topologically sort named schemas so dependents come before dependees.
+/// Ensures definitions appear before they are referenced.
+fn topological_sort_schemas(named_schemas : Array[Schema]) -> Array[Schema] {
+  if named_schemas.is_empty() {
+    return named_schemas
+  }
+
+  // Build dependency list: Array[(name, dependencies)]
+  let deps_list : Array[(String, Array[String])] = []
+  for schema in named_schemas {
+    let deps = find_schema_dependencies(schema, named_schemas)
+    deps_list.push((schema.name, deps))
+  }
+
+  // Topological sort using DFS
+  let visited_list : Array[(String, Int)] = [] // 0=unvisited, 1=visiting, 2=visited
+  let sorted : Array[Schema] = []
+
+  for schema in named_schemas {
+    if !visited_contains(visited_list, schema.name) {
+      dfs_topo_sort(schema.name, deps_list, visited_list, sorted, named_schemas)
+    }
+  }
+
+  sorted
+}
+
+///|
+/// Helper: check if a name is in visited list
+fn visited_contains(visited_list : Array[(String, Int)], name : String) -> Bool {
+  for i = 0; i < visited_list.length(); i = i + 1 {
+    let (n, _status) = visited_list[i]
+    if n == name {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Helper: get status from visited list (0 = unvisited by default)
+fn visited_get_status(visited_list : Array[(String, Int)], name : String) -> Int {
+  for i = 0; i < visited_list.length(); i = i + 1 {
+    let (n, status) = visited_list[i]
+    if n == name {
+      return status
+    }
+  }
+  0
+}
+
+///|
+/// Helper: set status in visited list
+fn visited_set_status(visited_list : Array[(String, Int)], name : String, status : Int) -> Unit {
+  for i = 0; i < visited_list.length(); i = i + 1 {
+    let (n, _) = visited_list[i]
+    if n == name {
+      visited_list[i] = (name, status)
+      return
+    }
+  }
+  // Not found, add new entry
+  visited_list.push((name, status))
+}
+
+///|
+/// Find all named schema dependencies within a schema.
+fn find_schema_dependencies(
+  schema : Schema,
+  schema_map : Array[Schema],
+) -> Array[String] {
+  let deps : Array[String] = []
+  let visited_names : Array[String] = []
+  find_schema_dependencies_impl(schema, schema_map, deps, visited_names)
+  deps
+}
+
+///|
+fn find_schema_dependencies_impl(
+  schema : Schema,
+  schema_map : Array[Schema],
+  deps : Array[String],
+  visited_names : Array[String],
+) -> Unit {
+  // Avoid infinite recursion on circular references
+  if value_in_array(schema.name, visited_names) {
+    return
+  }
+  if !schema.name.is_empty() {
+    visited_names.push(schema.name)
+  }
+
+  // Helper to check if a name exists in schema_map
+  let name_exists_in_map = fn(name : String) {
+    for s in schema_map {
+      if s.name == name {
+        return true
+      }
+    }
+    false
+  }
+
+  match schema.schema_type {
+    ObjectType(fields, _) => {
+      for _key, field_schema in fields {
+        // If the field schema is named and in schema_map, it's a dependency
+        if !field_schema.name.is_empty() && name_exists_in_map(field_schema.name) {
+          if !value_in_array(field_schema.name, deps) {
+            deps.push(field_schema.name)
+          }
+        }
+        // Also recurse to find transitive dependencies
+        find_schema_dependencies_impl(field_schema, schema_map, deps, visited_names)
+      }
+    }
+    ArrayType(elem) => {
+      if !elem.name.is_empty() && name_exists_in_map(elem.name) {
+        if !value_in_array(elem.name, deps) {
+          deps.push(elem.name)
+        }
+      }
+      find_schema_dependencies_impl(elem, schema_map, deps, visited_names)
+    }
+    OptionalType(inner) => {
+      find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
+    }
+    DefaultType(inner, _) => {
+      find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
+    }
+    TransformType(inner, _) => {
+      find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
+    }
+    UnionType(schemas) => {
+      for s in schemas {
+        if !s.name.is_empty() && name_exists_in_map(s.name) {
+          if !value_in_array(s.name, deps) {
+            deps.push(s.name)
+          }
+        }
+        find_schema_dependencies_impl(s, schema_map, deps, visited_names)
+      }
+    }
+    IntersectionType(schemas) => {
+      for s in schemas {
+        if !s.name.is_empty() && name_exists_in_map(s.name) {
+          if !value_in_array(s.name, deps) {
+            deps.push(s.name)
+          }
+        }
+        find_schema_dependencies_impl(s, schema_map, deps, visited_names)
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+/// DFS for topological sorting. Adds schemas to sorted list in dependency order.
+fn dfs_topo_sort(
+  name : String,
+  deps_list : Array[(String, Array[String])],
+  visited : Array[(String, Int)],
+  sorted : Array[Schema],
+  schema_map : Array[Schema],
+) -> Unit {
+  // Mark as visiting
+  visited_set_status(visited, name, 1)
+
+  // Find dependencies for this name
+  let mut deps = []
+  for i = 0; i < deps_list.length(); i = i + 1 {
+    let (n, d) = deps_list[i]
+    if n == name {
+      deps = d
+    }
+  }
+
+  // Visit all dependencies first
+  for dep_name in deps {
+    let status = visited_get_status(visited, dep_name)
+    if status == 0 {
+      // Unvisited, recurse
+      dfs_topo_sort(dep_name, deps_list, visited, sorted, schema_map)
+    }
+    // Skip if status == 1 (cycle detected) or status == 2 (already visited)
+  }
+
+  // After visiting all dependencies, add this schema
+  for i = 0; i < schema_map.length(); i = i + 1 {
+    let schema = schema_map[i]
+    if schema.name == name {
+      sorted.push(schema)
+    }
+  }
+
+  // Mark as visited
+  visited_set_status(visited, name, 2)
+}
+
+///|
 /// Generate the full prompt with interface definitions and the root schema.
 fn generate_prompt_with_interfaces(named_schemas : Array[Schema]) -> String {
+  // Sort schemas topologically so dependencies come before dependents
+  let sorted_schemas = topological_sort_schemas(named_schemas)
+
   let mut prompt = ""
 
-  // Generate interface definitions for named schemas
-  for schema in named_schemas {
+  // Generate interface definitions for sorted schemas
+  for schema in sorted_schemas {
     let interface_def = schema_to_interface_definition(schema)
     if !interface_def.is_empty() {
       if !prompt.is_empty() {
@@ -540,12 +743,12 @@ fn generate_prompt_with_interfaces(named_schemas : Array[Schema]) -> String {
   }
 
   // Include the root schema at the end (the last named one)
-  if named_schemas.length() > 0 {
-    let last_schema = named_schemas[named_schemas.length() - 1]
+  if sorted_schemas.length() > 0 {
+    let last_schema = sorted_schemas[sorted_schemas.length() - 1]
     if !prompt.is_empty() {
       prompt = prompt + "\n\nexport interface " + last_schema.name + " "
     }
-    let root_prompt = type_to_inline_prompt(last_schema, 0, named_schemas)
+    let root_prompt = type_to_inline_prompt(last_schema, 0, sorted_schemas)
     prompt = prompt + root_prompt
   }
 
