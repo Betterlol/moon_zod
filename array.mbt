@@ -13,6 +13,7 @@ pub fn array(
     description: "",
     required_error,
     invalid_type_error,
+    name: "",
   }
 }
 

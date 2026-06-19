@@ -9,6 +9,7 @@ pub fn Schema::optional(self : Schema) -> Schema {
     description: self.description,
     required_error: self.required_error,
     invalid_type_error: self.invalid_type_error,
+    name: self.name,
   }
 }
 
@@ -23,6 +24,7 @@ pub fn Schema::default(self : Schema, value : Json) -> Schema {
     description: self.description,
     required_error: self.required_error,
     invalid_type_error: self.invalid_type_error,
+    name: self.name,
   }
 }
 
@@ -39,6 +41,7 @@ pub fn enum_values(
     description: "",
     required_error,
     invalid_type_error,
+    name: "",
   }
 }
 
@@ -56,6 +59,7 @@ pub fn union(
     description: "",
     required_error,
     invalid_type_error,
+    name: "",
   }
 }
 

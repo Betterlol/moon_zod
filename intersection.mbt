@@ -12,6 +12,7 @@ pub fn intersection(
     description: "",
     required_error,
     invalid_type_error,
+    name: "",
   }
 }
 

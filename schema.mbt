@@ -45,6 +45,7 @@ pub struct Schema {
   description : String
   required_error : String
   invalid_type_error : String
+  name : String
 }
 
 ///|
@@ -53,6 +54,14 @@ pub struct Schema {
 /// helping LLMs understand the semantic meaning of each field.
 pub fn Schema::describe(self : Schema, text : String) -> Schema {
   { ..self, description: text }
+}
+
+///|
+/// Give a schema a name for export.
+/// When used with `schema_to_prompt_named()`, named schemas are extracted as separate
+/// interface/type definitions in the generated prompt, supporting Object and Enum types.
+pub fn Schema::name(self : Schema, text : String) -> Schema {
+  { ..self, name: text }
 }
 
 ///|
@@ -74,6 +83,7 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
         description: self.description,
         required_error: self.required_error,
         invalid_type_error: self.invalid_type_error,
+        name: self.name,
       }
     }
     DefaultType(inner, val) => {
@@ -84,6 +94,7 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
         description: self.description,
         required_error: self.required_error,
         invalid_type_error: self.invalid_type_error,
+        name: self.name,
       }
     }
     TransformType(inner, cls) => {
@@ -94,6 +105,7 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
         description: self.description,
         required_error: self.required_error,
         invalid_type_error: self.invalid_type_error,
+        name: self.name,
       }
     }
     _ => {
@@ -156,6 +168,7 @@ pub fn append_rule_with_annotation(
         description: schema.description,
         required_error: schema.required_error,
         invalid_type_error: schema.invalid_type_error,
+        name: schema.name,
       }
     }
     DefaultType(inner, default_val) => {
@@ -168,6 +181,7 @@ pub fn append_rule_with_annotation(
         description: schema.description,
         required_error: schema.required_error,
         invalid_type_error: schema.invalid_type_error,
+        name: schema.name,
       }
     }
     TransformType(inner, closure) => {
@@ -180,6 +194,7 @@ pub fn append_rule_with_annotation(
         description: schema.description,
         required_error: schema.required_error,
         invalid_type_error: schema.invalid_type_error,
+        name: schema.name,
       }
     }
     _ => { ..schema, rules: schema.rules + [{ check, message, annotation }] }

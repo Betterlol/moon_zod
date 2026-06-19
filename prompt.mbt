@@ -26,6 +26,30 @@ pub fn schema_to_prompt(schema : Schema) -> String {
 }
 
 ///|
+/// Convert a schema with named sub-schemas into a prompt with separate interface definitions.
+///
+/// Automatically collects all schemas with non-empty names from the input schema tree
+/// and generates separate TypeScript interface/type definitions for them.
+/// References to named schemas are replaced with just their name.
+///
+/// # Example
+/// ```mbt nocheck
+/// let user = object({"name": string()}).name("User")
+/// let order = object({"user": user}).name("Order")
+/// let prompt = schema_to_prompt_named(order)
+/// // export interface User {
+/// //   name: string;
+/// // }
+/// // export interface Order {
+/// //   user: User;
+/// // }
+/// ```
+pub fn schema_to_prompt_named(schema : Schema) -> String {
+  let named_schemas = collect_named_schemas(schema)
+  generate_prompt_with_interfaces(named_schemas)
+}
+
+///|
 /// Recursively render the TypeScript type string (no comment).
 fn type_to_prompt(schema : Schema, indent : Int) -> String {
   match schema.schema_type {
@@ -437,4 +461,220 @@ fn constraint_comment(rules : Array[Rule], base_type : SchemaType) -> String {
     ArrayType(_) => array_constraint_comment(rules)
     _ => fallback_constraint_comment(rules)
   }
+}
+
+///|
+/// Collect all named schemas from the input schema tree.
+fn collect_named_schemas(schema : Schema) -> Array[Schema] {
+  let visited : Array[String] = []
+  let result : Array[Schema] = []
+  collect_named_schemas_impl(schema, visited, result)
+  result
+}
+
+///|
+fn collect_named_schemas_impl(
+  schema : Schema,
+  visited : Array[String],
+  result : Array[Schema],
+) -> Unit {
+  // If this schema has a name, add it (and mark as visited)
+  if !schema.name.is_empty() {
+    let already_visited = value_in_array(schema.name, visited)
+    if !already_visited {
+      visited.push(schema.name)
+      result.push(schema)
+    } else {
+      // Already visited, skip to avoid duplicates
+      return
+    }
+  }
+
+  // Recursively collect from nested schemas
+  match schema.schema_type {
+    ObjectType(fields, _) => {
+      for _key, field_schema in fields {
+        collect_named_schemas_impl(field_schema, visited, result)
+      }
+    }
+    ArrayType(elem) => {
+      collect_named_schemas_impl(elem, visited, result)
+    }
+    OptionalType(inner) => {
+      collect_named_schemas_impl(inner, visited, result)
+    }
+    DefaultType(inner, _) => {
+      collect_named_schemas_impl(inner, visited, result)
+    }
+    TransformType(inner, _) => {
+      collect_named_schemas_impl(inner, visited, result)
+    }
+    UnionType(schemas) => {
+      for s in schemas {
+        collect_named_schemas_impl(s, visited, result)
+      }
+    }
+    IntersectionType(schemas) => {
+      for s in schemas {
+        collect_named_schemas_impl(s, visited, result)
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+/// Generate the full prompt with interface definitions and the root schema.
+fn generate_prompt_with_interfaces(named_schemas : Array[Schema]) -> String {
+  let mut prompt = ""
+
+  // Generate interface definitions for named schemas
+  for schema in named_schemas {
+    let interface_def = schema_to_interface_definition(schema)
+    if !interface_def.is_empty() {
+      if !prompt.is_empty() {
+        prompt = prompt + "\n\n"
+      }
+      prompt = prompt + interface_def
+    }
+  }
+
+  // Include the root schema at the end (the last named one)
+  if named_schemas.length() > 0 {
+    let last_schema = named_schemas[named_schemas.length() - 1]
+    if !prompt.is_empty() {
+      prompt = prompt + "\n\nexport interface " + last_schema.name + " "
+    }
+    let root_prompt = type_to_inline_prompt(last_schema, 0, named_schemas)
+    prompt = prompt + root_prompt
+  }
+
+  prompt
+}
+
+///|
+/// Generate a TypeScript interface/type definition for a named schema.
+fn schema_to_interface_definition(schema : Schema) -> String {
+  if schema.name.is_empty() {
+    return ""
+  }
+
+  match schema.schema_type {
+    ObjectType(spec, _) => {
+      "export interface " + schema.name + " " + object_to_prompt(spec, 0)
+    }
+    EnumType(values) => {
+      "type " + schema.name + " = " + enum_to_prompt(values)
+    }
+    _ => ""
+  }
+}
+
+///|
+/// Render schema to inline type (for use in object definitions).
+/// If schema has a name and is in the named list, render just the name.
+fn type_to_inline_prompt(
+  schema : Schema,
+  indent : Int,
+  named_schemas : Array[Schema],
+) -> String {
+  // Check if this schema is named and in our named schemas list
+  if !schema.name.is_empty() {
+    for ns in named_schemas {
+      if ns.name == schema.name {
+        return schema.name
+      }
+    }
+  }
+
+  match schema.schema_type {
+    StringType => "string"
+    NumberType => "number"
+    BooleanType => "boolean"
+    NullType => "null"
+    OptionalType(inner) => type_to_inline_prompt(inner, indent, named_schemas) + " | null"
+    DefaultType(inner, _) => type_to_inline_prompt(inner, indent, named_schemas) + " | null"
+    TransformType(inner, _) => type_to_inline_prompt(inner, indent, named_schemas)
+    EnumType(values) => enum_to_prompt(values)
+    ArrayType(elem) => type_to_inline_prompt(elem, indent, named_schemas) + "[]"
+    UnionType(schemas) => union_to_prompt_inline(schemas, indent, named_schemas)
+    IntersectionType(schemas) => intersection_to_prompt_inline(schemas, indent, named_schemas)
+    ObjectType(spec, _) => object_to_inline_prompt(spec, indent, named_schemas)
+  }
+}
+
+///|
+fn union_to_prompt_inline(
+  schemas : Array[Schema],
+  indent : Int,
+  named_schemas : Array[Schema],
+) -> String {
+  let mut result = ""
+  let mut first = true
+  for s in schemas {
+    if first {
+      result = type_to_inline_prompt(s, indent, named_schemas)
+    } else {
+      result = result + " | " + type_to_inline_prompt(s, indent, named_schemas)
+    }
+    first = false
+  }
+  result
+}
+
+///|
+fn intersection_to_prompt_inline(
+  schemas : Array[Schema],
+  indent : Int,
+  named_schemas : Array[Schema],
+) -> String {
+  let mut result = ""
+  let mut first = true
+  for s in schemas {
+    if first {
+      result = type_to_inline_prompt(s, indent, named_schemas)
+    } else {
+      result = result + " & " + type_to_inline_prompt(s, indent, named_schemas)
+    }
+    first = false
+  }
+  result
+}
+
+///|
+fn object_to_inline_prompt(
+  spec : Map[String, Schema],
+  indent : Int,
+  named_schemas : Array[Schema],
+) -> String {
+  if spec.length() == 0 {
+    return "{}"
+  }
+  let mut result = "{\n"
+  let inner_indent = indent + 1
+  for key, val_schema in spec {
+    let key_is_optional = is_optional_schema(val_schema)
+    let inner = if key_is_optional {
+      match val_schema.schema_type {
+        OptionalType(s) => s
+        DefaultType(s, _) => s
+        _ => val_schema
+      }
+    } else {
+      val_schema
+    }
+
+    let field_type = type_to_inline_prompt(inner, inner_indent, named_schemas)
+    let comment = schema_comment(val_schema)
+    let opt_mark = if key_is_optional { "?" } else { "" }
+    let line = indent_str(inner_indent) + key + opt_mark + ": " + field_type
+
+    if comment.is_empty() {
+      result = result + line + ",\n"
+    } else {
+      result = result + line + ",  // " + comment + "\n"
+    }
+  }
+  result = result + indent_str(indent) + "}"
+  result
 }

@@ -10,6 +10,7 @@ pub fn number(
     description: "",
     required_error,
     invalid_type_error,
+    name: "",
   }
 }
 

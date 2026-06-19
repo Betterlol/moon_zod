@@ -10,6 +10,7 @@ pub fn string(
     description: "",
     required_error,
     invalid_type_error,
+    name: "",
   }
 }
 

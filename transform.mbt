@@ -27,6 +27,7 @@ pub fn Schema::transform(
     description: self.description,
     required_error: self.required_error,
     invalid_type_error: self.invalid_type_error,
+    name: self.name,
   }
 }
 
