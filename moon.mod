@@ -27,6 +27,7 @@ options(
   exclude: [
     "prompt.md",
     "step_phase_details/",
+    "branch_doc/",
     "doc/",
     "bench_cross_lang/",
     "moonbit_syntax_pitfalls.md",
