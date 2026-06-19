@@ -34,8 +34,10 @@ pub fn schema_to_prompt(schema : Schema) -> String {
 ///
 /// # Example
 /// ```mbt nocheck
-/// let user = object({"name": string()}).name("User")
-/// let order = object({"user": user}).name("Order")
+/// let user = object({ "name": string() }).name("User")
+///
+/// let order = object({ "user": user }).name("Order")
+///
 /// let prompt = schema_to_prompt_named(order)
 /// // export interface User {
 /// //   name: string;
@@ -492,33 +494,23 @@ fn collect_named_schemas_impl(
 
   // Recursively collect from nested schemas
   match schema.schema_type {
-    ObjectType(fields, _) => {
+    ObjectType(fields, _) =>
       for _key, field_schema in fields {
         collect_named_schemas_impl(field_schema, visited, result)
       }
-    }
-    ArrayType(elem) => {
-      collect_named_schemas_impl(elem, visited, result)
-    }
-    OptionalType(inner) => {
+    ArrayType(elem) => collect_named_schemas_impl(elem, visited, result)
+    OptionalType(inner) => collect_named_schemas_impl(inner, visited, result)
+    DefaultType(inner, _) => collect_named_schemas_impl(inner, visited, result)
+    TransformType(inner, _) =>
       collect_named_schemas_impl(inner, visited, result)
-    }
-    DefaultType(inner, _) => {
-      collect_named_schemas_impl(inner, visited, result)
-    }
-    TransformType(inner, _) => {
-      collect_named_schemas_impl(inner, visited, result)
-    }
-    UnionType(schemas) => {
+    UnionType(schemas) =>
       for s in schemas {
         collect_named_schemas_impl(s, visited, result)
       }
-    }
-    IntersectionType(schemas) => {
+    IntersectionType(schemas) =>
       for s in schemas {
         collect_named_schemas_impl(s, visited, result)
       }
-    }
     _ => ()
   }
 }
@@ -565,7 +557,10 @@ fn visited_contains(visited_list : Array[(String, Int)], name : String) -> Bool 
 
 ///|
 /// Helper: get status from visited list (0 = unvisited by default)
-fn visited_get_status(visited_list : Array[(String, Int)], name : String) -> Int {
+fn visited_get_status(
+  visited_list : Array[(String, Int)],
+  name : String,
+) -> Int {
   for i = 0; i < visited_list.length(); i = i + 1 {
     let (n, status) = visited_list[i]
     if n == name {
@@ -577,7 +572,11 @@ fn visited_get_status(visited_list : Array[(String, Int)], name : String) -> Int
 
 ///|
 /// Helper: set status in visited list
-fn visited_set_status(visited_list : Array[(String, Int)], name : String, status : Int) -> Unit {
+fn visited_set_status(
+  visited_list : Array[(String, Int)],
+  name : String,
+  status : Int,
+) -> Unit {
   for i = 0; i < visited_list.length(); i = i + 1 {
     let (n, _) = visited_list[i]
     if n == name {
@@ -627,18 +626,20 @@ fn find_schema_dependencies_impl(
   }
 
   match schema.schema_type {
-    ObjectType(fields, _) => {
+    ObjectType(fields, _) =>
       for _key, field_schema in fields {
         // If the field schema is named and in schema_map, it's a dependency
-        if !field_schema.name.is_empty() && name_exists_in_map(field_schema.name) {
+        if !field_schema.name.is_empty() &&
+          name_exists_in_map(field_schema.name) {
           if !value_in_array(field_schema.name, deps) {
             deps.push(field_schema.name)
           }
         }
         // Also recurse to find transitive dependencies
-        find_schema_dependencies_impl(field_schema, schema_map, deps, visited_names)
+        find_schema_dependencies_impl(
+          field_schema, schema_map, deps, visited_names,
+        )
       }
-    }
     ArrayType(elem) => {
       if !elem.name.is_empty() && name_exists_in_map(elem.name) {
         if !value_in_array(elem.name, deps) {
@@ -647,16 +648,13 @@ fn find_schema_dependencies_impl(
       }
       find_schema_dependencies_impl(elem, schema_map, deps, visited_names)
     }
-    OptionalType(inner) => {
+    OptionalType(inner) =>
       find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
-    }
-    DefaultType(inner, _) => {
+    DefaultType(inner, _) =>
       find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
-    }
-    TransformType(inner, _) => {
+    TransformType(inner, _) =>
       find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
-    }
-    UnionType(schemas) => {
+    UnionType(schemas) =>
       for s in schemas {
         if !s.name.is_empty() && name_exists_in_map(s.name) {
           if !value_in_array(s.name, deps) {
@@ -665,8 +663,7 @@ fn find_schema_dependencies_impl(
         }
         find_schema_dependencies_impl(s, schema_map, deps, visited_names)
       }
-    }
-    IntersectionType(schemas) => {
+    IntersectionType(schemas) =>
       for s in schemas {
         if !s.name.is_empty() && name_exists_in_map(s.name) {
           if !value_in_array(s.name, deps) {
@@ -675,7 +672,6 @@ fn find_schema_dependencies_impl(
         }
         find_schema_dependencies_impl(s, schema_map, deps, visited_names)
       }
-    }
     _ => ()
   }
 }
@@ -733,7 +729,9 @@ fn generate_prompt_with_interfaces(named_schemas : Array[Schema]) -> String {
 
   // Generate interface definitions for sorted schemas
   for schema in sorted_schemas {
-    let interface_def = schema_to_interface_definition(schema)
+    let interface_def = schema_to_interface_definition_with_names(
+      schema, sorted_schemas,
+    )
     if !interface_def.is_empty() {
       if !prompt.is_empty() {
         prompt = prompt + "\n\n"
@@ -742,33 +740,26 @@ fn generate_prompt_with_interfaces(named_schemas : Array[Schema]) -> String {
     }
   }
 
-  // Include the root schema at the end (the last named one)
-  if sorted_schemas.length() > 0 {
-    let last_schema = sorted_schemas[sorted_schemas.length() - 1]
-    if !prompt.is_empty() {
-      prompt = prompt + "\n\nexport interface " + last_schema.name + " "
-    }
-    let root_prompt = type_to_inline_prompt(last_schema, 0, sorted_schemas)
-    prompt = prompt + root_prompt
-  }
-
   prompt
 }
 
 ///|
-/// Generate a TypeScript interface/type definition for a named schema.
-fn schema_to_interface_definition(schema : Schema) -> String {
+/// Generate a TypeScript interface/type definition with proper name references.
+fn schema_to_interface_definition_with_names(
+  schema : Schema,
+  named_schemas : Array[Schema],
+) -> String {
   if schema.name.is_empty() {
     return ""
   }
 
   match schema.schema_type {
-    ObjectType(spec, _) => {
-      "export interface " + schema.name + " " + object_to_prompt(spec, 0)
-    }
-    EnumType(values) => {
-      "type " + schema.name + " = " + enum_to_prompt(values)
-    }
+    ObjectType(spec, _) =>
+      "export interface " +
+      schema.name +
+      " " +
+      object_to_inline_prompt(spec, 0, named_schemas)
+    EnumType(values) => "type " + schema.name + " = " + enum_to_prompt(values)
     _ => ""
   }
 }
@@ -795,13 +786,17 @@ fn type_to_inline_prompt(
     NumberType => "number"
     BooleanType => "boolean"
     NullType => "null"
-    OptionalType(inner) => type_to_inline_prompt(inner, indent, named_schemas) + " | null"
-    DefaultType(inner, _) => type_to_inline_prompt(inner, indent, named_schemas) + " | null"
-    TransformType(inner, _) => type_to_inline_prompt(inner, indent, named_schemas)
+    OptionalType(inner) =>
+      type_to_inline_prompt(inner, indent, named_schemas) + " | null"
+    DefaultType(inner, _) =>
+      type_to_inline_prompt(inner, indent, named_schemas) + " | null"
+    TransformType(inner, _) =>
+      type_to_inline_prompt(inner, indent, named_schemas)
     EnumType(values) => enum_to_prompt(values)
     ArrayType(elem) => type_to_inline_prompt(elem, indent, named_schemas) + "[]"
     UnionType(schemas) => union_to_prompt_inline(schemas, indent, named_schemas)
-    IntersectionType(schemas) => intersection_to_prompt_inline(schemas, indent, named_schemas)
+    IntersectionType(schemas) =>
+      intersection_to_prompt_inline(schemas, indent, named_schemas)
     ObjectType(spec, _) => object_to_inline_prompt(spec, indent, named_schemas)
   }
 }
