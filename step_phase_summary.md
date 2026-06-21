@@ -473,11 +473,30 @@
 
 ---
 
+## Phase 26 — JSON Schema Named Export (`to_json_schema_named()`)
+
+**目标**: 实现命名 Schema 的 JSON Schema 标准导出 — 含 `$defs` 和 `$ref` 引用机制。
+
+| 文件 | 变更 |
+|---|---|
+| `json_schema.mbt` | 新增 `to_json_schema_named()` 公共 API；内部 `to_json_schema_ref()` / `to_json_schema_named_full()` / `to_json_schema_ref_object()` |
+| `test_json_schema.mbt` | 9 个新测试：`$defs` 结构、`$ref` 引用、数组/枚举/可选字段、拓扑排序、空命名集 |
+
+**关键决策**:
+- `to_json_schema_ref` 遇到命名 Schema 立即返回 `{"$ref": "#/$defs/Name"}`，确保循环引用安全
+- `to_json_schema_named_full` 不自引用，仅对子元素使用 `$ref`，用于构建 `$defs` 条目
+- 复用 Phase 25 的 `collect_named_schemas()` + `topological_sort_schemas()`，保证定义顺序
+- 无命名 Schema 时输出 `{"$defs": {}}` + 根内联，退化为标准 JSON Schema
+
+**产出**: 291/291 测试全部通过 0 警告。
+
+---
+
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 282（278 黑盒 + 4 白盒） |
+| 测试数量 | 291（287 黑盒 + 4 白盒） |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
 | 核心源码模块 | 15 个 `.mbt` 文件（含 `intersection.mbt`） |
@@ -525,13 +544,13 @@
 
 ---
 
-#### ☐ `schema_to_json_schema_named()` 函数
+#### ☑ `schema_to_json_schema_named()` 函数
 
-**任务**:
-- [ ] 分离导出命名 Schema 为多个 JSON Schema 定义
-- [ ] 支持 `$ref: "#/definitions/User"` 引用机制
-- [ ] 生成完整的 JSON Schema 文档（顶层 `definitions` 字段）
-- [ ] 编写测试验证输出格式
+**完成状态**:
+- [x] `pub fn to_json_schema_named(schema: Schema) -> Json`
+- [x] 命名 Schema 分离为 `$defs` 条目，字段引用使用 `$ref: "#/$defs/Name"`
+- [x] 复用 Phase 25 的收集与拓扑排序，循环引用安全
+- [x] 9 个新测试，291/291 通过
 
 ---
 
