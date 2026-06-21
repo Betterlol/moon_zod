@@ -492,14 +492,38 @@
 
 ---
 
+## Phase 27 — JSON Schema → moon_zod 反向生成 (`json_schema_to_moon_zod()`)
+
+**目标**: 实现 `json_schema_to_moon_zod()` — 将标准 JSON Schema (draft-07) 文档转换为 moon_zod Schema 表达式源码，形成完整的双向转换闭环。
+
+| 文件 | 操作 | 说明 |
+|---|---|---|
+| `from_json_schema.mbt` | 新增 | ~284 行核心实现：1 公共函数 + 11 内部 helper |
+| `test_json_schema.mbt` | 修改 | 25 个新测试覆盖所有类型和约束 |
+| `cmd/json2schema/main.mbt` | 修改 | 新增 `--from-json-schema` 标志 |
+| `cmd/json2schema/moon.pkg` | 修改 | 添加 `"Betterlol/moon_zod"` 依赖 |
+
+**关键决策**:
+- 输出 MoonBit **源码字符串**（非运行时 Schema），可直接 copy-paste
+- 递归解析按优先级匹配：`$ref` > `enum` > `type` > `anyOf`/`allOf`/`oneOf`
+- `$defs`/`definitions` 生成 `let Name_schema = ... .name("Name")` 声明
+- 字段不在 `required` 中自动附加 `.optional()`
+- `exclusiveMinimum: 0` → `.positive()`，`exclusiveMaximum: 0` → `.negative()`
+- `format: "email"/"uri"/"date-time"/"ipv4"/"ipv6"/"uuid"` → 对应 moon_zod 验证器
+- CLI 集成：`moon run cmd/json2schema -- --from-json-schema '<json>'`
+
+**产出**: 316/316 测试全部通过 0 警告。
+
+---
+
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 291（287 黑盒 + 4 白盒） |
+| 测试数量 | 316（312 黑盒 + 4 白盒） |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
-| 核心源码模块 | 15 个 `.mbt` 文件（含 `intersection.mbt`） |
+| 核心源码模块 | 16 个 `.mbt` 文件（含 `from_json_schema.mbt` + `intersection.mbt`） |
 | 测试文件 | 15 个（14 类型专项 + 1 白盒） |
 | CLI 工具 | 3 个（`cmd/main` 基准, `cmd/wasm` 跨语言, `cmd/json2schema` 代码生成） |
 | 展示示例 | 5 个（`llm_agent`, `educational_agent`, `real_llm_agent`, `json2schema`, `schema2json`） |
@@ -534,13 +558,14 @@
 
 ---
 
-#### ☐ 从 JSON Schema 反向生成 moon_zod Schema
+#### ☑ 从 JSON Schema 反向生成 moon_zod Schema
 
-**任务**:
-- [ ] `pub fn json_schema_to_moon_zod(json_schema: Json) -> String`
-- [ ] 支持基础类型、对象、数组、enum、$ref 引用、约束条件
-- [ ] 输出可直接 copy-paste 的 MoonBit 源码
-- [ ] 编写 CLI 工具或集成到 cmd/json2schema
+**完成状态**:
+- [x] `pub fn json_schema_to_moon_zod(json_schema: Json) -> String`
+- [x] 支持基础类型、对象、数组、enum、$ref 引用、约束条件
+- [x] 输出可直接 copy-paste 的 MoonBit 源码
+- [x] 集成到 cmd/json2schema（`--from-json-schema` 标志）
+- [x] 25 个新测试，316/316 通过
 
 ---
 
