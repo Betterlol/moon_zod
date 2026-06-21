@@ -625,9 +625,137 @@
 - ⏳ derive 宏：需等待 MoonBit 宏系统成熟
 > 然而，MoonBit 当前缺乏稳定的宏系统，只支持内置的几个 derive (Debug/Show/Eq/FromJson/ToJson)，无法实现自定义 derive。需要等待未来 MoonBit 引入稳定的宏系统后才能开发此功能。
 
+---
+
+#### ☐ Schema → MoonBit struct 代码生成 (`schema_to_moonbit_struct`)
+
+**问题**: `parse()` 返回 `Result[Json, ...]`，用户需手工 pattern match 提取值。
+
+**任务**:
+- [ ] `pub fn schema_to_moonbit_struct(schema: Schema) -> String` — 生成 MoonBit `struct` 定义
+- [ ] 支持基础类型映射（string → String, number → Int64/Double, boolean → Bool）
+- [ ] 支持可选字段（`String?`）、默认值
+- [ ] 支持嵌套对象、数组（`Array[T]`）
+- [ ] 可选：同时生成 `from_json(json: Json) -> Result[Struct, Array[ValidationError]]` 方法
+- [ ] 集成到 CLI：`moon run cmd/gen-struct -- '<schema_code>'`
+
+**价值**: 填补最大 ergonomic gap，完成 Schema → Code 生成器四件套（TS prompt / JSON Schema / moon_zod code / MoonBit struct）
+
+---
+
+#### ☐ Validate CLI 工具
+
+**问题**: 没有快速校验 JSON 文件的方式，用户必须写 MoonBit 代码才能用库。
+
+**任务**:
+- [ ] `cmd/validate/` — 独立可执行包
+- [ ] `moon run cmd/validate -- <schema.mbt> <data.json>` — 双重文件模式
+- [ ] `moon run cmd/validate -- --inline-schema '{"type":"string"}' <data.json>` — 内联 JSON Schema 模式
+- [ ] 支持 JSON、JSON Lines (`.jsonl`) 批量校验
+- [ ] 输出格式：通过/失败 + 详细错误报告（多行、带路径）
+- [ ] 退出码：0=全部通过，1=有错误，2=参数错误
+
+**价值**: 零代码使用库的能力，CI 集成，非 MoonBit 用户也能受益。
+
+---
+
+#### ☐ Schema 条件逻辑与逻辑组合子
+
+**问题**: 缺少 `if/then/else`、`not`、`oneOf` 精确匹配等 Zod 标配的能力。
+
+**任务**:
+- [ ] `Schema::not(Schema)` — 新 `NotType` 变体，输入不能通过内层 schema
+- [ ] `Schema::if_then_else(condition, then, else)` — 条件校验
+- [ ] 增强 `oneOf` 严格模式：精确匹配一个分支 vs 当前 `union` 近似
+- [ ] 所有新逻辑组合子支持 JSON Schema 导出、prompt 生成
+
+**价值**: 对齐 Zod 能力，支持复杂业务规则校验。
+
+---
+
+#### ☐ Schema 递归类型支持
+
+**问题**: 当前无法定义自引用 Schema（树、链表等递归数据结构）。
+
+**任务**:
+- [ ] 运行时递归引用机制（延迟解析，类似 `Lazy` 模式）
+- [ ] `Schema::lazy(fn() -> Schema)` — 工厂模式延迟定义
+- [ ] JSON Schema `$recursiveRef` / `$recursiveAnchor` 支持（draft 2019-09+）
+- [ ] Prompt 生成中递归类型渲染（深度限制）
+- [ ] JSON Schema 导出中递归引用导出
+
+**价值**: 解锁树形/图形数据结构校验（LLM Agent 工具调用中的嵌套决策树）。
+
+---
+
+#### ☐ 错误消息体系升级
+
+**问题**: 与 Zod 相比，错误消息缺乏结构化（无错误码、无全局映射、无法格式化）。
+
+**任务**:
+- [ ] `ValidationError` 新增 `code: String` 字段（machine-readable）
+- [ ] `ValidationError::to_formatted_string()` — 多行可读输出
+- [ ] `schema.set_error_map(fn(key, params) -> String)` — 全局/局部错误消息映射
+- [ ] 错误消息国际化框架（`:i18n_key` 与现有 `msg?` 协作）
+- [ ] `msg?` 支持结构化对象（`{ message, code }`）而非仅字符串
+
+**价值**: 让 LLM 自修正循环和开发者调试都获得更精准的反馈。
+
+---
+
+#### ☐ Prompt 压缩与 Token 优化
+
+**问题**: `schema_to_prompt()` 在大 schema 下生成冗余约束说明，占用 LLM context window。
+
+**任务**:
+- [ ] `schema_to_prompt_compact(schema)` — 移除可选注释，使用最短类型名
+- [ ] `schema_to_prompt_tokens(schema) -> Int` — 估算 token 消耗
+- [ ] 约束合并压缩（`// 2-100 chars, email, pattern: ^[a-z]` → 更短表示）
+- [ ] 命名引用 vs 内联展开的 token 对比分析
+- [ ] 可选：输出 JSON Schema 格式（OpenAI tool 模式）而非 TS interface
+
+**价值**: 直接降低 LLM API 调用成本。100+ 字段的复杂 schema 可节省 30-50% prompt tokens。
+
+---
+
+#### ☐ 流式与批量校验
+
+**问题**: 每次 `schema.parse(item)` 重新创建 path_stack，无法复用校验上下文。
+
+**任务**:
+- [ ] `Schema::parse_batch(Array[Json]) -> Array[SchemaResult]` — 批量校验
+- [ ] 预热缓存（共享 schema 编译/预检查）
+- [ ] `Schema::parse_stream(Iter[Json]) -> Iter[SchemaResult]` — 惰性流式校验
+- [ ] 大数组场景性能基准对比
+
+**价值**: 高吞吐场景（日志分析、数据管道）性能关键。
+
+---
+
+#### ◐ Schema 服务端 / 注册中心
+
+**问题**: Schema 定义分散在代码中，无法共享、发现、版本管理。
+
+**任务**:
+- [ ] `.moon_schema` 文件格式定义（JSON Schema + moon_zod 扩展）
+- [ ] `schema_to_file(schema, path)` / `schema_from_file(path)` — 文件 IO
+- [ ] 可选：HTTP 服务端接受 JSON 并返回校验结果
+- [ ] 可选：GraphQL-like schema registry（发布、发现、版本化）
+
+**价值**: 大型项目中 Schema 治理的基石。长远可发展为 OpenAPI registry 的轻量替代。
+
+---
+
+#### ◐ 可并行推进（不阻塞核心功能）
+
+- [ ] 多平台 CI：扩展 GitHub Actions 到 macOS/Windows
+- [ ] wasm-gc target：验证兼容性并优化启动开销
+- ⏳ derive 宏：需等待 MoonBit 宏系统成熟
+> 然而，MoonBit 当前缺乏稳定的宏系统，只支持内置的几个 derive (Debug/Show/Eq/FromJson/ToJson)，无法实现自定义 derive。需要等待未来 MoonBit 引入稳定的宏系统后才能开发此功能。
+
 #### 常驻任务
 
-- 定期检查是否有 “代码坏味道” 出现（重复代码、过长函数、复杂条件分支等），及时重构保持代码质量；定期检查代码质量，保持核心库的简洁和可维护性，可拓展性。
+- 定期检查是否有 "代码坏味道" 出现（重复代码、过长函数、复杂条件分支等），及时重构保持代码质量；定期检查代码质量，保持核心库的简洁和可维护性，可拓展性。
 > 如果某个很简单且必要的功能需要引入复杂的实现或大量代码，可能是设计上的坏味道，需要重构以保持核心库的简洁和可维护性。
 
 ---
