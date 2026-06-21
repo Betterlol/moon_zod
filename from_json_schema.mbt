@@ -13,39 +13,207 @@ pub fn json_schema_to_moon_zod(schema : Json) -> String {
   let defs = extract_defs(schema)
   let mut result = ""
 
-  // Collect $defs names in insertion order
-  let names : Array[String] = []
-  for name, _ in defs {
-    names.push(name)
-  }
-
-  // Generate let declarations for each $defs entry
-  for name in names {
-    match defs.get(name) {
-      Some(def) => {
-        if !result.is_empty() {
-          result = result + "\n\n"
-        }
-        let code = schema_to_code(def, defs, 0)
-        result = result +
-          "let " +
-          escape_ident(name) +
-          "_schema = " +
-          code +
-          ".name(\"" +
-          escape_mbt_string(name) +
-          "\")"
-      }
-      None => ()
+  if defs.length() > 0 {
+    // Collect all $defs names
+    let all_names : Array[String] = []
+    for name, _ in defs {
+      all_names.push(name)
     }
-  }
-  if !result.is_empty() {
+
+    // Build dependency list: (name, refs_to_other_defs)
+    let deps_list : Array[(String, Array[String])] = []
+    for name in all_names {
+      match defs.get(name) {
+        Some(def) => deps_list.push((name, find_defs_deps(def, all_names)))
+        None => ()
+      }
+    }
+
+    // Topological sort with cycle detection
+    let sorted_cycle = topo_sort_defs(deps_list)
+    // (sorted, cycle_names)
+
+    // Generate code in sorted order
+    for entry in sorted_cycle {
+      let (name, in_cycle) = entry
+      match defs.get(name) {
+        Some(def) => {
+          if !result.is_empty() {
+            result = result + "\n\n"
+          }
+          let code = schema_to_code(def, defs, 0)
+          let cycle_comment = if in_cycle {
+            "  /* TODO: circular reference — manual fix needed */"
+          } else {
+            ""
+          }
+          result = result +
+            "let " +
+            escape_ident(name) +
+            "_schema = " +
+            code +
+            ".name(\"" +
+            escape_mbt_string(name) +
+            "\")" +
+            cycle_comment
+        }
+        None => ()
+      }
+    }
     result = result + "\n\n"
   }
 
   // Generate root schema code
   let root = schema_to_code(schema, defs, 0)
   result + root
+}
+
+///|
+/// Scan a JSON value for $ref references to other $defs entries.
+fn find_defs_deps(val : Json, defs_names : Array[String]) -> Array[String] {
+  let deps : Array[String] = []
+  collect_refs(val, defs_names, deps)
+  // Deduplicate
+  let unique : Array[String] = []
+  for d in deps {
+    if !value_in_array(d, unique) {
+      unique.push(d)
+    }
+  }
+  unique
+}
+
+///|
+fn collect_refs(
+  val : Json,
+  defs_names : Array[String],
+  deps : Array[String],
+) -> Unit {
+  match val {
+    Object(m) => {
+      match m.get("$ref") {
+        Some(String(ref_str)) => {
+          let name = parse_ref_name(ref_str)
+          if value_in_array(name, defs_names) {
+            deps.push(name)
+          }
+        }
+        _ => ()
+      }
+      for _, v in m {
+        collect_refs(v, defs_names, deps)
+      }
+    }
+    Array(arr) =>
+      for v in arr {
+        collect_refs(v, defs_names, deps)
+      }
+    _ => ()
+  }
+}
+
+///|
+/// Topological sort for $defs names with cycle detection.
+/// Returns Array[(name, in_cycle)].
+fn topo_sort_defs(
+  deps_list : Array[(String, Array[String])],
+) -> Array[(String, Bool)] {
+  let visited : Array[(String, Int)] = [] // 0=unvisited, 1=visiting, 2=done
+  let sorted : Array[String] = []
+  let in_cycle_arr : Array[String] = []
+
+  for i = 0; i < deps_list.length(); i = i + 1 {
+    let (name, _) = deps_list[i]
+    if visited_get(visited, name) == 0 {
+      let path : Array[String] = []
+      dfs_sort(name, deps_list, visited, sorted, in_cycle_arr, path)
+    }
+  }
+
+  // Build result: mark each name with cycle status
+  let result : Array[(String, Bool)] = []
+  for name in sorted {
+    result.push((name, value_in_array(name, in_cycle_arr)))
+  }
+  result
+}
+
+///|
+fn visited_get(list : Array[(String, Int)], name : String) -> Int {
+  for i = 0; i < list.length(); i = i + 1 {
+    let (n, s) = list[i]
+    if n == name {
+      return s
+    }
+  }
+  0
+}
+
+///|
+fn visited_set(
+  list : Array[(String, Int)],
+  name : String,
+  status : Int,
+) -> Unit {
+  for i = 0; i < list.length(); i = i + 1 {
+    let (n, _) = list[i]
+    if n == name {
+      list[i] = (name, status)
+      return
+    }
+  }
+  list.push((name, status))
+}
+
+///|
+fn find_deps_for_name(
+  name : String,
+  list : Array[(String, Array[String])],
+) -> Array[String] {
+  for i = 0; i < list.length(); i = i + 1 {
+    let (n, deps) = list[i]
+    if n == name {
+      return deps
+    }
+  }
+  []
+}
+
+///|
+fn dfs_sort(
+  name : String,
+  deps_list : Array[(String, Array[String])],
+  visited : Array[(String, Int)],
+  sorted : Array[String],
+  in_cycle : Array[String],
+  path : Array[String],
+) -> Unit {
+  visited_set(visited, name, 1)
+  path.push(name)
+
+  let deps = find_deps_for_name(name, deps_list)
+  for dep in deps {
+    let status = visited_get(visited, dep)
+    if status == 0 {
+      dfs_sort(dep, deps_list, visited, sorted, in_cycle, path)
+    } else if status == 1 {
+      // Cycle detected — mark all nodes from dep onwards in path
+      let mut capture = false
+      for p in path {
+        if p == dep {
+          capture = true
+        }
+        if capture && !value_in_array(p, in_cycle) {
+          in_cycle.push(p)
+        }
+      }
+    }
+  }
+
+  // Pop from path
+  let _ = path.remove(path.length() - 1)
+  visited_set(visited, name, 2)
+  sorted.push(name)
 }
 
 ///|
@@ -329,18 +497,17 @@ fn apply_constraints_to_code(base : String, m : Map[String, Json]) -> String {
 }
 
 ///|
-/// Convert a Json value into a MoonBit literal expression.
+/// Convert a Json value into a MoonBit Json constructor expression.
 fn json_to_literal(val : Json) -> String {
   match val {
-    String(s) => "@moon_zod.string().default(\"" + escape_mbt_string(s) + "\")"
-    Number(v, ..) =>
-      "@moon_zod.number().default(" + format_double_simple(v) + ")"
-    True => "@moon_zod.boolean().default(true)"
-    False => "@moon_zod.boolean().default(false)"
-    Null => "@moon_zod.null()"
+    String(s) => "Json::string(\"" + escape_mbt_string(s) + "\")"
+    Number(v, ..) => "Json::number(" + format_double_simple(v) + ")"
+    True => "Json::true()"
+    False => "Json::false()"
+    Null => "Json::null()"
     Array(arr) => {
       let parts = arr.map(fn(v) { json_to_literal(v) })
-      "@moon_zod.array(" + join_with(parts, ", ") + ")"
+      "Json::array([" + join_with(parts, ", ") + "])"
     }
     Object(map) => {
       let parts : Array[String] = []
@@ -348,7 +515,7 @@ fn json_to_literal(val : Json) -> String {
         let lit = json_to_literal(v)
         parts.push("\"" + escape_mbt_string(k) + "\": " + lit)
       }
-      "@moon_zod.object({" + join_with(parts, ", ") + "})"
+      "Json::object({" + join_with(parts, ", ") + "})"
     }
   }
 }

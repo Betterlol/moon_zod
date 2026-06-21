@@ -690,3 +690,79 @@ test "json_schema_to_moon_zod: definitions alias for $defs" {
   @debug.assert_eq(result.contains("let Item_schema ="), true)
   @debug.assert_eq(result.contains(".name(\"Item\")"), true)
 }
+
+///|
+/// Phase 27 fix: default value produces correct Json constructor
+test "json_schema_to_moon_zod: default string value" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"type\":\"string\",\"default\":\"hello\"}"),
+  )
+  // Must NOT contain nested .default()
+  @debug.assert_eq(result.contains(".default(.default"), false)
+  // Must use Json::string constructor
+  @debug.assert_eq(result.contains("Json::string"), true)
+  @debug.assert_eq(result.contains(".default(Json::string(\"hello\")"), true)
+}
+
+///|
+test "json_schema_to_moon_zod: default number value" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"type\":\"number\",\"default\":42}"),
+  )
+  @debug.assert_eq(result.contains("Json::number"), true)
+  @debug.assert_eq(result.contains(".default(Json::number(42))"), true)
+}
+
+///|
+test "json_schema_to_moon_zod: default boolean value" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"type\":\"boolean\",\"default\":true}"),
+  )
+  @debug.assert_eq(result.contains("Json::true()"), true)
+  @debug.assert_eq(result.contains(".default(Json::true())"), true)
+}
+
+///|
+/// Phase 27 fix: $defs topological sort
+test "json_schema_to_moon_zod: reverse $defs order" {
+  // B depends on A, but defined before A in JSON
+  let input = parse_json(
+    "{\"$defs\":{\"B\":{\"type\":\"object\",\"properties\":{\"a\":{\"$ref\":\"#/$defs/A\"}},\"required\":[\"a\"]},\"A\":{\"type\":\"string\"}},\"$ref\":\"#/$defs/B\"}",
+  )
+  let result = json_schema_to_moon_zod(input)
+  // Both defs should be present
+  @debug.assert_eq(result.contains("let A_schema ="), true)
+  @debug.assert_eq(result.contains("let B_schema ="), true)
+  // A should appear before B (dependency first)
+  let pos_a = result.find("let A_schema")
+  let pos_b = result.find("let B_schema")
+  match (pos_a, pos_b) {
+    (Some(a), Some(b)) => @debug.assert_eq(a < b, true)
+    _ => @debug.assert_eq(true, false)
+  }
+}
+
+///|
+/// Phase 27 fix: circular reference detection
+test "json_schema_to_moon_zod: circular $defs reference" {
+  // Node references itself
+  let input = parse_json(
+    "{\"$defs\":{\"Node\":{\"type\":\"object\",\"properties\":{\"child\":{\"$ref\":\"#/$defs/Node\"}},\"required\":[\"child\"]}},\"$ref\":\"#/$defs/Node\"}",
+  )
+  let result = json_schema_to_moon_zod(input)
+  // Should include TODO comment for circular reference
+  @debug.assert_eq(result.contains("TODO"), true)
+  @debug.assert_eq(result.contains("circular"), true)
+}
+
+///|
+test "json_schema_to_moon_zod: mutual circular $defs" {
+  // A references B, B references A
+  let input = parse_json(
+    "{\"$defs\":{\"A\":{\"$ref\":\"#/$defs/B\"},\"B\":{\"$ref\":\"#/$defs/A\"}},\"$ref\":\"#/$defs/A\"}",
+  )
+  let result = json_schema_to_moon_zod(input)
+  // Should include TODO comment for circular reference
+  @debug.assert_eq(result.contains("TODO"), true)
+  @debug.assert_eq(result.contains("circular"), true)
+}
