@@ -61,7 +61,7 @@
 | Function | Description |
 |---|---|
 | `schema_to_prompt(Schema)` | Generate TypeScript-interface prompt string for LLM (with constraint comments) — inline expansion |
-| `schema_to_prompt_named(Schema)` | Generate modular TypeScript interfaces from named schemas with topological sorting and `$ref` references — for complex, nested LLM tool schemas |
+| `schema_to_prompt_named(Schema)` | Generate modular TypeScript interfaces from named schemas with topological sorting and type name references — for complex, nested LLM tool schemas |
 | `to_json_schema(Schema)` | Export standard JSON Schema object with full constraint annotations |
 | `to_json_schema_skeleton(Schema)` | Export lightweight JSON Schema skeleton (structure only, no constraints) |
 | `format_path(Array[String])` | Join path stack to dot-notation string |

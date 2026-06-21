@@ -14,7 +14,7 @@ A runtime JSON schema validation library for MoonBit, inspired by [Zod](https://
 |---|---|---|
 | **Error collection** | Collects **all** errors in one pass | Most libs fail-fast on first error |
 | **Hallucination defense** | Default **Strip** mode silently removes unknown fields | Would pass through hallucinated data |
-| **Named schema export** | `schema_to_prompt_named()` generates modular TypeScript interfaces with `$ref` | Inline expansion + duplication |
+| **Named schema export** | `schema_to_prompt_named()` generates modular TypeScript interfaces with type name references | Inline expansion + duplication |
 | **JSON Schema export** | `to_json_schema()` generates standard schema for LLM API | Manual schema maintenance |
 | **Path precision** | Every error includes exact field path (`users[0].profile.age`) | Often just a flat message |
 | **Wasm-ready** | Mutable path stack — zero heap allocation on success path | String-heavy allocation per parse |
@@ -95,7 +95,7 @@ moon info && moon fmt    # Update interface + format
 - **Custom rules**: `.refine(check, message)`
 - **LLM prompts**:
   - `schema_to_prompt()` auto-generates inline TypeScript-interface prompt text with constraint comments
-  - `schema_to_prompt_named()` auto-extracts named schemas with topological sorting and generates modular interfaces with `$ref` references
+  - `schema_to_prompt_named()` auto-extracts named schemas with topological sorting and generates modular interfaces with type name references
 - **Field descriptions**: `.describe(text)` attaches human-readable descriptions rendered by `schema_to_prompt()`
 - **JSON Schema export**: `to_json_schema(schema)` produces a standard JSON Schema object
 - **Type-level errors**: `.string(invalid_type_error="...", required_error="...")` — customize type mismatch and required field messages at factory level
@@ -165,7 +165,7 @@ moon info && moon fmt    # Update interface + format
 | Function | Description |
 |---|---|
 | `schema_to_prompt(Schema)` | Generate TypeScript-interface prompt string for LLM (with constraint comments) — inline expansion |
-| `schema_to_prompt_named(Schema)` | Generate modular TypeScript interfaces from named schemas with topological sorting and `$ref` references — for complex, nested LLM tool schemas |
+| `schema_to_prompt_named(Schema)` | Generate modular TypeScript interfaces from named schemas with topological sorting and type name references — for complex, nested LLM tool schemas |
 | `to_json_schema(Schema)` | Export standard JSON Schema object with full constraint annotations |
 | `to_json_schema_skeleton(Schema)` | Export lightweight JSON Schema skeleton (structure only, no constraints) |
 | `format_path(Array[String])` | Join path stack to dot-notation string |
@@ -383,9 +383,9 @@ User { Order { Product { ... } } }  →  expand all inline  →  HUGE prompt
 
 **Modular approach** (Phase 25+, `schema_to_prompt_named()`):
 ```
-User → uses $ref User
-Order → uses $ref Order
-Product → uses $ref Product
+User → uses type name `User`
+Order → uses type name `Order`
+Product → uses type name `Product`
 ```
 
 Then **LLM sees only the definitions it needs**, reducing token count and improving clarity.

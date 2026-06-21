@@ -4,7 +4,7 @@
 
 **Schema Named Export + Topological Sorting — Modular LLM Tool Schemas**
 
-- `schema_to_prompt_named(schema: Schema) -> String` — auto-extracts named schemas and generates modular TypeScript interfaces with `$ref` references
+- `schema_to_prompt_named(schema: Schema) -> String` — auto-extracts named schemas and generates modular TypeScript interfaces with type name references
 - **Auto-extraction**: recursive tree traversal collecting all schemas with `name` field set (no manual registration required)
 - **Topological sorting**: DFS-based sort with three-state cycle detection ensures definitions precede references
 - **Field reference replacement**: object fields automatically reference named schemas instead of inline expansion
