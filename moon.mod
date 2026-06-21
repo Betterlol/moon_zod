@@ -11,7 +11,7 @@
 
 name = "Betterlol/moon_zod"
 
-version = "0.5.1"
+version = "0.6.0"
 
 readme = "README.mbt.md"
 
@@ -25,10 +25,9 @@ description = "A runtime JSON schema validation library for MoonBit, inspired by
 
 options(
   exclude: [
-    "prompt.md",
-    "step_phase_details/",
     "branch_doc/",
     "doc/",
+    "doc_utils/",
     "bench_cross_lang/",
     "moonbit_syntax_pitfalls.md",
     "AGENTS.md",
