@@ -476,3 +476,217 @@ test "to_json_schema_named: named fields use $ref in $defs entries" {
     _ => @debug.assert_eq(true, false)
   }
 }
+
+///|
+/// Phase 27 — json_schema_to_moon_zod
+test "json_schema_to_moon_zod: basic string type" {
+  let result = json_schema_to_moon_zod(parse_json("{\"type\":\"string\"}"))
+  @debug.assert_eq(result, "@moon_zod.string()")
+}
+
+///|
+test "json_schema_to_moon_zod: basic number type" {
+  let result = json_schema_to_moon_zod(parse_json("{\"type\":\"number\"}"))
+  @debug.assert_eq(result, "@moon_zod.number()")
+}
+
+///|
+test "json_schema_to_moon_zod: integer type" {
+  let result = json_schema_to_moon_zod(parse_json("{\"type\":\"integer\"}"))
+  @debug.assert_eq(result, "@moon_zod.number().int()")
+}
+
+///|
+test "json_schema_to_moon_zod: boolean type" {
+  let result = json_schema_to_moon_zod(parse_json("{\"type\":\"boolean\"}"))
+  @debug.assert_eq(result, "@moon_zod.boolean()")
+}
+
+///|
+test "json_schema_to_moon_zod: null type" {
+  let result = json_schema_to_moon_zod(parse_json("{\"type\":\"null\"}"))
+  @debug.assert_eq(result, "@moon_zod.null()")
+}
+
+///|
+test "json_schema_to_moon_zod: object with properties" {
+  let input = parse_json(
+    "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"age\":{\"type\":\"integer\"}},\"required\":[\"name\"]}",
+  )
+  let result = json_schema_to_moon_zod(input)
+  @debug.assert_eq(result.contains("@moon_zod.object({"), true)
+  @debug.assert_eq(result.contains("@moon_zod.string()"), true)
+  @debug.assert_eq(result.contains("@moon_zod.number().int()"), true)
+  @debug.assert_eq(result.contains(".optional()"), true) // age not in required
+}
+
+///|
+test "json_schema_to_moon_zod: array type" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"type\":\"array\",\"items\":{\"type\":\"string\"}}"),
+  )
+  @debug.assert_eq(result, "@moon_zod.array(@moon_zod.string())")
+}
+
+///|
+test "json_schema_to_moon_zod: enum type" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"type\":\"string\",\"enum\":[\"a\",\"b\",\"c\"]}"),
+  )
+  // enum should take priority over type
+  @debug.assert_eq(result, "@moon_zod.enum_values([\"a\", \"b\", \"c\"])")
+}
+
+///|
+test "json_schema_to_moon_zod: string with constraints" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"type\":\"string\",\"minLength\":3,\"maxLength\":100}"),
+  )
+  @debug.assert_eq(result, "@moon_zod.string().min(3).max(100)")
+}
+
+///|
+test "json_schema_to_moon_zod: number with constraints" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"type\":\"number\",\"minimum\":0,\"maximum\":150}"),
+  )
+  @debug.assert_eq(result, "@moon_zod.number().min(0).max(150)")
+}
+
+///|
+test "json_schema_to_moon_zod: email format" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"type\":\"string\",\"format\":\"email\"}"),
+  )
+  @debug.assert_eq(result, "@moon_zod.string().email()")
+}
+
+///|
+test "json_schema_to_moon_zod: uri format" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"type\":\"string\",\"format\":\"uri\"}"),
+  )
+  @debug.assert_eq(result, "@moon_zod.string().url()")
+}
+
+///|
+test "json_schema_to_moon_zod: anyOf type" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"}]}"),
+  )
+  @debug.assert_eq(
+    result, "@moon_zod.union([@moon_zod.string(), @moon_zod.number()])",
+  )
+}
+
+///|
+test "json_schema_to_moon_zod: allOf type" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"allOf\":[{\"type\":\"string\"},{\"type\":\"number\"}]}"),
+  )
+  @debug.assert_eq(
+    result, "@moon_zod.intersection([@moon_zod.string(), @moon_zod.number()])",
+  )
+}
+
+///|
+test "json_schema_to_moon_zod: $defs with $ref" {
+  let input = parse_json(
+    "{\"$defs\":{\"Address\":{\"type\":\"object\",\"properties\":{\"street\":{\"type\":\"string\"}},\"required\":[\"street\"]}},\"$ref\":\"#/$defs/Address\"}",
+  )
+  let result = json_schema_to_moon_zod(input)
+  @debug.assert_eq(result.contains("let Address_schema ="), true)
+  @debug.assert_eq(result.contains(".name(\"Address\")"), true)
+  @debug.assert_eq(result.contains("Address_schema"), true)
+}
+
+///|
+test "json_schema_to_moon_zod: object field with $ref" {
+  let input = parse_json(
+    "{\"$defs\":{\"Address\":{\"type\":\"object\",\"properties\":{\"street\":{\"type\":\"string\"}},\"required\":[\"street\"]}},\"type\":\"object\",\"properties\":{\"user\":{\"$ref\":\"#/$defs/Address\"}},\"required\":[\"user\"]}",
+  )
+  let result = json_schema_to_moon_zod(input)
+  @debug.assert_eq(result.contains("let Address_schema ="), true)
+  @debug.assert_eq(result.contains("\"user\": Address_schema"), true)
+}
+
+///|
+test "json_schema_to_moon_zod: pattern constraint" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"type\":\"string\",\"pattern\":\"^[a-z]+$\"}"),
+  )
+  @debug.assert_eq(result, "@moon_zod.string().regex(\"^[a-z]+$\")")
+}
+
+///|
+test "json_schema_to_moon_zod: array with minItems" {
+  let result = json_schema_to_moon_zod(
+    parse_json(
+      "{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"minItems\":1}",
+    ),
+  )
+  @debug.assert_eq(result, "@moon_zod.array(@moon_zod.string()).min(1)")
+}
+
+///|
+test "json_schema_to_moon_zod: exclusive minimum (positive)" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"type\":\"number\",\"exclusiveMinimum\":0}"),
+  )
+  @debug.assert_eq(result, "@moon_zod.number().positive()")
+}
+
+///|
+test "json_schema_to_moon_zod: exclusive maximum (negative)" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"type\":\"number\",\"exclusiveMaximum\":0}"),
+  )
+  @debug.assert_eq(result, "@moon_zod.number().negative()")
+}
+
+///|
+test "json_schema_to_moon_zod: multipleOf constraint" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"type\":\"number\",\"multipleOf\":5}"),
+  )
+  @debug.assert_eq(result, "@moon_zod.number().multipleOf(5)")
+}
+
+///|
+test "json_schema_to_moon_zod: nested object" {
+  let input = parse_json(
+    "{\"type\":\"object\",\"properties\":{\"user\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required\":[\"name\"]}}}",
+  )
+  let result = json_schema_to_moon_zod(input)
+  @debug.assert_eq(result.contains("@moon_zod.object({"), true)
+  @debug.assert_eq(result.contains("\"user\": @moon_zod.object({"), true)
+  @debug.assert_eq(result.contains("\"name\": @moon_zod.string()"), true)
+}
+
+///|
+test "json_schema_to_moon_zod: empty object" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"type\":\"object\",\"properties\":{}}"),
+  )
+  @debug.assert_eq(result, "@moon_zod.object({})")
+}
+
+///|
+test "json_schema_to_moon_zod: oneOf treated as union" {
+  let result = json_schema_to_moon_zod(
+    parse_json("{\"oneOf\":[{\"type\":\"string\"},{\"type\":\"boolean\"}]}"),
+  )
+  @debug.assert_eq(
+    result, "@moon_zod.union([@moon_zod.string(), @moon_zod.boolean()])",
+  )
+}
+
+///|
+test "json_schema_to_moon_zod: definitions alias for $defs" {
+  let input = parse_json(
+    "{\"definitions\":{\"Item\":{\"type\":\"string\"}},\"$ref\":\"#/definitions/Item\"}",
+  )
+  let result = json_schema_to_moon_zod(input)
+  @debug.assert_eq(result.contains("let Item_schema ="), true)
+  @debug.assert_eq(result.contains(".name(\"Item\")"), true)
+}
