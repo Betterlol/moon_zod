@@ -252,3 +252,227 @@ test "to_json_schema merge_annotations with refine rule" {
   let expected = parse_json("{\"type\": \"number\"}")
   @debug.assert_eq(result, expected)
 }
+
+///|
+/// Phase 26 — to_json_schema_named
+test "to_json_schema_named: named schema has $defs" {
+  let s = object({ "name": string() }).name("User")
+  let result = to_json_schema_named(s)
+  // Root should use $ref
+  match result {
+    Object(m) => {
+      @debug.assert_eq(m.get("$ref"), Some(Json::string("#/$defs/User")))
+      @debug.assert_eq(m.contains("$defs"), true)
+    }
+    _ => @debug.assert_eq(true, false)
+  }
+}
+
+///|
+test "to_json_schema_named: $defs contains named schema" {
+  let s = object({ "name": string() }).name("User")
+  let result = to_json_schema_named(s)
+  match result {
+    Object(m) =>
+      match m.get("$defs") {
+        Some(Object(defs)) =>
+          match defs.get("User") {
+            Some(Object(user_def)) =>
+              match user_def.get("type") {
+                Some(String(t)) => @debug.assert_eq(t, "object")
+                _ => @debug.assert_eq(true, false)
+              }
+            _ => @debug.assert_eq(true, false)
+          }
+        _ => @debug.assert_eq(true, false)
+      }
+    _ => @debug.assert_eq(true, false)
+  }
+}
+
+///|
+test "to_json_schema_named: named field uses $ref" {
+  let address = object({ "street": string() }).name("Address")
+  let user = object({ "name": string(), "address": address })
+  let result = to_json_schema_named(user)
+  match result {
+    Object(m) =>
+      match m.get("$defs") {
+        Some(Object(defs)) => @debug.assert_eq(defs.contains("Address"), true)
+        _ => @debug.assert_eq(true, false)
+      }
+    _ => @debug.assert_eq(true, false)
+  }
+  // The root user schema should reference Address via $ref in properties
+  match result {
+    Object(m) => {
+      // Root is unnamed, should be inline
+      @debug.assert_eq(m.contains("type"), true)
+      match m.get("properties") {
+        Some(Object(props)) =>
+          match props.get("address") {
+            Some(Object(addr_obj)) =>
+              match addr_obj.get("$ref") {
+                Some(String(ref_str)) =>
+                  @debug.assert_eq(ref_str, "#/$defs/Address")
+                _ => @debug.assert_eq(true, false)
+              }
+            _ => @debug.assert_eq(true, false)
+          }
+        _ => @debug.assert_eq(true, false)
+      }
+    }
+    _ => @debug.assert_eq(true, false)
+  }
+}
+
+///|
+test "to_json_schema_named: array of named schemas" {
+  let item = object({ "id": string() }).name("Item")
+  let list = object({ "items": array(item) }).name("ItemList")
+  let result = to_json_schema_named(list)
+  match result {
+    Object(m) => {
+      @debug.assert_eq(m.contains("$defs"), true)
+      match m.get("$defs") {
+        Some(Object(defs)) => {
+          @debug.assert_eq(defs.contains("Item"), true)
+          @debug.assert_eq(defs.contains("ItemList"), true)
+        }
+        _ => @debug.assert_eq(true, false)
+      }
+    }
+    _ => @debug.assert_eq(true, false)
+  }
+}
+
+///|
+test "to_json_schema_named: enum named schema" {
+  let mood = enum_values(["happy", "sad"]).name("Mood")
+  let s = object({ "mood": mood })
+  let result = to_json_schema_named(s)
+  match result {
+    Object(m) =>
+      match m.get("$defs") {
+        Some(Object(defs)) =>
+          match defs.get("Mood") {
+            Some(Object(mood_def)) =>
+              @debug.assert_eq(mood_def.contains("enum"), true)
+            _ => @debug.assert_eq(true, false)
+          }
+        _ => @debug.assert_eq(true, false)
+      }
+    _ => @debug.assert_eq(true, false)
+  }
+}
+
+///|
+test "to_json_schema_named: optional named field" {
+  let contact = object({ "email": string() }).name("Contact")
+  let user = object({ "name": string(), "contact": contact.optional() }).name(
+    "User",
+  )
+  let result = to_json_schema_named(user)
+  match result {
+    Object(m) => {
+      @debug.assert_eq(m.contains("$defs"), true)
+      match m.get("$defs") {
+        Some(Object(defs)) => {
+          @debug.assert_eq(defs.contains("Contact"), true)
+          @debug.assert_eq(defs.contains("User"), true)
+        }
+        _ => @debug.assert_eq(true, false)
+      }
+    }
+    _ => @debug.assert_eq(true, false)
+  }
+  // The optional field should NOT appear directly in User's required list
+  match result {
+    Object(m) =>
+      match m.get("$defs") {
+        Some(Object(defs)) =>
+          match defs.get("User") {
+            Some(Object(user_def)) =>
+              match user_def.get("required") {
+                Some(Array(required)) => @debug.assert_eq(required.length(), 1) // only "name"
+                _ => @debug.assert_eq(true, false)
+              }
+            _ => @debug.assert_eq(true, false)
+          }
+        _ => @debug.assert_eq(true, false)
+      }
+    _ => @debug.assert_eq(true, false)
+  }
+}
+
+///|
+test "to_json_schema_named: no named schemas returns $defs with no entries" {
+  let s = object({ "name": string() })
+  let result = to_json_schema_named(s)
+  match result {
+    Object(m) => {
+      @debug.assert_eq(m.contains("$defs"), true)
+      match m.get("$defs") {
+        Some(Object(defs)) => @debug.assert_eq(defs.length(), 0)
+        _ => @debug.assert_eq(true, false)
+      }
+    }
+    _ => @debug.assert_eq(true, false)
+  }
+}
+
+///|
+test "to_json_schema_named: topological sort ordering" {
+  let address = object({ "street": string() }).name("Address")
+  let person = object({ "address": address }).name("Person")
+  let company = object({ "ceo": person }).name("Company")
+  let result = to_json_schema_named(company)
+
+  // Check $defs has all three entries
+  match result {
+    Object(m) =>
+      match m.get("$defs") {
+        Some(Object(defs)) => {
+          @debug.assert_eq(defs.contains("Address"), true)
+          @debug.assert_eq(defs.contains("Person"), true)
+          @debug.assert_eq(defs.contains("Company"), true)
+        }
+        _ => @debug.assert_eq(true, false)
+      }
+    _ => @debug.assert_eq(true, false)
+  }
+}
+
+///|
+test "to_json_schema_named: named fields use $ref in $defs entries" {
+  let address = object({ "street": string() }).name("Address")
+  let person = object({ "address": address, "name": string() }).name("Person")
+  let result = to_json_schema_named(person)
+
+  // Person's definition in $defs should use $ref for address field
+  match result {
+    Object(m) =>
+      match m.get("$defs") {
+        Some(Object(defs)) =>
+          match defs.get("Person") {
+            Some(Object(person_def)) =>
+              match person_def.get("properties") {
+                Some(Object(props)) =>
+                  match props.get("address") {
+                    Some(Object(addr_ref)) =>
+                      match addr_ref.get("$ref") {
+                        Some(String(r)) =>
+                          @debug.assert_eq(r, "#/$defs/Address")
+                        _ => @debug.assert_eq(true, false)
+                      }
+                    _ => @debug.assert_eq(true, false)
+                  }
+                _ => @debug.assert_eq(true, false)
+              }
+            _ => @debug.assert_eq(true, false)
+          }
+        _ => @debug.assert_eq(true, false)
+      }
+    _ => @debug.assert_eq(true, false)
+  }
+}
