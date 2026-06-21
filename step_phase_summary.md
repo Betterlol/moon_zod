@@ -567,6 +567,27 @@
 - [x] 集成到 cmd/json2schema（`--from-json-schema` 标志）
 - [x] 25 个新测试，316/316 通过
 
+**已修复的问题** (Phase 27.1):
+1. ✅ `json_to_literal()` 逻辑错误 — 已修复
+   - 根因：`json_to_literal` 输出 `@moon_zod.string().default("x")`（完整表达式），与 `.default()` 链式调用形成双重嵌套
+   - 修复：改为输出 `Json::string("x")` / `Json::number(n)` / `Json::true()` 等 MoonBit Json 构造函数
+   - 修复验证：`default string/number/boolean` 3 个新测试覆盖
+
+2. ✅ `$defs` 生成顺序无拓扑排序 — 已修复
+   - 根因：按 Map 遍历顺序生成 `let Name_schema = ...`，依赖在后者产生前向引用
+   - 修复：新增 `topo_sort_defs()` 三态 DFS 拓扑排序 + `find_defs_deps()` 基于 JSON `$ref` 扫描的依赖分析
+   - ⚠️ 注意：Phase 25 的 `topological_sort_schemas()` 操作 `Schema` 对象类型，无法复用；本实现为独立于 JSON 值的拓扑排序
+   - 修复验证：`reverse $defs order` 测试（依赖在后仍正确定序）
+
+3. ✅ 循环引用无检测 — 已修复
+   - 根因：`ref_to_code` 直接返回变量名，自引用生成非法 MoonBit `let` 绑定
+   - 修复：DFS 三态标记（0=未访问/1=正在访问/2=已完成）检测环 → 生成 `/* TODO: circular reference */` 注释
+   - 修复验证：`circular $defs reference` 和 `mutual circular $defs` 2 个测试覆盖
+
+**测试覆盖**: ✅ `default value` (3) + `topological order` (1) + `circular reference` (2) = 6 个新测试
+
+**产出**: 322/322 测试全部通过 0 警告。
+
 ---
 
 #### ☑ `schema_to_json_schema_named()` 函数
