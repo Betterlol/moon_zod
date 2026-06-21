@@ -1,5 +1,19 @@
 # Release History
 
+## v0.6.0 (2026-06-22)
+
+**Schema Named Export + Topological Sorting — Modular LLM Tool Schemas**
+
+- `schema_to_prompt_named(schema: Schema) -> String` — auto-extracts named schemas and generates modular TypeScript interfaces with `$ref` references
+- **Auto-extraction**: recursive tree traversal collecting all schemas with `name` field set (no manual registration required)
+- **Topological sorting**: DFS-based sort with three-state cycle detection ensures definitions precede references
+- **Field reference replacement**: object fields automatically reference named schemas instead of inline expansion
+- Schema struct: new `name: String` field (initialized as `""`, chainable via `.name(text)` method)
+- All 15 core modules updated to propagate `name` field through wrapper types (`optional`, `default`, `transform`, etc.)
+- 6 new tests covering: basic export, deep nesting, topological sort verification, optional fields
+- **282 total tests (278 black-box + 4 white-box), 0 warnings, 0 external dependencies**
+- Supports arbitrary nesting depth, circular reference detection, and 100+ named schemas
+
 ## v0.5.1 (2026-06-15)
 
 **Publish fix — exclude internal/working files from mooncakes.io package**

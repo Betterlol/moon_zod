@@ -14,6 +14,7 @@ MoonBit 运行时 JSON Schema 校验库，受 [Zod](https://zod.dev) 和 [Pydant
 |---|---|---|
 | **错误收集** | 一次遍历收集 **所有** 错误 | 多数库遇第一个错误就中止 |
 | **幻觉防御** | 默认 **Strip** 模式静默移除未知字段 | 会放行幻觉数据 |
+| **命名 Schema 导出** | `schema_to_prompt_named()` 生成模块化 TypeScript 接口，含 `$ref` 引用 | 内联展开 + 重复定义 |
 | **JSON Schema 导出** | `to_json_schema()` 为 LLM API 生成标准 Schema | 需手动维护 Schema |
 | **路径精度** | 每个错误包含精确字段路径（`users[0].profile.age`） | 通常只有扁平消息 |
 | **Wasm 就绪** | 可变路径栈 — 成功路径零堆分配 | 每次 parse 都做字符串分配 |
@@ -124,7 +125,9 @@ Schema-to-Prompt (TS interface):         ← schema_to_prompt() 自动生成
 - **Schema 组合**: `.pick(keys)`, `.omit(keys)`, `.partial()` 从对象 schema 派生子集
 - **数据变换**: `.transform(fn)` 校验通过后变换输出
 - **自定义规则**: `.refine(check, message)`
-- **LLM Prompt**: `schema_to_prompt()` 自动生成带约束注释的 TypeScript 接口文本
+- **LLM Prompt**:
+  - `schema_to_prompt()` 自动生成带约束注释的 TypeScript 接口文本（内联展开）
+  - `schema_to_prompt_named()` 从命名 Schema 自动提取并生成模块化接口，含 `$ref` 引用（适合复杂嵌套 Schema）
 - **字段描述**: `.describe(text)` 附加人类可读描述，由 `schema_to_prompt()` 渲染
 - **JSON Schema 导出**: `to_json_schema(schema)` 生成标准 JSON Schema 对象
 - **类型级错误消息**: `.string(invalid_type_error="...", required_error="...")` — 在工厂函数层面自定义类型不匹配和必填字段错误消息
@@ -255,7 +258,8 @@ cd bench_cross_lang && node bench.js  # 跨语言对比
 
 | 函数 | 说明 |
 |---|---|
-| `schema_to_prompt(Schema)` | 生成 TypeScript-interface 风格 prompt 字符串（含约束注释 + 描述）|
+| `schema_to_prompt(Schema)` | 生成 TypeScript-interface 风格 prompt 字符串（含约束注释 + 描述）— 内联展开|
+| `schema_to_prompt_named(Schema)` | 从命名 Schema 生成模块化 TypeScript 接口，含 `$ref` 引用和拓扑排序 — 适合复杂嵌套 Schema |
 | `to_json_schema(Schema)` | 导出为标准 JSON Schema 对象（含完整约束注解）|
 | `to_json_schema_skeleton(Schema)` | 导出轻量 JSON Schema 骨架（仅结构，无约束）|
 | `format_path(Array[String])` | 将路径栈拼接为点号路径字符串 |
@@ -300,12 +304,13 @@ moon_zod/
 ├── refine.mbt          # refine()
 ├── transform.mbt       # transform()
 ├── intersection.mbt    # intersection() / intersect() / parse_intersection
-├── prompt.mbt          # schema_to_prompt() — LLM prompt 生成
+├── prompt.mbt          # schema_to_prompt() / schema_to_prompt_named() — LLM prompt 生成
 ├── json_schema.mbt     # to_json_schema() / to_json_schema_skeleton()
 ├── cmd/main/           # 基准测试
 ├── examples/llm_agent/ # LLM 自修正演示
 ├── examples/real_llm_agent/ # 真实 LLM Agent — 完整管线演示
-├── test_*.mbt          # 按类型拆分的专项测试（16 个文件）
+├── test_*.mbt          # 按类型拆分的专项测试（15 个文件）
+├── test_prompt_named.mbt # 命名 Schema 导出测试（6 个）
 └── moon_zod_wbtest.mbt # 白盒测试（4）
 ```
 
@@ -314,7 +319,7 @@ moon_zod/
 ## 开发
 
 ```bash
-moon test                # 运行全部测试（共 276 项）
+moon test                # 运行全部测试（共 282 项）
 moon build               # 构建库
 moon run cmd/main        # 运行基准测试
 moon run cmd/json2schema -- '{"hello":"world"}'  # 从 JSON 生成 Schema

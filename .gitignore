@@ -14,3 +14,4 @@ target
 **/*.pyd
 tmp/
 branch_doc/
+build-readme.sh
