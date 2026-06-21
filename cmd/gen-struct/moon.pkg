@@ -1,0 +1,10 @@
+import {
+  "moonbitlang/core/json",
+  "moonbitlang/core/env",
+  "moonbitlang/core/debug",
+  "Betterlol/moon_zod",
+}
+
+options(
+  "is-main": true,
+)
