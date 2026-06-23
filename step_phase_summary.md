@@ -516,6 +516,86 @@
 
 ---
 
+## Phase 28 — Schema → MoonBit struct 代码生成 (`schema_to_moonbit_struct`)
+
+**目标**: 填补 `parse()` 返回 `Result[Json, ...]` 后需手工 pattern match 提取值的 ergonomic gap。实现 Schema → MoonBit struct 定义的双向桥接。
+
+| 新增文件 | 用途 |
+|---|---|
+| `moonbit_struct.mbt` | `schema_to_moonbit_struct()` + `schema_to_moonbit_struct_named()` + 12 个内部辅助函数 |
+| `test_moonbit_struct.mbt` | 22 个测试（基础类型映射、可选/默认字段、enum、约束注释、嵌套命名、拓扑排序） |
+| `cmd/gen-struct/main.mbt` | CLI：JSON payload → 推断 Schema → 输出 struct 定义 |
+| `cmd/gen-struct/moon.pkg` | CLI 包声明（is-main + `Betterlol/moon_zod` 依赖） |
+
+**关键决策**:
+- 只生成类型定义（struct/enum），不生成 from_json()（留待 Phase 29）
+- 非命名 ObjectType → 字段输出 `Json /* TODO: define nested struct */`，保证可编译
+- 约束注释复用 `prompt.mbt` 的 `string_constraint_comment()` 等函数（同包可见）
+- CLI 嵌套对象自动 PascalCase 命名，被 `schema_to_moonbit_struct_named()` 收集
+- 整数检测：`v == v.to_int().to_double()`
+
+**类型映射**:
+| SchemaType | MoonBit |
+|---|---|
+| String | `String` |
+| Number (有 int()) | `Int64` |
+| Number (无 int()) | `Double` |
+| Boolean | `Bool` |
+| Null | `Unit` |
+| Optional | `T?` |
+| Default | `T` (字段标记 `?`) |
+| Array | `Array[T]` |
+| Enum | `pub enum { Variant }` |
+| Union(T+Null) | `T?` |
+| Union(复杂) | `/* TODO */` |
+
+**测试**: 22 个新测试，总计 344/344 全部通过 0 警告。
+
+---
+
+## Phase 29 — Schema → MoonBit struct `from_json()` 代码生成
+
+**目标**: 补全 Phase 28 的类型定义能力，生成 `from_json()` 函数将验证后的 `Json` 值直接转换为类型安全的 MoonBit struct 值，无需用户手工 pattern match。
+
+| 新增文件 | 用途 |
+|---|---|
+| `moonbit_struct.mbt` | 新增 `generate_from_json_fn`、`extract_field`、`extract_type_expr`、`struct_name_to_fn_prefix`、`schema_to_moonbit_struct_full`、`schema_to_moonbit_struct_named_full` 等 ~350 行 |
+| `test_moonbit_struct.mbt` | 新增 16 个测试（类型提取、签名验证、命名导出、嵌套委托） |
+
+**关键决策**:
+- **Direct Extraction 模式**：直接对 Json 做结构匹配 + 提取，无 Schema 运行时依赖
+- 解决了 `abort()` vs Result 矛盾 → 所有提取路径返回 `Err(...)`
+- 独立函数命名：`fn user_from_json(json)` 而非 `fn User::from_json(self, json)`
+- 嵌套对象委托：`other_from_json(v)` 而非内联 Schema 引用
+- 可选字段：`Some(Null) | None => None` 分支
+
+**生成的代码示例**:
+```moonbit
+pub struct User { name : String; age : Int64; email : String? }
+
+pub fn user_from_json(json : Json) -> Result[User, Array[ValidationError]] {
+  match json {
+    Object(map) => {
+      let name = match map.get("name") {
+        Some(String(s)) => s
+        Some(got) => return Err([ValidationError::{ path: "name", message: "expected string", got }])
+        None => return Err([ValidationError::{ path: "name", message: "required", got: Null }])
+      }
+      let email = match map.get("email") {
+        Some(Null) | None => None
+        Some(v) => Some({ let r = match v { String(s) => s; _ => return Err([...]) }; r })
+      }
+      Ok({ name:, age:, email: })
+    }
+    _ => Err([ValidationError::{ path: "", message: "expected object", got: json }])
+  }
+}
+```
+
+**测试**: 16 个新测试，总计 360/360 全部通过 0 警告。
+
+---
+
 ## 项目当前状态
 
 | 指标 | 数值 |
@@ -575,43 +655,6 @@
 
 ---
 
-## Phase 28 — Schema → MoonBit struct 代码生成 (`schema_to_moonbit_struct`)
-
-**目标**: 填补 `parse()` 返回 `Result[Json, ...]` 后需手工 pattern match 提取值的 ergonomic gap。实现 Schema → MoonBit struct 定义的双向桥接。
-
-| 新增文件 | 用途 |
-|---|---|
-| `moonbit_struct.mbt` | `schema_to_moonbit_struct()` + `schema_to_moonbit_struct_named()` + 12 个内部辅助函数 |
-| `test_moonbit_struct.mbt` | 22 个测试（基础类型映射、可选/默认字段、enum、约束注释、嵌套命名、拓扑排序） |
-| `cmd/gen-struct/main.mbt` | CLI：JSON payload → 推断 Schema → 输出 struct 定义 |
-| `cmd/gen-struct/moon.pkg` | CLI 包声明（is-main + `Betterlol/moon_zod` 依赖） |
-
-**关键决策**:
-- 只生成类型定义（struct/enum），不生成 from_json()（留待 Phase 29）
-- 非命名 ObjectType → 字段输出 `Json /* TODO: define nested struct */`，保证可编译
-- 约束注释复用 `prompt.mbt` 的 `string_constraint_comment()` 等函数（同包可见）
-- CLI 嵌套对象自动 PascalCase 命名，被 `schema_to_moonbit_struct_named()` 收集
-- 整数检测：`v == v.to_int().to_double()`
-
-**类型映射**:
-| SchemaType | MoonBit |
-|---|---|
-| String | `String` |
-| Number (有 int()) | `Int64` |
-| Number (无 int()) | `Double` |
-| Boolean | `Bool` |
-| Null | `Unit` |
-| Optional | `T?` |
-| Default | `T` (字段标记 `?`) |
-| Array | `Array[T]` |
-| Enum | `pub enum { Variant }` |
-| Union(T+Null) | `T?` |
-| Union(复杂) | `/* TODO */` |
-
-**测试**: 22 个新测试，总计 344/344 全部通过 0 警告。
-
----
-
 #### ☑ `schema_to_json_schema_named()` 函数
 
 **完成状态**:
@@ -666,15 +709,15 @@
 
 #### ☑ Schema → MoonBit struct 代码生成 (`schema_to_moonbit_struct`)
 
-**完成状态** (Phase 28):
+**完成状态** (Phase 28 + Phase 29):
 - [x] `pub fn schema_to_moonbit_struct(schema: Schema) -> String`
 - [x] 基础类型映射（string → String, number → Int64/Double, boolean → Bool）
 - [x] 可选字段（`String?`）、默认值
 - [x] 嵌套对象、数组（`Array[T]`）
-- [ ] `from_json()` 函数生成（Phase 29 规划）
+- [x] `from_json()` 函数生成（Phase 29）- `schema_to_moonbit_struct_full()` / `schema_to_moonbit_struct_named_full()`
 - [x] CLI 集成：`moon run cmd/gen-struct -- '<json>'`
 - [x] 命名导出：`schema_to_moonbit_struct_named()` + 拓扑排序
-- [ ] 约束注释在 struct field 上的展示
+- [x] 约束注释在 struct field 上的展示（Phase 28 已实现）
 
 **价值**: 填补最大 ergonomic gap，完成 Schema → Code 生成器四件套（TS prompt / JSON Schema / moon_zod code / MoonBit struct）
 
