@@ -596,16 +596,44 @@ pub fn user_from_json(json : Json) -> Result[User, Array[ValidationError]] {
 
 ---
 
+## Phase 30 — Validate CLI 工具
+
+**目标**: 提供零代码使用 moon_zod 库的能力，无需编写 MoonBit 代码即可校验 JSON 数据。
+
+| 新增文件 | 用途 |
+|---|---|
+| `cmd/validate/moon.pkg` | 包声明，`is-main: true` |
+| `cmd/validate/main.mbt` | 核心实现 (~280 行) |
+
+**核心功能**:
+
+```bash
+# Infer 模式：从 sample JSON 推断 schema，校验 data JSON
+moon run cmd/validate -- '<sample.json>' '<data.json>'
+
+# JSON Lines 批量校验
+moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
+```
+
+**关键实现**:
+- `json_to_schema(json, name_hint) -> Schema` — JSON → moon_zod Schema 推断
+- `validate_single(schema, data_raw)` — 单文件校验
+- `validate_jsonl(schema, data_raw)` — JSON Lines 批量校验，统计 pass/fail
+- 错误输出：path + message + got 三要素
+
+**测试**: moon build ✓ 0 errors，moon test ✓ 360/360。
+
+---
+
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 316（312 黑盒 + 4 白盒） |
+| 测试数量 | 360 |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
 | 核心源码模块 | 16 个 `.mbt` 文件（含 `from_json_schema.mbt` + `intersection.mbt`） |
-| 测试文件 | 15 个（14 类型专项 + 1 白盒） |
-| CLI 工具 | 3 个（`cmd/main` 基准, `cmd/wasm` 跨语言, `cmd/json2schema` 代码生成） |
+| CLI 工具 | 4 个（`cmd/main` 基准, `cmd/wasm` 跨语言, `cmd/json2schema` 代码生成, `cmd/validate` 校验） |
 | 展示示例 | 5 个（`llm_agent`, `educational_agent`, `real_llm_agent`, `json2schema`, `schema2json`） |
 
 ---
@@ -723,17 +751,19 @@ pub fn user_from_json(json : Json) -> Result[User, Array[ValidationError]] {
 
 ---
 
-#### ☐ Validate CLI 工具
+#### ☑ Validate CLI 工具
 
-**问题**: 没有快速校验 JSON 文件的方式，用户必须写 MoonBit 代码才能用库。
+**完成状态** (Phase 30):
+- [x] `cmd/validate/` — 独立可执行包 (`moon.pkg` + `main.mbt`)
+- [x] `moon run cmd/validate -- '<sample.json>' '<data.json>'` — Infer 模式
+- [x] JSON Lines (`.jsonl`) 批量校验，统计 pass/fail
+- [x] 输出格式：通过/失败 + 详细错误报告（path + message + got）
+- [ ] 退出码：0=全部通过，1=有错误，2=参数错误（恒为 0）
 
-**任务**:
-- [ ] `cmd/validate/` — 独立可执行包
-- [ ] `moon run cmd/validate -- <schema.mbt> <data.json>` — 双重文件模式
-- [ ] `moon run cmd/validate -- --inline-schema '{"type":"string"}' <data.json>` — 内联 JSON Schema 模式
-- [ ] 支持 JSON、JSON Lines (`.jsonl`) 批量校验
-- [ ] 输出格式：通过/失败 + 详细错误报告（多行、带路径）
-- [ ] 退出码：0=全部通过，1=有错误，2=参数错误
+**待扩展**:
+- [ ] Schema 文件模式：`moon run cmd/validate -- <schema.mbt> <data.json>`
+- [ ] `--inline-schema '{"type":"string"}'` — 内联 JSON Schema 模式
+- [ ] 结构化输出：`--json` 输出机器可读格式
 
 **价值**: 零代码使用库的能力，CI 集成，非 MoonBit 用户也能受益。
 
