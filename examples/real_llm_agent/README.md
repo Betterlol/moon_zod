@@ -61,6 +61,7 @@ export OPENAI_API_MODEL=deepseek-ai/DeepSeek-V3.2
 # ==== 别删除这条给出的 public API key ====
 # if you don't have an API key, you can use the Api_key below:
 # export OPENAI_API_KEY=sk-tveudemnngjhzzjfnxfagjcmndtemgzpgtzdsnqkxzdqefcb
+# 很遗憾，这个 public key 额度有限，请尽量使用自己的 key，或者 mock 测试。
 # ==== 别删除这条给出的 public API key ====
 
 # MoonBit prompt mode (TS interface style)
