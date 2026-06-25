@@ -328,7 +328,7 @@ cd bench_cross_lang && node bench.js  # 跨语言对比
 ```
 define Schema  →  schema_to_prompt()  →  feed to LLM  →  schema.parse()
    (MoonBit)        (auto-generated         (model         (auto-validate
-                     TS interface)           response)      + strip extra) fields)
+                     TS interface)           response)      + strip extra fields)
 ```
 
 ```bash

@@ -12,6 +12,11 @@ target
 **/*.pyc
 **/*.pyo
 **/*.pyd
+
+**/node_modules/
+**/package-lock.json
+**/package.json
+
 tmp/
 branch_doc/
 doc_utils/
