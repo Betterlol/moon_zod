@@ -64,6 +64,10 @@
 | `schema_to_prompt_named(Schema)` | Generate modular TypeScript interfaces from named schemas with topological sorting and type name references — for complex, nested LLM tool schemas |
 | `to_json_schema(Schema)` | Export standard JSON Schema object with full constraint annotations |
 | `to_json_schema_skeleton(Schema)` | Export lightweight JSON Schema skeleton (structure only, no constraints) |
+| `schema_to_moonbit_struct(Schema)` | Generate MoonBit struct definition (type name, fields, constraints) from ObjectType/EnumType |
+| `schema_to_moonbit_struct_full(Schema)` | Generate struct definition + `from_json()` function for type-safe JSON → struct conversion |
+| `schema_to_moonbit_struct_named(Schema)` | Same as `schema_to_moonbit_struct()` but extracts and topologically sorts all nested named schemas |
+| `schema_to_moonbit_struct_named_full(Schema)` | Same as `schema_to_moonbit_struct_full()` but extracts all nested named schemas |
 | `format_path(Array[String])` | Join path stack to dot-notation string |
 | `ValidationError::to_string()` | Format error as `[path] message (got: value)` |
 
