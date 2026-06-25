@@ -625,11 +625,32 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 
 ---
 
+## Phase 31 — 测试扩展
+
+**目标**: 补充 moonbit_struct 模块的测试覆盖，新增 17 个测试用例。
+
+| 新增测试 | 覆盖场景 |
+|---|---|
+| 深度嵌套 3 层对象 | 验证中间层引用正确 |
+| 数组类型 (简单/嵌套/optional/对象数组) | 5 个测试 |
+| 可选字段 (纯 optional/optional object/optional array/default) | 4 个测试 |
+| 特殊场景 (全类型组合、空对象、null 类型) | 4 个测试 |
+| 兄弟 schema 引用 | 1 个测试 |
+
+**关键发现**:
+- `NullType` → `Unit` 而非 `Json`
+- 深度嵌套必须用 `schema_to_moonbit_struct_named_full`
+- 数组元素为命名 schema 时，`from_json` 委托 `item_from_json(item)`
+
+**测试**: moon build ✓ 0 errors，moon test ✓ 377/377。
+
+---
+
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 360 |
+| 测试数量 | 377 |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
 | 核心源码模块 | 16 个 `.mbt` 文件（含 `from_json_schema.mbt` + `intersection.mbt`） |
