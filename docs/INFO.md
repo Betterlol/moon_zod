@@ -61,7 +61,7 @@ moon_zod/
 ├── json_schema.mbt     # to_json_schema() / to_json_schema_skeleton()
 ├── moonbit_struct.mbt  # schema_to_moonbit_struct() / schema_to_moonbit_struct_full()
 │
-├── test_*.mbt          # 15 type-specific test files
+├── test_*.mbt          # 14 type-specific test files
 ├── test_prompt_named.mbt # Named schema export tests
 ├── moon_zod_wbtest.mbt # White-box tests
 │

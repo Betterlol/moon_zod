@@ -60,7 +60,7 @@ pub fn inferred_schema_from_json(json : Json) -> Result[InferredSchema, Array[Va
 }
 ```
 
-Supports nested objects, arrays, optional fields, and named schema exports via `--named` flag.
+Supports nested objects, arrays, and optional fields. Nested objects are automatically named and exported as separate struct definitions.
 
 ---
 

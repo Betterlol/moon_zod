@@ -38,6 +38,17 @@ match schema.parse(input_json) {
 }
 ```
 
+**Zero-code CLI validation:**
+```bash
+# Infer schema from sample, validate data
+moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
+# PASS
+
+# Batch validation with JSON Lines
+moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
+# Results: 2 passed, 0 failed
+```
+
 ---
 
 ## Project Layout
@@ -58,12 +69,18 @@ moon_zod/
 ├── transform.mbt       # transform()
 ├── prompt.mbt          # schema_to_prompt() / schema_to_prompt_named() — LLM prompt generation
 ├── json_schema.mbt     # to_json_schema() / to_json_schema_skeleton()
+├── moonbit_struct.mbt  # schema_to_moonbit_struct() / schema_to_moonbit_struct_full()
 │
-├── test_*.mbt          # 15 type-specific test files
-├── test_prompt_named.mbt # Named schema export tests (6)
-├── moon_zod_wbtest.mbt # White-box tests (4)
+├── test_*.mbt          # 14 type-specific test files
+├── test_prompt_named.mbt # Named schema export tests
+├── moon_zod_wbtest.mbt # White-box tests
 │
-├── cmd/                # Benchmarks + CLI tools
+├── cmd/                # CLI tools + benchmarks
+│   ├── main            # Benchmark runner
+│   ├── wasm            # Wasm cross-language benchmark
+│   ├── json2schema     # JSON → moon_zod schema code generator
+│   ├── gen-struct      # JSON → MoonBit struct definition
+│   └── validate        # JSON validation CLI
 └── examples/           # LLM agent demos
 ```
 
@@ -72,10 +89,12 @@ moon_zod/
 ## Development
 
 ```bash
-moon test                # Run all tests (282 total, 0 warnings)
+moon test                # Run all tests (377 total, 0 warnings)
 moon build               # Build the library
 moon run cmd/main        # Run benchmark
 moon run cmd/json2schema -- '{"hello":"world"}'  # Generate schema from JSON
+moon run cmd/gen-struct -- '{"name":"Alice"}'    # Generate MoonBit struct from JSON
+moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # Validate JSON
 moon run examples/llm_agent  # Run LLM demo
 moon run examples/real_llm_agent -- product prompt  # Schema → prompt
 moon info && moon fmt    # Update interface + format
@@ -100,6 +119,11 @@ moon info && moon fmt    # Update interface + format
 - **JSON Schema export**: `to_json_schema(schema)` produces a standard JSON Schema object
 - **Type-level errors**: `.string(invalid_type_error="...", required_error="...")` — customize type mismatch and required field messages at factory level
 - **Detailed errors**: per-field path, message, and received value
+- **MoonBit struct generation** (Phase 28-29):
+  - `schema_to_moonbit_struct()` generates MoonBit struct definitions from any ObjectType/EnumType schema
+  - `schema_to_moonbit_struct_full()` generates struct definitions + `from_json()` functions for type-safe JSON → struct conversion
+  - `schema_to_moonbit_struct_named()` / `schema_to_moonbit_struct_named_full()` handle nested named schemas with topological sorting
+  - CLI: `moon run cmd/gen-struct -- '<json>'` — infer struct from JSON sample
 
 
 ## API Reference
@@ -168,6 +192,11 @@ moon info && moon fmt    # Update interface + format
 | `schema_to_prompt_named(Schema)` | Generate modular TypeScript interfaces from named schemas with topological sorting and type name references — for complex, nested LLM tool schemas |
 | `to_json_schema(Schema)` | Export standard JSON Schema object with full constraint annotations |
 | `to_json_schema_skeleton(Schema)` | Export lightweight JSON Schema skeleton (structure only, no constraints) |
+| `to_json_schema_named(Schema)` | Export named schemas as separate JSON Schema definitions with `$defs` |
+| `schema_to_moonbit_struct(Schema)` | Generate MoonBit struct definition (type name, fields, constraints) from ObjectType/EnumType |
+| `schema_to_moonbit_struct_full(Schema)` | Generate struct definition + `from_json()` function for type-safe JSON → struct conversion |
+| `schema_to_moonbit_struct_named(Schema)` | Same as `schema_to_moonbit_struct()` but extracts and topologically sorts all nested named schemas |
+| `schema_to_moonbit_struct_named_full(Schema)` | Same as `schema_to_moonbit_struct_full()` but extracts all nested named schemas |
 | `format_path(Array[String])` | Join path stack to dot-notation string |
 | `ValidationError::to_string()` | Format error as `[path] message (got: value)` |
 
@@ -216,6 +245,66 @@ Object({hello: String(world)})
 ```
 
 The generator recursively infers types (`string`, `number`, `boolean`, `null`, `array`, `object`) and safely escapes special characters in object keys. Empty arrays produce a `/* TODO: specify exact type */` comment to alert you when type inference lacked data.
+
+---
+
+### MoonBit Struct Generator (CLI)
+
+Generate MoonBit struct definitions from any JSON sample — struct definitions + `from_json()` functions for type-safe conversion.
+
+```bash
+moon run cmd/gen-struct -- '{"name":"Alice","age":30}'
+```
+
+Output:
+
+```moonbit
+pub struct InferredSchema {
+  name : String
+  age : Int64
+}
+
+pub fn inferred_schema_from_json(json : Json) -> Result[InferredSchema, Array[ValidationError]] {
+  match json {
+    Object(map) => {
+      let name = match map.get("name") {
+        Some(String(s)) => s
+        Some(got) => return Err([ValidationError::{ path: "name", message: "expected string", got }])
+        None => return Err([ValidationError::{ path: "name", message: "required", got: Null }])
+      }
+      let age = match map.get("age") {
+        Some(Number(v, ..)) => v.to_int()
+        Some(got) => return Err([ValidationError::{ path: "age", message: "expected integer", got }])
+        None => return Err([ValidationError::{ path: "age", message: "required", got: Null }])
+      }
+      Ok({ name:, age: })
+    }
+    _ => Err([ValidationError::{ path: "", message: "expected object", got: json }])
+  }
+}
+```
+
+Supports nested objects, arrays, and optional fields. Nested objects are automatically named and exported as separate struct definitions.
+
+---
+
+### JSON Validator (CLI)
+
+Validate JSON data against a schema inferred from a sample — no code required. Supports JSON Lines for batch validation.
+
+```bash
+# Single JSON validation
+moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
+# PASS
+
+# Batch validation with JSON Lines
+moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}\n{"age":30}'
+# FAIL: line 3
+#   [name] Required (got: Null)
+# Results: 2 passed, 1 failed
+```
+
+**Error output format**: `[field_path] message (got: value)`
 
 
 ## ⚡ Performance

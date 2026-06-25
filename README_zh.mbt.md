@@ -8,18 +8,18 @@ MoonBit 运行时 JSON Schema 校验库，受 [Zod](https://zod.dev) 和 [Pydant
 
 ---
 
-## ✨ 为什么选择 MoonZod？（AI 优先）
+# ✨ 为什么选择 MoonZod？（AI 优先）
 
 | 特性 | moon_zod | 典型验证库 |
 |---|---|---|
-| **错误收集** | 一次性收集**所有**错误 | 大多数库在第一个错误处快速失败 |
-| **幻觉防御** | 默认 **Strip 模式**静默移除未知字段 | 会通过幻觉数据 |
-| **命名 Schema 导出** | `schema_to_prompt_named()` 生成模块化 TypeScript 接口，包含类型名称引用 | 内联展开 + 重复 |
+| **错误收集** | 一次遍历收集**所有**错误 | 大多数库在第一个错误时快速失败 |
+| **幻觉防御** | 默认 **Strip 模式**静默移除未知字段 | 会传递幻觉数据 |
+| **命名 Schema 导出** | `schema_to_prompt_named()` 生成模块化 TypeScript 接口，带类型名称引用 | 内联展开 + 重复 |
 | **JSON Schema 导出** | `to_json_schema()` 为 LLM API 生成标准 Schema | 手动维护 Schema |
-| **路径精度** | 每个错误都包含精确的字段路径（`users[0].profile.age`） | 通常只是平面消息 |
-| **Wasm 就绪** | 可变路径栈 — 成功路径上零堆分配 | 每次解析都大量字符串分配 |
+| **路径精度** | 每个错误都包含精确字段路径（`users[0].profile.age`） | 通常只是平面消息 |
+| **Wasm 就绪** | 可变路径栈 — 成功路径上零堆分配 | 每次解析都有大量字符串分配 |
 
-在 LLM 工具调用中，模型经常会**同时产生多个错误**和**幻觉出额外字段**。moon_zod 在一次遍历中收集每个错误（这样你可以将它们全部发送回去进行自我修正），并且默认剥离未知字段（不会从幻觉键导致的无声数据损坏）。
+在 LLM 工具调用中，模型通常**一次产生多个错误**并**幻觉额外字段**。moon_zod 在单次遍历中收集每个错误（这样你可以全部发回给 LLM 进行自我纠正），并默认移除未知字段（不会因幻觉键而发生无声数据损坏）。
 
 ---
 
@@ -38,6 +38,17 @@ match schema.parse(input_json) {
 }
 ```
 
+**零代码 CLI 验证：**
+```bash
+# 从样本推断 Schema，验证数据
+moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
+# PASS
+
+# 使用 JSON Lines 批量验证
+moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
+# 结果：2 通过，0 失败
+```
+
 ---
 
 ## 项目结构
@@ -45,7 +56,7 @@ match schema.parse(input_json) {
 ```
 moon_zod/
 ├── types.mbt           # 核心类型
-├── schema.mbt          # Schema 枢纽 + 解析分发
+├── schema.mbt          # Schema 中心 + 解析分发
 ├── string.mbt          # string() + 规则
 ├── number.mbt          # number() + 规则
 ├── boolean.mbt         # boolean()
@@ -58,12 +69,18 @@ moon_zod/
 ├── transform.mbt       # transform()
 ├── prompt.mbt          # schema_to_prompt() / schema_to_prompt_named() — LLM 提示生成
 ├── json_schema.mbt     # to_json_schema() / to_json_schema_skeleton()
+├── moonbit_struct.mbt  # schema_to_moonbit_struct() / schema_to_moonbit_struct_full()
 │
-├── test_*.mbt          # 15 个类型特定测试文件
-├── test_prompt_named.mbt # 命名 Schema 导出测试（6 个）
-├── moon_zod_wbtest.mbt # 白盒测试（4 个）
+├── test_*.mbt          # 14 个类型特定测试文件
+├── test_prompt_named.mbt # 命名 Schema 导出测试
+├── moon_zod_wbtest.mbt # 白盒测试
 │
-├── cmd/                # 基准测试 + CLI 工具
+├── cmd/                # CLI 工具 + 基准测试
+│   ├── main            # 基准测试运行器
+│   ├── wasm            # Wasm 跨语言基准测试
+│   ├── json2schema     # JSON → moon_zod Schema 代码生成器
+│   ├── gen-struct      # JSON → MoonBit 结构定义
+│   └── validate        # JSON 验证 CLI
 └── examples/           # LLM 代理演示
 ```
 
@@ -72,10 +89,12 @@ moon_zod/
 ## 开发
 
 ```bash
-moon test                # 运行所有测试（282 个总计，0 个警告）
+moon test                # 运行所有测试（共 377 个，0 个警告）
 moon build               # 构建库
 moon run cmd/main        # 运行基准测试
 moon run cmd/json2schema -- '{"hello":"world"}'  # 从 JSON 生成 Schema
+moon run cmd/gen-struct -- '{"name":"Alice"}'    # 从 JSON 生成 MoonBit 结构
+moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # 验证 JSON
 moon run examples/llm_agent  # 运行 LLM 演示
 moon run examples/real_llm_agent -- product prompt  # Schema → 提示
 moon info && moon fmt    # 更新接口 + 格式化
@@ -85,20 +104,25 @@ moon info && moon fmt    # 更新接口 + 格式化
 
 ## 特性
 
-- **原始类型 Schema**：`string()`、`number()`、`boolean()`、`null()`
-- **复合类型 Schema**：`object(Map)`、`array(Schema)`、`union(Array[Schema])`、`intersection(Array[Schema])`、`enum_values(Array[String])`
-- **校验规则**：`.min(n)`、`.max(n)`、`.nonempty()`、`.email()`、`.url()`、`.regex(pattern)`、`.startsWith(prefix)`、`.endsWith(suffix)`、`.includes(substring)`、`.uuid()`、`.cuid()`、`.datetime()`、`.ip()`/`.ipv4()`/`.ipv6()`、`.ulid()`、`.length(n)`、`.int()`、`.positive()`、`.negative()`、`.multipleOf(n)`、`.finite()`、`.safe()` — 所有规则都支持可选的自定义错误消息 `msg?` 参数
-- **可选 / 默认值**：`.optional()` 和 `.default(value)` 支持通过包装器正确的规则链接
-- **Object 模式**：`.strict()` 拒绝额外字段；`.passthrough()` 允许它们；`.strip()`（默认）静默移除它们
-- **Schema 组合**：`.pick(keys)`、`.omit(keys)`、`.partial()` 用于派生对象子 Schema
+- **基础类型 Schema**：`string()`、`number()`、`boolean()`、`null()`
+- **复合 Schema**：`object(Map)`、`array(Schema)`、`union(Array[Schema])`、`intersection(Array[Schema])`、`enum_values(Array[String])`
+- **验证规则**：`.min(n)`、`.max(n)`、`.nonempty()`、`.email()`、`.url()`、`.regex(pattern)`、`.startsWith(prefix)`、`.endsWith(suffix)`、`.includes(substring)`、`.uuid()`、`.cuid()`、`.datetime()`、`.ip()`/`.ipv4()`/`.ipv6()`、`.ulid()`、`.length(n)`、`.int()`、`.positive()`、`.negative()`、`.multipleOf(n)`、`.finite()`、`.safe()` — 都支持可选的自定义错误消息 `msg?` 参数
+- **可选 / 默认值**：`.optional()` 和 `.default(value)`，通过包装器正确链接规则
+- **对象模式**：`.strict()` 拒绝额外字段；`.passthrough()` 允许它们；`.strip()`（默认）静默移除它们
+- **Schema 组合**：`.pick(keys)`、`.omit(keys)`、`.partial()` 来衍生对象子 Schema
 - **数据转换**：`.transform(fn)` 验证后转换输出
 - **自定义规则**：`.refine(check, message)`
 - **LLM 提示**：
-  - `schema_to_prompt()` 自动生成内联 TypeScript 接口提示文本，带有约束注释
-  - `schema_to_prompt_named()` 自动提取命名 Schema，进行拓扑排序，生成包含类型名称引用的模块化接口
+  - `schema_to_prompt()` 自动生成内联 TypeScript 接口提示文本，带约束注释
+  - `schema_to_prompt_named()` 自动提取命名 Schema，进行拓扑排序，生成带类型名称引用的模块化接口
 - **字段描述**：`.describe(text)` 附加人类可读的描述，由 `schema_to_prompt()` 呈现
 - **JSON Schema 导出**：`to_json_schema(schema)` 生成标准 JSON Schema 对象
-- **类型级错误**：`.string(invalid_type_error="...", required_error="...")` — 在工厂级自定义类型不匹配和必填字段错误消息
+- **类型级错误**：`.string(invalid_type_error="...", required_error="...")` — 在工厂级自定义类型不匹配和必需字段消息
+- **详细错误**：每个字段路径、消息和接收值
+- **MoonBit 结构生成**（Phase 28-29）：
+  - `schema_to_moonbit_struct()` 从任何 ObjectType/EnumType Schema 生成 MoonBit 结构定义
+  - `schema_to_moonbit_struct_full()` 生成结构定义 + `from_json()` 函数，用于类型安全的 JSON → 结构转换
+  - `schema_to_moonbit_struct_named()` / `schema_to_moonbit_struct_named_full()` 处理嵌套命名 Schema，具有拓扑排序
 
 ## API 参考
 
@@ -113,60 +137,65 @@ moon info && moon fmt    # 更新接口 + 格式化
 | `array(Schema, required_error?, invalid_type_error?)` | 校验数组，递归检查元素 |
 | `object(Map[String, Schema], required_error?, invalid_type_error?)` | 校验对象。**默认：Strip 模式** |
 | `enum_values(Array[String], required_error?, invalid_type_error?)` | 固定的允许字符串值集合 |
-| `union(Array[Schema], required_error?, invalid_type_error?)` | 联合类型 — 任意 schema 匹配即通过 |
-| `intersection(Array[Schema], required_error?, invalid_type_error?)` | 交集 — 所有 schema 都匹配才通过；对象字段会合并 |
+| `union(Array[Schema], required_error?, invalid_type_error?)` | 联合类型 — 如果任何 schema 匹配则通过 |
+| `intersection(Array[Schema], required_error?, invalid_type_error?)` | 交集 — 如果所有 schema 都匹配则通过；对象字段被合并 |
 
 ### Schema 方法
 
 | 方法 | 适用于 | 描述 |
 |---|---|---|
 | `.parse(Json, path?)` | 全部 | 校验，返回 `Ok(Json)` 或 `Err(Array[ValidationError])` |
-| `.min(n[, msg])` | string / number / array | 最小长度/值 |
-| `.max(n[, msg])` | string / number / array | 最大长度/值 |
+| `.min(n[, msg])` | string / number / array | 最小长度 / 值 |
+| `.max(n[, msg])` | string / number / array | 最大长度 / 值 |
 | `.nonempty([msg])` | string | 字符串不能为空 |
-| `.email([msg])` | string | 完整的电子邮件校验（带引号的本地部分、IP 字面量、+标签、TLD≥2、单个 @） |
-| `.url([msg])` | string | 完整的 URL 结构：`scheme://host[:port][/path][?query][#fragment]` |
+| `.email([msg])` | string | 完整邮箱校验（引号本地部分、IP 字面量、+tag、TLD≥2、单个 @） |
+| `.url([msg])` | string | 完整 URL 结构：`scheme://host[:port][/path][?query][#fragment]` |
 | `.regex(pattern[, msg])` | string | 必须包含 `pattern` 作为子字符串 |
 | `.startsWith(prefix[, msg])` | string | 必须以 `prefix` 开头 |
 | `.endsWith(suffix[, msg])` | string | 必须以 `suffix` 结尾 |
 | `.includes(substring[, msg])` | string | 必须包含 `substring` |
 | `.uuid([msg])` | string | 必须是有效的 UUID v4 |
 | `.cuid([msg])` | string | 必须是有效的 CUID（c + base36 哈希） |
-| `.datetime([msg])` | string | 必须是 ISO 8601 日期时间（日期 + T + 时间 ± 偏移/Z） |
+| `.datetime([msg])` | string | 必须是 ISO 8601 日期时间（date + T + time ± offset/Z） |
 | `.ip([msg])` | string | 必须是有效的 IPv4 或 IPv6 地址 |
 | `.ipv4([msg])` | string | 必须是有效的 IPv4 地址 |
-| `.ipv6([msg])` | string | 必须是有效的 IPv6 地址（完整/缩写形式，支持 ::） |
+| `.ipv6([msg])` | string | 必须是有效的 IPv6 地址（完整/简写形式，支持 ::） |
 | `.ulid([msg])` | string | 必须是有效的 ULID（26 字符 Crockford base32） |
 | `.int([msg])` | number | 必须是整数（无小数部分） |
 | `.positive([msg])` | number | 必须 > 0 |
 | `.negative([msg])` | number | 必须 < 0 |
 | `.multipleOf(n[, msg])` | number | 必须是 `n` 的倍数 |
-| `.length(n[, msg])` | string / array | 必须恰好有长度 `n` |
-| `.finite([msg])` | number | 必须是有限数（不是 NaN、不是 ±Infinity） |
-| `.safe([msg])` | number | 必须是安全整数（不是 NaN、不是 ±Infinity、无小数部分） |
+| `.length(n[, msg])` | string / array | 必须恰好有 `n` 的长度 |
+| `.finite([msg])` | number | 必须是有限数（不是 NaN，不是 ±Infinity） |
+| `.safe([msg])` | number | 必须是安全整数（不是 NaN，不是 ±Infinity，无小数部分） |
 | `.optional()` | 任意 | null 或缺失值跳过校验 |
 | `.default(value)` | 任意 | 用默认值替换 null |
 | `.strict()` | object | 拒绝未定义的字段 |
 | `.passthrough()` | object | 保持未定义的字段不变 |
-| `.strip()` | object | 静默移除未定义的字段（默认） |
-| `.describe(text)` | 任意 | 附加描述，由 `schema_to_prompt()` 为 LLM 提示而渲染 |
+| `.strip()` | object | 无声地移除未定义的字段（默认） |
+| `.describe(text)` | 任意 | 附加描述，由 `schema_to_prompt()` 为 LLM 提示渲染 |
 | `.message(text)` | 任意 | 覆盖最后一条规则的错误消息 |
-| `.intersect(other)` | 任意 | 交集：输入必须匹配两个 schema；对象字段会合并 |
-| `.pick(keys)` | object | 仅选择指定的字段 |
-| `.omit(keys)` | object | 移除指定的字段 |
+| `.intersect(other)` | 任意 | 交集：输入必须匹配两个 schema；对象字段被合并 |
+| `.pick(keys)` | object | 仅选择指定字段 |
+| `.omit(keys)` | object | 移除指定字段 |
 | `.partial()` | object | 使所有字段可选 |
 | `.refine(check, msg)` | 任意 | 自定义校验谓词 |
-| `.transform(fn)` | 任意 | 校验后通过 `(Json) -> Result[Json, String]` 转换输出 |
+| `.transform(fn)` | 任意 | 校验然后通过 `(Json) -> Result[Json, String]` 转换输出 |
 
 ### 独立函数
 
 | 函数 | 描述 |
 |---|---|
-| `schema_to_prompt(Schema)` | 为 LLM 生成 TypeScript 接口提示字符串（带约束注释） — 内联展开 |
-| `schema_to_prompt_named(Schema)` | 从命名 schema 生成模块化 TypeScript 接口，包含拓扑排序和类型名称引用 — 用于复杂的嵌套 LLM 工具 schema |
-| `to_json_schema(Schema)` | 导出标准 JSON Schema 对象，包含完整的约束注解 |
-| `to_json_schema_skeleton(Schema)` | 导出轻量级 JSON Schema 框架（仅结构，无约束） |
-| `format_path(Array[String])` | 将路径栈连接成点号记法字符串 |
+| `schema_to_prompt(Schema)` | 为 LLM 生成 TypeScript 接口提示字符串（含约束注释） — 内联展开 |
+| `schema_to_prompt_named(Schema)` | 从命名 schema 生成模块化 TypeScript 接口，含拓扑排序和类型名称引用 — 用于复杂、嵌套的 LLM 工具 schema |
+| `to_json_schema(Schema)` | 导出标准 JSON Schema 对象，含完整约束注解 |
+| `to_json_schema_skeleton(Schema)` | 导出轻量级 JSON Schema 骨架（仅结构，无约束） |
+| `to_json_schema_named(Schema)` | 导出命名 schema 为独立的 JSON Schema 定义，含 `$defs` |
+| `schema_to_moonbit_struct(Schema)` | 从 ObjectType/EnumType 生成 MoonBit 结构体定义（类型名、字段、约束） |
+| `schema_to_moonbit_struct_full(Schema)` | 生成结构体定义 + `from_json()` 函数用于类型安全的 JSON → 结构体转换 |
+| `schema_to_moonbit_struct_named(Schema)` | 同 `schema_to_moonbit_struct()`，但提取并拓扑排序所有嵌套命名 schema |
+| `schema_to_moonbit_struct_named_full(Schema)` | 同 `schema_to_moonbit_struct_full()`，但提取所有嵌套命名 schema |
+| `format_path(Array[String])` | 将路径栈连接为点号记号字符串 |
 | `ValidationError::to_string()` | 将错误格式化为 `[path] message (got: value)` |
 
 ### 核心类型
@@ -191,7 +220,7 @@ pub enum ObjectMode {
 
 ### JSON-to-Schema 生成器 (CLI)
 
-从任何 JSON 数据有效负载中即时生成 `@moon_zod` schema 代码 — 无需为真实世界的 API 数据手动编写 schema。
+从任何 JSON 负载中即时生成 `@moon_zod` schema 代码 — 无需为真实世界的 API 数据手工编写 schema。
 
 ```bash
 moon run cmd/json2schema -- '{"hello": "world"}'
@@ -209,6 +238,66 @@ Object({hello: String(world)})
 })
 
 ── End ──
+```
+
+该生成器递归推断类型（`string`、`number`、`boolean`、`null`、`array`、`object`），并安全转义对象键中的特殊字符。空数组会生成 `/* TODO: specify exact type */` 注释，以便在类型推断缺乏数据时提醒你。
+
+---
+
+### MoonBit 结构体生成器 (CLI)
+
+从任何 JSON 示例生成 MoonBit 结构体定义 — 包括结构体定义和 `from_json()` 函数，用于类型安全转换。
+
+```bash
+moon run cmd/gen-struct -- '{"name":"Alice","age":30}'
+```
+
+输出：
+
+```moonbit
+pub struct InferredSchema {
+  name : String
+  age : Int64
+}
+
+pub fn inferred_schema_from_json(json : Json) -> Result[InferredSchema, Array[ValidationError]] {
+  match json {
+    Object(map) => {
+      let name = match map.get("name") {
+        Some(String(s)) => s
+        Some(got) => return Err([ValidationError::{ path: "name", message: "expected string", got }])
+        None => return Err([ValidationError::{ path: "name", message: "required", got: Null }])
+      }
+      let age = match map.get("age") {
+        Some(Number(v, ..)) => v.to_int()
+        Some(got) => return Err([ValidationError::{ path: "age", message: "expected integer", got }])
+        None => return Err([ValidationError::{ path: "age", message: "required", got: Null }])
+      }
+      Ok({ name:, age: })
+    }
+    _ => Err([ValidationError::{ path: "", message: "expected object", got: json }])
+  }
+}
+```
+
+支持嵌套对象、数组和可选字段。嵌套对象会自动命名并导出为单独的结构体定义。
+
+---
+
+### JSON 验证器 (CLI)
+
+根据从示例推断的 schema 验证 JSON 数据 — 无需代码。支持 JSON Lines 进行批量验证。
+
+```bash
+# 单个 JSON 验证
+moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
+# PASS
+
+# 使用 JSON Lines 进行批量验证
+moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}\n{"age":30}'
+# FAIL: line 3
+#   [name] Required (got: Null)
+# Results: 2 passed, 1 failed
 ```
 
 

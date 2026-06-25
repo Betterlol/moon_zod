@@ -1,5 +1,19 @@
 # Release History
 
+## v0.7.0 (2026-06-26)
+
+**JSON Schema ↔ MoonBit Code Generation + MoonBit Struct Generation + Validate CLI**
+
+- `to_json_schema_named(Schema)` — export named schemas as separate JSON Schema with `$defs` and `$ref`
+- `json_schema_to_moon_zod(Json)` — convert JSON Schema (draft-07) document to moon_zod source code string; supports `$ref`, `$defs`, `enum`, `type`, `anyOf`/`allOf`/`oneOf`, `format` validators
+- `schema_to_moonbit_struct(schema)` / `_full(schema)` — generate MoonBit struct definitions from ObjectType/EnumType schema, with optional `from_json()` functions for type-safe JSON → struct conversion
+- `schema_to_moonbit_struct_named(schema)` / `_full(schema)` — same as above but extracts all nested named schemas and topologically sorts them
+- `cmd/gen-struct/` CLI: `moon run cmd/gen-struct -- '<json>'` — infer MoonBit struct from JSON sample
+- `cmd/validate/` CLI: `moon run cmd/validate -- '<sample.json>' '<data.json>'` — infer schema from sample and validate data; supports JSON Lines batch mode
+- **377 total tests**, 0 warnings, 0 external dependencies
+
+---
+
 ## v0.6.0 (2026-06-22)
 
 **Schema Named Export + Topological Sorting — Modular LLM Tool Schemas**
