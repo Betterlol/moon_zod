@@ -3,136 +3,27 @@
 /**
  * Cross-Language Benchmark Runner
  *
- * Compares two validators side-by-side:
- *   1. TypeScript Zod (in-process)
- *   2. MoonZod (native via @bench library, in-process)
+ * Compares validators side-by-side:
+ *   - TypeScript Zod (in-process)
+ *   - MoonZod (native via @bench library)
  *
- * Both run in-process with no subprocess overhead.
  * Run: node bench.js
  *       npm run bench
  */
 
-const { performance } = require('perf_hooks');
-const { execFileSync } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
-// ── Configuration ─────────────────────────────────────────────────
 const ITERATIONS = 100_000;
-const PROJECT_ROOT = path.resolve(__dirname, '..');
+const BENCH_DIR = path.resolve(__dirname);
+const PROJECT_ROOT = path.resolve(BENCH_DIR, '..');
 
-// ── Try loading Zod (optional) ────────────────────────────────────
-let z;
-try {
-  z = require('zod');
-} catch {
-  console.warn('⚠  zod not installed. Run: npm install\n');
-}
+const testData = JSON.parse(
+  fs.readFileSync(path.join(BENCH_DIR, 'test_data.json'), 'utf-8')
+);
 
-// ── Zod Schema (equivalent to the MoonBit schema) ─────────────────
-function buildZodSchema() {
-  if (!z) return null;
-  return z.object({
-    users: z.array(
-      z.object({
-        id: z.number().int().min(0),
-        name: z.string().min(1).max(100),
-        email: z.string().email().optional(),
-        role: z.enum(['admin', 'user', 'viewer']),
-        profile: z.object({
-          age: z.number().int().min(0).max(150),
-          tags: z.array(z.string().min(1)),
-          metadata: z
-            .object({
-              department: z.string().min(1),
-              level: z.number().int().min(1).max(10),
-              active: z.boolean(),
-            })
-            .optional(),
-        }),
-      }),
-    ),
-    config: z.object({
-      version: z.string().min(1),
-      debug: z.boolean(),
-      maxRetries: z.number().int().min(0).max(10),
-    }),
-  });
-}
-
-// ── Test Data (equivalent to moon_zod's large_input) ───────────────
-function buildTestData() {
-  return {
-    users: [
-      {
-        id: 1,
-        name: 'Alice',
-        email: 'alice@example.com',
-        role: 'admin',
-        profile: {
-          age: 30,
-          tags: ['rust', 'wasm', 'ai'],
-          metadata: {
-            department: 'Engineering',
-            level: 5,
-            active: true,
-          },
-        },
-      },
-      {
-        id: 2,
-        name: 'Bob',
-        role: 'user',
-        profile: {
-          age: 25,
-          tags: ['design'],
-          metadata: {
-            department: 'Design',
-            level: 3,
-            active: false,
-          },
-        },
-      },
-      {
-        id: 3,
-        name: 'Charlie',
-        role: 'viewer',
-        profile: {
-          age: 42,
-          tags: ['python', 'data'],
-        },
-      },
-    ],
-    config: {
-      version: '1.0.0',
-      debug: false,
-      maxRetries: 3,
-    },
-  };
-}
-
-// ── Benchmark: Zod ────────────────────────────────────────────────
-function benchZod(schema, data) {
-  const start = performance.now();
-  for (let i = 0; i < ITERATIONS; i++) {
-    schema.parse(data);
-  }
-  const elapsed = performance.now() - start;
-  return elapsed;
-}
-
-// ── Benchmark: MoonZod (native via @bench) ────────────────────────
-function benchMoonZod() {
-  const stdout = execFileSync('moon', ['run', 'cmd/main'], {
-    cwd: PROJECT_ROOT,
-    timeout: 120_000,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    encoding: 'utf-8',
-  });
-  // Last line is JSON from bench.dump_summaries()
-  const lines = stdout.trim().split('\n');
-  const jsonLine = lines[lines.length - 1];
-  return JSON.parse(jsonLine);
-}
+const zodBench = require('./validators/zod');
+const moonZodBench = require('./validators/moon_zod');
 
 // ── Format helpers ────────────────────────────────────────────────
 function fmtNum(n) {
@@ -152,18 +43,13 @@ function main() {
   console.log();
 
   // ── Zod benchmark ──────────────────────────────────────────────
-  let zodMs = null;
-  const schema = buildZodSchema();
-  const data = buildTestData();
+  const zodResult = zodBench.run(testData, ITERATIONS);
 
-  if (schema) {
-    // Warm-up
-    for (let i = 0; i < 100; i++) schema.parse(data);
-    zodMs = benchZod(schema, data);
+  if (zodResult.available) {
     console.log(
       '  ✔  Zod          :',
-      fmtNum(zodMs),
-      'ms  (' + fmtOps((ITERATIONS / zodMs) * 1000) + ' ops/sec)',
+      fmtNum(zodResult.elapsed),
+      'ms  (' + fmtOps(zodResult.opsPerSec) + ' ops/sec)',
     );
   } else {
     console.log('  ⚠  Zod          : skipped (zod not installed)');
@@ -171,20 +57,20 @@ function main() {
 
   // ── MoonZod native benchmark ───────────────────────────────────
   console.log();
-  console.log('  Running MoonZod native benchmark...');
-  const mzResults = benchMoonZod();
-  console.log();
+  const mzResult = moonZodBench.run(JSON.stringify(testData));
 
-  // Parse @bench JSON results
-  console.log('─'.repeat(60));
-  console.log('  MoonZod @bench Results (calibrated ns/op)');
-  console.log('─'.repeat(60));
-  for (const b of mzResults) {
-    const nsPerOp = (b.mean / b.batch_size) * 1e6;
-    const opsPerSec = (b.batch_size / b.mean) * 1000;
-    console.log(
-      `  ${b.name.padEnd(26)} ${fmtNum(nsPerOp).padStart(10)} ns/op  ${fmtOps(opsPerSec).padStart(12)} ops/sec`,
-    );
+  if (mzResult.available && mzResult.results) {
+    console.log();
+    console.log('─'.repeat(60));
+    console.log('  MoonZod @bench Results (calibrated ns/op)');
+    console.log('─'.repeat(60));
+    for (const b of mzResult.results) {
+      const nsPerOp = (b.mean / b.batch_size) * 1e6;
+      const opsPerSec = (b.batch_size / b.mean) * 1000;
+      console.log(
+        `  ${b.name.padEnd(26)} ${fmtNum(nsPerOp).padStart(10)} ns/op  ${fmtOps(opsPerSec).padStart(12)} ops/sec`,
+      );
+    }
   }
 
   // ── Summary comparison ─────────────────────────────────────────
@@ -193,26 +79,25 @@ function main() {
   console.log('  Summary Comparison (ops/sec)');
   console.log('─'.repeat(60));
 
-  const zodOps = zodMs !== null ? (ITERATIONS / zodMs) * 1000 : null;
-
-  if (zodOps !== null) {
+  if (zodResult.available) {
     console.log(
-      `  ${'TS Zod'.padEnd(26)} ${fmtOps(zodOps).padStart(14)} ops/sec`,
+      `  ${'TS Zod'.padEnd(26)} ${fmtOps(zodResult.opsPerSec).padStart(14)} ops/sec`,
     );
   }
 
-  // Use "Valid Throughput" for cross-comparison
-  const validBench = mzResults.find((b) => b.name === 'Valid Throughput');
-  if (validBench) {
-    const mzOpsPerSec = (validBench.batch_size / validBench.mean) * 1000;
-    console.log(
-      `  ${'MoonZod (native)'.padEnd(26)} ${fmtOps(mzOpsPerSec).padStart(14)} ops/sec`,
-    );
+  if (mzResult.available && mzResult.results) {
+    const validBench = mzResult.results.find((b) => b.name === 'Valid Throughput');
+    if (validBench) {
+      const mzOpsPerSec = (validBench.batch_size / validBench.mean) * 1000;
+      console.log(
+        `  ${'MoonZod (native)'.padEnd(26)} ${fmtOps(mzOpsPerSec).padStart(14)} ops/sec`,
+      );
 
-    if (zodOps !== null) {
-      const ratio = (mzOpsPerSec / zodOps).toFixed(1);
-      console.log();
-      console.log(`  MoonZod is ${ratio}x faster than TS Zod`);
+      if (zodResult.available) {
+        const ratio = (mzOpsPerSec / zodResult.opsPerSec).toFixed(1);
+        console.log();
+        console.log(`  MoonZod is ${ratio}x faster than TS Zod`);
+      }
     }
   }
 

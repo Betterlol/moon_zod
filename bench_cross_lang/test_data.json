@@ -1,0 +1,47 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "Alice",
+      "email": "alice@example.com",
+      "role": "admin",
+      "profile": {
+        "age": 30,
+        "tags": ["rust", "wasm", "ai"],
+        "metadata": {
+          "department": "Engineering",
+          "level": 5,
+          "active": true
+        }
+      }
+    },
+    {
+      "id": 2,
+      "name": "Bob",
+      "role": "user",
+      "profile": {
+        "age": 25,
+        "tags": ["design"],
+        "metadata": {
+          "department": "Design",
+          "level": 3,
+          "active": false
+        }
+      }
+    },
+    {
+      "id": 3,
+      "name": "Charlie",
+      "role": "viewer",
+      "profile": {
+        "age": 42,
+        "tags": ["python", "data"]
+      }
+    }
+  ],
+  "config": {
+    "version": "1.0.0",
+    "debug": false,
+    "maxRetries": 3
+  }
+}
