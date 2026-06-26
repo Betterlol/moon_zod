@@ -130,7 +130,7 @@ fn object_to_struct_definition(
   struct_name : String,
 ) -> String {
   if spec.length() == 0 {
-    return "pub struct " + struct_name + " {}"
+    return "pub struct " + struct_name + " {}" + " derive(ToJson, FromJson)"
   }
 
   let mut result = "pub struct " + struct_name + " {\n"
@@ -162,6 +162,7 @@ fn object_to_struct_definition(
   }
 
   result = result + indent_str(indent) + "}"
+  result = result + " derive(ToJson, FromJson)"
   result
 }
 
@@ -379,7 +380,7 @@ fn struct_definition_with_names(
   named_schemas : Array[Schema],
 ) -> String {
   if spec.length() == 0 {
-    return "pub struct " + struct_name + " {}"
+    return "pub struct " + struct_name + " {}" + " derive(ToJson, FromJson)"
   }
 
   let mut result = "pub struct " + struct_name + " {\n"
@@ -411,6 +412,7 @@ fn struct_definition_with_names(
   }
 
   result = result + "}"
+  result = result + " derive(ToJson, FromJson)"
   result
 }
 
@@ -522,7 +524,7 @@ fn chr_to_upper(c : Char) -> String {
 ///
 /// let code = schema_to_moonbit_struct_full(s)
 /// // pub struct User { name : String; age : Int64 }
-/// // pub fn user_from_json(json : Json) -> Result[User, Array[ValidationError]] { ... }
+/// // pub fn user_from_json(json : Json) -> Result[User, Array[@moon_zod.ValidationError]] { ... }
 /// ```
 pub fn schema_to_moonbit_struct_full(schema : Schema) -> String {
   if schema.name.is_empty() {
@@ -625,7 +627,7 @@ fn generate_from_json_fn(
         fn_name +
         "(json : Json) -> Result[" +
         struct_name +
-        ", Array[ValidationError]] {\n"
+        ", Array[@moon_zod.ValidationError]] {\n"
       result = result + "  match json {\n" + "    Object(map) => {\n"
 
       // Generate field extraction for each field
@@ -639,12 +641,12 @@ fn generate_from_json_fn(
       // Generate struct literal with field names
       result = result + "      Ok({\n"
       for key, _ in spec {
-        result = result + "        " + key + ":\n"
+        result = result + "        " + key + ": " + key + ",\n"
       }
       result = result +
         "      })\n" +
         "    }\n" +
-        "    _ => Err([ValidationError::{ path: \"\", message: \"expected object\", got: json }])\n" +
+        "    _ => Err([@moon_zod.ValidationError::{ path: \"\", message: \"expected object\", got: json }])\n" +
         "  }\n" +
         "}"
       result
@@ -710,9 +712,9 @@ fn extract_field(
     extract_type_expr("v", schema, named_schemas) +
     "\n" +
     ind +
-    "  None => return Err([ValidationError::{ path: \"" +
+    "  None => return Err([@moon_zod.ValidationError::{ path: \"" +
     key_escaped +
-    "\", message: \"required\", got: Null }])\n" +
+    "\", message: \"required\", got: null }])\n" +
     ind +
     "}\n"
   }
@@ -730,7 +732,7 @@ fn extract_type_expr(
     StringType =>
       "match " +
       json_var +
-      " { String(s) => s; _ => return Err([ValidationError::{ path: \"" +
+      " { String(s) => s; _ => return Err([@moon_zod.ValidationError::{ path: \"" +
       schema.name +
       "\", message: \"expected string\", got: " +
       json_var +
@@ -739,7 +741,7 @@ fn extract_type_expr(
       if has_int_rule(schema) {
         "match " +
         json_var +
-        " { Number(v, ..) => v.to_int(); _ => return Err([ValidationError::{ path: \"" +
+        " { Number(v, ..) => v.to_int64(); _ => return Err([@moon_zod.ValidationError::{ path: \"" +
         schema.name +
         "\", message: \"expected integer\", got: " +
         json_var +
@@ -747,7 +749,7 @@ fn extract_type_expr(
       } else {
         "match " +
         json_var +
-        " { Number(v, ..) => v; _ => return Err([ValidationError::{ path: \"" +
+        " { Number(v, ..) => v; _ => return Err([@moon_zod.ValidationError::{ path: \"" +
         schema.name +
         "\", message: \"expected number\", got: " +
         json_var +
@@ -756,7 +758,7 @@ fn extract_type_expr(
     BooleanType =>
       "match " +
       json_var +
-      " { True => true; False => false; _ => return Err([ValidationError::{ path: \"" +
+      " { True => true; False => false; _ => return Err([@moon_zod.ValidationError::{ path: \"" +
       schema.name +
       "\", message: \"expected boolean\", got: " +
       json_var +
@@ -764,7 +766,7 @@ fn extract_type_expr(
     NullType =>
       "match " +
       json_var +
-      " { Null => (); _ => return Err([ValidationError::{ path: \"" +
+      " { Null => (); _ => return Err([@moon_zod.ValidationError::{ path: \"" +
       schema.name +
       "\", message: \"expected null\", got: " +
       json_var +
@@ -785,11 +787,11 @@ fn extract_type_expr(
       json_var +
       " { String(s) => match s { " +
       arms +
-      "; _ => return Err([ValidationError::{ path: \"" +
+      "; _ => return Err([@moon_zod.ValidationError::{ path: \"" +
       schema.name +
       "\", message: \"unexpected enum value\", got: " +
       json_var +
-      " }]) }; _ => return Err([ValidationError::{ path: \"" +
+      " }]) }; _ => return Err([@moon_zod.ValidationError::{ path: \"" +
       schema.name +
       "\", message: \"expected string\", got: " +
       json_var +
@@ -803,7 +805,7 @@ fn extract_type_expr(
       elem_type +
       "] = []; for item in elems { items.push(" +
       extract_type_expr("item", elem, named_schemas) +
-      ") }; items }; _ => return Err([ValidationError::{ path: \"" +
+      ") }; items }; _ => return Err([@moon_zod.ValidationError::{ path: \"" +
       schema.name +
       "\", message: \"expected array\", got: " +
       json_var +
@@ -837,7 +839,7 @@ fn extract_type_expr(
         fn_prefix +
         "(" +
         json_var +
-        ") { Ok(val) => val; Err(e) => return Err(e) } }; _ => return Err([ValidationError::{ path: \"" +
+        ") { Ok(val) => val; Err(e) => return Err(e) } }; _ => return Err([@moon_zod.ValidationError::{ path: \"" +
         schema.name +
         "\", message: \"expected object\", got: " +
         json_var +
@@ -847,7 +849,7 @@ fn extract_type_expr(
         json_var +
         " { Object(_) => " +
         json_var +
-        "; _ => return Err([ValidationError::{ path: \"" +
+        "; _ => return Err([@moon_zod.ValidationError::{ path: \"" +
         schema.name +
         "\", message: \"expected object\", got: " +
         json_var +
@@ -900,7 +902,7 @@ fn extract_type_expr(
               fn_prefix +
               "(" +
               json_var +
-              ") { Ok(val) => val; Err(e) => return Err(e) } }; _ => return Err([ValidationError::{ path: \"\", message: \"expected object\", got: " +
+              ") { Ok(val) => val; Err(e) => return Err(e) } }; _ => return Err([@moon_zod.ValidationError::{ path: \"\", message: \"expected object\", got: " +
               json_var +
               " }]) }"
             found_fn = true

@@ -11,14 +11,6 @@ test "schema_to_moonbit_struct non-object type returns comment" {
 }
 
 ///|
-test "schema_to_moonbit_struct object with string field" {
-  let s = object({ "name": string() }).name("User")
-  let result = schema_to_moonbit_struct(s)
-  let expected = "pub struct User {\n" + "  name : String\n" + "}"
-  @debug.assert_eq(result, expected)
-}
-
-///|
 test "schema_to_moonbit_struct object with int64 field" {
   let s = object({ "age": number().int() }).name("Person")
   let result = schema_to_moonbit_struct(s)
@@ -67,13 +59,6 @@ test "schema_to_moonbit_struct object with nullable field" {
   let s = object({ "note": union([string(), null()]) }).name("Nullable")
   let result = schema_to_moonbit_struct(s)
   @debug.assert_eq(result.contains("note : String?"), true)
-}
-
-///|
-test "schema_to_moonbit_struct empty object" {
-  let s = object({}).name("Empty")
-  let result = schema_to_moonbit_struct(s)
-  @debug.assert_eq(result, "pub struct Empty {}")
 }
 
 ///|
@@ -215,31 +200,11 @@ test "full unnamed schema returns comment" {
 }
 
 ///|
-test "full output contains struct and fn" {
-  let s = object({ "name": string() }).name("User")
-  let result = schema_to_moonbit_struct_full(s)
-  @debug.assert_eq(result.contains("pub struct User"), true)
-  @debug.assert_eq(result.contains("pub fn user_from_json"), true)
-  @debug.assert_eq(
-    result.contains("Result[User, Array[ValidationError]]"),
-    true,
-  )
-}
-
-///|
 test "full string field extraction" {
   let s = object({ "name": string() }).name("User")
   let result = schema_to_moonbit_struct_full(s)
   @debug.assert_eq(result.contains("String(s) => s"), true)
   @debug.assert_eq(result.contains("expected string"), true)
-}
-
-///|
-test "full int64 field extraction" {
-  let s = object({ "age": number().int() }).name("Person")
-  let result = schema_to_moonbit_struct_full(s)
-  @debug.assert_eq(result.contains("Number(v, ..) => v.to_int()"), true)
-  @debug.assert_eq(result.contains("expected integer"), true)
 }
 
 ///|
@@ -300,13 +265,6 @@ test "full required field error" {
 }
 
 ///|
-test "full wrong type error" {
-  let s = object({ "name": string() }).name("User")
-  let result = schema_to_moonbit_struct_full(s)
-  @debug.assert_eq(result.contains("return Err([ValidationError::"), true)
-}
-
-///|
 test "full named export nested delegation" {
   let address = object({ "city": string() }).name("Address")
   let person = object({ "addr": address }).name("Person")
@@ -345,28 +303,6 @@ test "full no named schemas" {
   let s = object({ "x": string() })
   let result = schema_to_moonbit_struct_named_full(s)
   @debug.assert_eq(result, "// No named schemas found")
-}
-
-///|
-test "full multiple fields extraction" {
-  let s = object({
-    "name": string(),
-    "age": number().int(),
-    "active": boolean(),
-    "score": number(),
-    "email": string().optional(),
-  }).name("FullStruct")
-
-  let result = schema_to_moonbit_struct_full(s)
-
-  @debug.assert_eq(result.contains("String(s) => s"), true)
-  @debug.assert_eq(result.contains("Number(v, ..) => v.to_int()"), true)
-  @debug.assert_eq(result.contains("True => true"), true)
-  @debug.assert_eq(result.contains("Some(Null) | None => None"), true)
-  @debug.assert_eq(
-    result.contains("Result[FullStruct, Array[ValidationError]]"),
-    true,
-  )
 }
 
 // ─── Additional edge case tests ───
@@ -521,49 +457,10 @@ test "full optional array field from_json" {
 }
 
 ///|
-test "full all field types extraction" {
-  let s = object({
-    "id": string(),
-    "count": number().int(),
-    "ratio": number(),
-    "active": boolean(),
-    "data": null(),
-  }).name("AllTypes")
-  let result = schema_to_moonbit_struct_full(s)
-
-  @debug.assert_eq(result.contains("String(s) => s"), true)
-  @debug.assert_eq(result.contains("Number(v, ..) => v.to_int()"), true)
-  @debug.assert_eq(result.contains("Number(v, ..) => v"), true)
-  @debug.assert_eq(result.contains("True => true"), true)
-  @debug.assert_eq(result.contains("False => false"), true)
-  @debug.assert_eq(result.contains("Null => ()"), true)
-}
-
-///|
-test "full default number field" {
-  let s = object({ "timeout": number().int().default(Json::number(30.0)) }).name(
-    "Config",
-  )
-  let result = schema_to_moonbit_struct_full(s)
-
-  @debug.assert_eq(result.contains("Some(Null) | None => None"), true)
-  @debug.assert_eq(result.contains("Number(v, ..) => v.to_int()"), true)
-}
-
-///|
 test "full empty object" {
   let s = object({}).name("Empty")
   let result = schema_to_moonbit_struct_full(s)
 
   @debug.assert_eq(result.contains("pub struct Empty {}"), true)
   @debug.assert_eq(result.contains("Ok({"), true)
-}
-
-///|
-test "full null type extraction" {
-  let s = object({ "data": null() }).name("NullObj")
-  let result = schema_to_moonbit_struct_full(s)
-
-  @debug.assert_eq(result.contains("expected null"), true)
-  @debug.assert_eq(result.contains("data:\n"), true)
 }

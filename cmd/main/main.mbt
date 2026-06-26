@@ -175,12 +175,16 @@ fn fmt_moonzod_results(summary : String) -> String {
   let mut output = ""
   let line = "│                                                                          │"
   let length = line.length()
-  output = output + "╭──────────────────────────────────────────────────────────────────────────╮\n"
-  output = output + "│                    MoonZod Benchmark Results (calibrated)                │\n"
-  output = output + "╰──────────────────────────────────────────────────────────────────────────╯\n"
-  output = output + "│                                                                          │\n"
+  output = output +
+    "╭──────────────────────────────────────────────────────────────────────────╮\n"
+  output = output +
+    "│                    MoonZod Benchmark Results (calibrated)                │\n"
+  output = output +
+    "╰──────────────────────────────────────────────────────────────────────────╯\n"
+  output = output +
+    "│                                                                          │\n"
   match results {
-    Array(items) => {
+    Array(items) =>
       for item in items {
         match item {
           Object(obj) => {
@@ -196,14 +200,17 @@ fn fmt_moonzod_results(summary : String) -> String {
               Some(Number(v, ..)) => v.to_int()
               _ => 1
             }
-            let ns_per_op = (mean / batch.to_double()) * 1000000.0
-            let ops_per_sec = (batch.to_double() / mean) * 1000
+            let ns_per_op = mean / batch.to_double() * 1000000.0
+            let ops_per_sec = batch.to_double() / mean * 1000
             let ns_str = "\{(ns_per_op * 10.0).to_int().to_double() / 10.0}"
             let ops_str = ops_per_sec.to_int().to_string()
             let base_line = "\{name}: \{ns_str} ns/op  (\{ops_str} ops/sec)"
             let padding_needed = length - 3 - base_line.length()
             if padding_needed > 0 {
-              output = output + "│ \{base_line}" + " ".repeat(padding_needed) + "│\n"
+              output = output +
+                "│ \{base_line}" +
+                " ".repeat(padding_needed) +
+                "│\n"
             } else {
               output = output + "│ \{base_line}│\n"
             }
@@ -211,11 +218,12 @@ fn fmt_moonzod_results(summary : String) -> String {
           _ => ()
         }
       }
-    }
     _ => return summary
   }
-  output = output + "│                                                                          │\n"
-  output = output + "╰──────────────────────────────────────────────────────────────────────────╯"
+  output = output +
+    "│                                                                          │\n"
+  output = output +
+    "╰──────────────────────────────────────────────────────────────────────────╯"
   output
 }
 
@@ -248,7 +256,9 @@ fn main {
       println("Usage:")
       println("  moon run cmd/main                    # Run all benchmarks")
       println("  moon run cmd/main -- '<json>'        # Run with custom JSON")
-      println("  moon run cmd/main -- --verify        # Verify moon_zod == handcrafted")
+      println(
+        "  moon run cmd/main -- --verify        # Verify moon_zod == handcrafted",
+      )
       println("")
       println("Benchmarks:")
       println("  - Valid Throughput (pristine data)")
@@ -274,7 +284,10 @@ fn main {
       }
     }
     Some(parsed)
-  } else if mode == "bench" && args.length() >= 2 && args[1] != "--verify" && args[1] != "--help" {
+  } else if mode == "bench" &&
+    args.length() >= 2 &&
+    args[1] != "--verify" &&
+    args[1] != "--help" {
     let parsed = @json.parse(args[1]) catch {
       _ => {
         println("Error: invalid JSON input")
@@ -314,57 +327,58 @@ fn main {
 
   let large_input : Json = match custom_input {
     Some(input) => input
-    None => Json::object({
-      "users": Json::array([
-        Json::object({
-          "id": Json::number(1.0),
-          "name": Json::string("Alice"),
-          "email": Json::string("alice@example.com"),
-          "role": Json::string("admin"),
-          "profile": Json::object({
-            "age": Json::number(30.0),
-            "tags": Json::array([
-              Json::string("rust"),
-              Json::string("wasm"),
-              Json::string("ai"),
-            ]),
-            "metadata": Json::object({
-              "department": Json::string("Engineering"),
-              "level": Json::number(5.0),
-              "active": Json::boolean(true),
+    None =>
+      Json::object({
+        "users": Json::array([
+          Json::object({
+            "id": Json::number(1.0),
+            "name": Json::string("Alice"),
+            "email": Json::string("alice@example.com"),
+            "role": Json::string("admin"),
+            "profile": Json::object({
+              "age": Json::number(30.0),
+              "tags": Json::array([
+                Json::string("rust"),
+                Json::string("wasm"),
+                Json::string("ai"),
+              ]),
+              "metadata": Json::object({
+                "department": Json::string("Engineering"),
+                "level": Json::number(5.0),
+                "active": Json::boolean(true),
+              }),
             }),
           }),
-        }),
-        Json::object({
-          "id": Json::number(2.0),
-          "name": Json::string("Bob"),
-          "role": Json::string("user"),
-          "profile": Json::object({
-            "age": Json::number(25.0),
-            "tags": Json::array([Json::string("design")]),
-            "metadata": Json::object({
-              "department": Json::string("Design"),
-              "level": Json::number(3.0),
-              "active": Json::boolean(false),
+          Json::object({
+            "id": Json::number(2.0),
+            "name": Json::string("Bob"),
+            "role": Json::string("user"),
+            "profile": Json::object({
+              "age": Json::number(25.0),
+              "tags": Json::array([Json::string("design")]),
+              "metadata": Json::object({
+                "department": Json::string("Design"),
+                "level": Json::number(3.0),
+                "active": Json::boolean(false),
+              }),
             }),
           }),
-        }),
-        Json::object({
-          "id": Json::number(3.0),
-          "name": Json::string("Charlie"),
-          "role": Json::string("viewer"),
-          "profile": Json::object({
-            "age": Json::number(42.0),
-            "tags": Json::array([Json::string("python"), Json::string("data")]),
+          Json::object({
+            "id": Json::number(3.0),
+            "name": Json::string("Charlie"),
+            "role": Json::string("viewer"),
+            "profile": Json::object({
+              "age": Json::number(42.0),
+              "tags": Json::array([Json::string("python"), Json::string("data")]),
+            }),
           }),
+        ]),
+        "config": Json::object({
+          "version": Json::string("1.0.0"),
+          "debug": Json::boolean(false),
+          "maxRetries": Json::number(3.0),
         }),
-      ]),
-      "config": Json::object({
-        "version": Json::string("1.0.0"),
-        "debug": Json::boolean(false),
-        "maxRetries": Json::number(3.0),
-      }),
-    })
+      })
   }
 
   // ── Verify mode ───────────────────────────────────────────────────
@@ -377,7 +391,9 @@ fn main {
     if mz_result == hc_result {
       println("VERIFY: moon_zod and handcrafted both agree (validation passed)")
     } else {
-      println("VERIFY: MISMATCH! moon_zod=\{(if mz_result { "pass" } else { "fail" })}, handcrafted=\{(if hc_result { "pass" } else { "fail" })}")
+      println(
+        "VERIFY: MISMATCH! moon_zod=\{(if mz_result { "pass" } else { "fail" })}, handcrafted=\{(if hc_result { "pass" } else { "fail" })}",
+      )
     }
     return
   }
@@ -418,7 +434,9 @@ fn main {
   match schema.parse(adv_input) {
     Err(errors) => {
       let mut count = 0
-      for _ in errors { count = count + 1 }
+      for _ in errors {
+        count = count + 1
+      }
       println("Adversarial: \{count} errors generated (expected)")
     }
     Ok(_) => println("WARNING: adversarial input unexpectedly passed")
@@ -456,7 +474,9 @@ fn main {
       match cleaned {
         Object(map) => {
           let mut spec_count = 0
-          for _ in map.keys() { spec_count = spec_count + 1 }
+          for _ in map.keys() {
+            spec_count = spec_count + 1
+          }
           let stripped = 107 - spec_count
           println("Strip: \{stripped} hallucinated fields removed (expected)")
         }
@@ -480,7 +500,9 @@ fn main {
   println("")
   println(fmt_moonzod_results(json_summary))
   println("")
-  println("──────────────────────────────────────────────────────────────────────────")
+  println(
+    "──────────────────────────────────────────────────────────────────────────",
+  )
   println("")
   println("JSON:\{json_summary}")
 }
