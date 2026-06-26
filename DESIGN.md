@@ -83,10 +83,6 @@ pub fn append_rule(schema, check, message) -> Schema {
 - Strict → `"additionalProperties": false`
 - 每个 Rule 的 `annotation` 字段作为约束注解合并到输出
 
-### 8. WASM CLI 参数分发
-
-MoonBit wasm target 只导出 `_start` 和 `memory`。`cmd/wasm/` 通过 `@env.args()[1]` 分派模式（moonzod / handcrafted / verify / startup），Node.js 编排器用 `execFileSync` 调用。
-
 ---
 
 ## Demo/Example 编写规范
