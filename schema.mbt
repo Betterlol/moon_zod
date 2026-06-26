@@ -355,3 +355,37 @@ pub fn Schema::parse(
   let path_stack : Array[String] = if path.is_empty() { [] } else { [path] }
   parse_inner(self, json, path_stack)
 }
+
+///|
+/// Generate a schema from a JSON value.
+/// Simple heuristics are used to infer types and constraints from the value.
+pub fn json_infer_schema(json : Json) -> Schema {
+  match json {
+    String(_) => string()
+    Number(v, ..) =>
+      // Check if it's an integer value
+      if v == v.to_int().to_double() {
+        number().int()
+      } else {
+        number()
+      }
+    True | False => boolean()
+    Null => null()
+    Array(elements) => {
+      let elem_schema = if elements.length() > 0 {
+        json_infer_schema(elements[0])
+      } else {
+        string()
+      }
+      array(elem_schema)
+    }
+    Object(map) => {
+      let fields : Map[String, Schema] = {}
+      for key, val in map {
+        let field_schema = json_infer_schema(val)
+        fields.set(key, field_schema)
+      }
+      object(fields)
+    }
+  }
+}
