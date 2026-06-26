@@ -1,3 +1,6 @@
+### json2schema
+> 展示使用CLI Tool将 JSON 数据转换为 Moon Zod Schema 的示例。
+
 ```bash
 sh cmd/json2schema/cli.sh --file data.json
 sh cmd/json2schema/cli.sh -- '{"name": "Alice", "age": 30, "isStudent": false}'

@@ -1,6 +1,5 @@
 # Real LLM Agent — 完整 Demo
-
->
+> 调用真实 LLM，演示 **Schema → Prompt → LLM → Parse** 的闭环流程。
 
 **Schema → `schema_to_prompt()` → LLM → `schema.parse()` — 四步闭环演示**
 
