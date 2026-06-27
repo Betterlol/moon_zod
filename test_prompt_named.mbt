@@ -177,17 +177,20 @@ test "schema_to_prompt_named: complex schema with all types" {
   let enum_schema = enum_values(["a", "b", "c"]).name("EnumType")
   let literal_schema = literal(Json::string("x")).name("LiteralType")
   let optional_schema = string().optional().name("OptionalType")
-  let default_schema = string().default(Json::string("default")).name("DefaultType")
-  let transform_schema = string().transform(fn(j) { Ok(j) }).name("TransformType")
+  let default_schema = string()
+    .default(Json::string("default"))
+    .name("DefaultType")
+  let transform_schema = string()
+    .transform(fn(j) { Ok(j) })
+    .name("TransformType")
   let union_schema = union([string(), number()]).name("UnionType")
   let intersection_schema = intersection([
     object({ "x": number() }),
     object({ "y": string() }),
   ]).name("IntersectionType")
-  let object_schema = object({
-    "field1": string(),
-    "field2": number(),
-  }).name("ObjectType")
+  let object_schema = object({ "field1": string(), "field2": number() }).name(
+    "ObjectType",
+  )
 
   // Create a parent schema that references all of them
   let parent = object({
