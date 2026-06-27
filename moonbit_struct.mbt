@@ -80,6 +80,7 @@ fn type_to_moonbit(schema : Schema, indent : Int) -> String {
       } else {
         "Json /* TODO: define nested struct */"
       }
+    LiteralType(value) => literal_to_moonbit_type(value)
   }
 }
 
@@ -119,6 +120,7 @@ fn type_to_inline_moonbit(
     IntersectionType(schemas) =>
       intersection_to_inline_moonbit(schemas, indent, named_schemas)
     ObjectType(spec, _) => object_to_inline_moonbit(spec, indent, named_schemas)
+    LiteralType(value) => literal_to_moonbit_type(value)
   }
 }
 
@@ -452,6 +454,19 @@ fn is_null_type(schema : Schema) -> Bool {
   match schema.schema_type {
     NullType => true
     _ => false
+  }
+}
+
+///|
+/// Convert a literal Json value to its MoonBit type representation.
+fn literal_to_moonbit_type(json : Json) -> String {
+  match json {
+    String(_) => "String"
+    Number(_) => "Double"
+    True | False => "Bool"
+    Null => "Unit"
+    Array(_) => "Array[Json]"
+    Object(_) => "Json"
   }
 }
 
@@ -918,6 +933,22 @@ fn extract_type_expr(
         "json_var /* TODO: intersection type extraction */"
       }
     }
+    LiteralType(expected) => {
+      let lit_str = json_to_literal_code(expected)
+      "match " +
+      json_var +
+      " { " +
+      lit_str +
+      " => " +
+      json_var +
+      "; _ => return Err([@moon_zod.ValidationError::{ path: \"" +
+      schema.name +
+      "\", message: \"expected " +
+      lit_str +
+      "\", got: " +
+      json_var +
+      " }]) }"
+    }
   }
 }
 
@@ -930,6 +961,34 @@ fn schema_in_list(name : String, named_schemas : Array[Schema]) -> Bool {
     }
   }
   false
+}
+
+///|
+/// Convert a Json literal value to MoonBit match pattern code.
+fn json_to_literal_code(json : Json) -> String {
+  match json {
+    String(s) => "String(\"" + s + "\")"
+    Number(v, ..) =>
+      if v == v.to_int().to_double() {
+        "Number(" + v.to_int().to_string() + ".0, ..)"
+      } else {
+        "Number(" + v.to_string() + ", ..)"
+      }
+    True => "True"
+    False => "False"
+    Null => "Null"
+    Array(arr) => {
+      let parts = arr.map(fn(v) { json_to_literal_code(v) })
+      "Array([" + parts.join(", ") + "])"
+    }
+    Object(map) => {
+      let pairs : Array[String] = []
+      for k, v in map {
+        pairs.push("\"" + k + "\": " + json_to_literal_code(v))
+      }
+      "Object({" + pairs.join(", ") + "})"
+    }
+  }
 }
 
 ///|

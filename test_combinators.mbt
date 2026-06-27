@@ -245,3 +245,109 @@ test "intersection single schema" {
     Ok(_) => fail("expected Err")
   }
 }
+
+// ─── literal() tests ─────────────────────────────────────────────────────────
+
+///|
+test "literal string accepts matching value" {
+  let s = literal(Json::string("hello"))
+  match s.parse(Json::string("hello")) {
+    Ok(v) => @debug.assert_eq(v, Json::string("hello"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "literal string rejects different value" {
+  let s = literal(Json::string("hello"))
+  guard s.parse(Json::string("world")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "literal string rejects different type" {
+  let s = literal(Json::string("hello"))
+  guard s.parse(Json::number(42.0)) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "literal number accepts matching value" {
+  let s = literal(Json::number(42.0))
+  match s.parse(Json::number(42.0)) {
+    Ok(v) => @debug.assert_eq(v, Json::number(42.0))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "literal number rejects different value" {
+  let s = literal(Json::number(42.0))
+  guard s.parse(Json::number(100.0)) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "literal boolean true accepts matching value" {
+  let s = literal(Json::boolean(true))
+  match s.parse(Json::boolean(true)) {
+    Ok(v) => @debug.assert_eq(v, Json::boolean(true))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "literal boolean false accepts matching value" {
+  let s = literal(Json::boolean(false))
+  match s.parse(Json::boolean(false)) {
+    Ok(v) => @debug.assert_eq(v, Json::boolean(false))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "literal boolean rejects opposite value" {
+  let s = literal(Json::boolean(true))
+  guard s.parse(Json::boolean(false)) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "literal null accepts null" {
+  let s = literal(Json::null())
+  match s.parse(Json::null()) {
+    Ok(v) => @debug.assert_eq(v, Json::null())
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "literal null rejects non-null" {
+  let s = literal(Json::null())
+  guard s.parse(Json::string("not null")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "literal in object field" {
+  let s = object({ "status": literal(Json::string("active")) })
+  match s.parse(Json::object({ "status": Json::string("active") })) {
+    Ok(v) =>
+      @debug.assert_eq(v, Json::object({ "status": Json::string("active") }))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "literal in object field rejects wrong value" {
+  let s = object({ "status": literal(Json::string("active")) })
+  guard s.parse(Json::object({ "status": Json::string("inactive") })) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "literal with custom error messages" {
+  let s = literal(Json::string("hello"), invalid_type_error="must be hello")
+  match s.parse(Json::string("world")) {
+    Err(errors) => assert_true(errors[0].message.contains("must be hello"))
+    _ => fail("expected Err")
+  }
+}
