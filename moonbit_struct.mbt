@@ -420,15 +420,27 @@ fn struct_definition_with_names(
 
 ///|
 /// Build a constraint doc comment for a schema.
-/// Reuses constraint comment functions from prompt.mbt.
+/// Reuses constraint extractor from constraint_extractor.mbt.
 fn struct_comment(schema : Schema) -> String {
   let unwrapped = unwrap_schema(schema)
 
   match unwrapped.schema_type {
-    StringType => string_constraint_comment(unwrapped.rules)
-    NumberType => number_constraint_comment(unwrapped.rules)
-    ArrayType(_) => array_constraint_comment(unwrapped.rules)
-    _ => fallback_constraint_comment(unwrapped.rules)
+    StringType => {
+      let info = extract_constraints(unwrapped.rules)
+      constraint_info_to_string_comment(info)
+    }
+    NumberType => {
+      let info = extract_constraints(unwrapped.rules)
+      constraint_info_to_number_comment(info)
+    }
+    ArrayType(_) => {
+      let info = extract_constraints(unwrapped.rules)
+      constraint_info_to_array_comment(info)
+    }
+    _ => {
+      let info = extract_constraints(unwrapped.rules)
+      constraint_info_to_fallback_comment(info)
+    }
   }
 }
 
