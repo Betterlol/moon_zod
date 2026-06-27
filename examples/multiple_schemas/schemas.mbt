@@ -96,7 +96,6 @@ fn address_schema() -> @moon_zod.Schema {
 
 ///|
 /// show how to use intersection types
-/// it can generate a TypeScript intersection type and a Zod schema for it
 fn order_info_schema() -> @moon_zod.Schema {
   @moon_zod.intersection([order_id_schema(), datetime_schema()]).name(
     "OrderInfo",

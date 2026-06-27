@@ -451,9 +451,16 @@ pub fn schema_to_prompt(schema : Schema) -> String {
 ///|
 /// Public API: convert a schema with named sub-schemas into a prompt with
 /// separate interface definitions and name-based references.
-pub fn schema_to_prompt_named(schema : Schema) -> String {
-  let named_schemas = collect_named_schemas(schema)
-  generate_prompt_with_interfaces(named_schemas)
+///
+/// If `include_names` is None, exports all named schemas.
+/// If `include_names` is Some(names), exports only the specified schema names.
+pub fn schema_to_prompt_named(
+  schema : Schema,
+  include_names? : Array[String]? = None,
+) -> String {
+  let all_named = collect_named_schemas(schema)
+  let selected_schemas = filter_named_schemas(all_named, include_names)
+  generate_prompt_with_interfaces(selected_schemas)
 }
 
 ///|

@@ -587,10 +587,14 @@ pub fn to_json_schema_skeleton(schema : Schema) -> Json {
 
 ///|
 /// Export a JSON Schema with named sub-schemas in a `$defs` section.
-pub fn to_json_schema_named(schema : Schema) -> Json {
-  let named_schemas = collect_named_schemas(schema)
-  let named_names : Array[String] = named_schemas.map(fn(s) { s.name })
-  let sorted_schemas = topological_sort_schemas(named_schemas)
+pub fn to_json_schema_named(
+  schema : Schema,
+  include_names? : Array[String]? = None,
+) -> Json {
+  let all_named = collect_named_schemas(schema)
+  let selected_schemas = filter_named_schemas(all_named, include_names)
+  let named_names : Array[String] = selected_schemas.map(fn(s) { s.name })
+  let sorted_schemas = topological_sort_schemas(selected_schemas)
 
   let renderer = NamedJsonRenderer(named_names~)
 

@@ -2,7 +2,10 @@
 > 展示如何在一个项目中使用嵌套的多个 Schema，以及 moon zod 支持导出 'named' prompt 和 完整 prompt 的能力。（此外，还有 'named' json schema 和 'inline' json schema 的能力）
 
 ```bash
-moon run examples/multiple_schemas
+# 运行示例
+moon run examples/multiple_schemas -- ts
+moon run examples/multiple_schemas -- json
+moon run examples/multiple_schemas -- moonbit
 ```
 
 > 具体来说：

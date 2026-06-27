@@ -254,7 +254,7 @@ moon run cmd/gen-struct -- '{"name":"Alice","age":30}'
 
 输出：
 
-```moonbit
+```moonbit nocheck
 pub struct InferredSchema {
   name : String
   age : Int64
@@ -474,11 +474,30 @@ Product → uses type name `Product`
 **使用示例：**
 ```mbt nocheck
 // Define named schemas
-let user_schema = @moon_zod.object({ ... }).name("User")
-let order_schema = @moon_zod.object({ ... }).name("Order")
-let product_schema = @moon_zod.object({ ... }).name("Product")
+///|
+let user_schema = @moon_zod.object(
+  {
+    ...
+  },
+).name("User")
+
+///|
+let order_schema = @moon_zod.object(
+  {
+    ...
+  },
+).name("Order")
+
+///|
+let product_schema = @moon_zod.object(
+  {
+    ...
+  },
+).name("Product")
 
 // Auto-extract + generate modular prompt
+
+///|
 let prompt = @moon_zod.schema_to_prompt_named(user_schema)
 // Output:
 // export interface User { ... }

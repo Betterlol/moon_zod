@@ -478,6 +478,77 @@ test "to_json_schema_named: named fields use $ref in $defs entries" {
 }
 
 ///|
+/// Phase 33 — to_json_schema_named with include_names
+fn check_defs_contains(result : Json, name : String) -> Bool {
+  match result {
+    Object(m) =>
+      match m.get("$defs") {
+        Some(Object(defs)) => defs.contains(name)
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+test "to_json_schema_named with include_names: default (None)" {
+  let address = object({ "street": string() }).name("Address")
+  let person = object({ "address": address, "name": string() }).name("Person")
+  let result = to_json_schema_named(person)
+  @debug.assert_eq(check_defs_contains(result, "Address"), true)
+  @debug.assert_eq(check_defs_contains(result, "Person"), true)
+}
+
+///|
+test "to_json_schema_named with include_names: selective export" {
+  let address = object({ "street": string() }).name("Address")
+  let person = object({ "address": address, "name": string() }).name("Person")
+  let result = to_json_schema_named(person, include_names=Some(["Person"]))
+  @debug.assert_eq(check_defs_contains(result, "Person"), true)
+  @debug.assert_eq(check_defs_contains(result, "Address"), false)
+}
+
+///|
+test "to_json_schema_named with include_names: partial export" {
+  let address = object({ "street": string() }).name("Address")
+  let person = object({ "address": address, "name": string() }).name("Person")
+  // Include Address but not Person — Address should appear, Person should not
+  let result = to_json_schema_named(person, include_names=Some(["Address"]))
+  @debug.assert_eq(check_defs_contains(result, "Address"), true)
+  @debug.assert_eq(check_defs_contains(result, "Person"), false)
+}
+
+///|
+test "to_json_schema_named with include_names: empty list" {
+  let address = object({ "street": string() }).name("Address")
+  let person = object({ "address": address }).name("Person")
+  let result = to_json_schema_named(person, include_names=Some([]))
+  match result {
+    Object(m) =>
+      match m.get("$defs") {
+        Some(Object(defs)) => @debug.assert_eq(defs.length(), 0)
+        _ => @debug.assert_eq(true, false)
+      }
+    _ => @debug.assert_eq(true, false)
+  }
+}
+
+///|
+test "to_json_schema_named with include_names: non-existent name" {
+  let address = object({ "street": string() }).name("Address")
+  let person = object({ "address": address }).name("Person")
+  let result = to_json_schema_named(person, include_names=Some(["Nope"]))
+  match result {
+    Object(m) =>
+      match m.get("$defs") {
+        Some(Object(defs)) => @debug.assert_eq(defs.length(), 0)
+        _ => @debug.assert_eq(true, false)
+      }
+    _ => @debug.assert_eq(true, false)
+  }
+}
+
+///|
 /// Phase 27 — json_schema_to_moon_zod
 test "json_schema_to_moon_zod: basic string type" {
   let result = json_schema_to_moon_zod(parse_json("{\"type\":\"string\"}"))

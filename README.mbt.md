@@ -258,7 +258,7 @@ moon run cmd/gen-struct -- '{"name":"Alice","age":30}'
 
 Output:
 
-```moonbit
+```moonbit nocheck
 pub struct InferredSchema {
   name : String
   age : Int64
@@ -482,11 +482,30 @@ Then **LLM sees only the definitions it needs**, reducing token count and improv
 **Example usage:**
 ```mbt nocheck
 // Define named schemas
-let user_schema = @moon_zod.object({ ... }).name("User")
-let order_schema = @moon_zod.object({ ... }).name("Order")
-let product_schema = @moon_zod.object({ ... }).name("Product")
+///|
+let user_schema = @moon_zod.object(
+  {
+    ...
+  },
+).name("User")
+
+///|
+let order_schema = @moon_zod.object(
+  {
+    ...
+  },
+).name("Order")
+
+///|
+let product_schema = @moon_zod.object(
+  {
+    ...
+  },
+).name("Product")
 
 // Auto-extract + generate modular prompt
+
+///|
 let prompt = @moon_zod.schema_to_prompt_named(user_schema)
 // Output:
 // export interface User { ... }

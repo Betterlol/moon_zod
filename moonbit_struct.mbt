@@ -52,9 +52,13 @@ pub fn schema_to_moonbit_struct(schema : Schema) -> String {
 /// //   addr : Address
 /// // }
 /// ```
-pub fn schema_to_moonbit_struct_named(schema : Schema) -> String {
-  let named_schemas = collect_named_schemas(schema)
-  generate_struct_definitions(named_schemas)
+pub fn schema_to_moonbit_struct_named(
+  schema : Schema,
+  include_names? : Array[String]? = None,
+) -> String {
+  let all_named = collect_named_schemas(schema)
+  let selected_schemas = filter_named_schemas(all_named, include_names)
+  generate_struct_definitions(selected_schemas)
 }
 
 // ── InlineStructRenderer: renders types inline (no name references) ──
@@ -851,13 +855,18 @@ pub fn schema_to_moonbit_struct_full(schema : Schema) -> String {
 /// Collect all named schemas and generate struct definitions plus
 /// `from_json()` functions for each, topologically sorted so that
 /// dependencies appear before dependents.
-pub fn schema_to_moonbit_struct_named_full(schema : Schema) -> String {
-  let named_schemas = collect_named_schemas(schema)
-  if named_schemas.is_empty() {
+pub fn schema_to_moonbit_struct_named_full(
+  schema : Schema,
+  include_names? : Array[String]? = None,
+) -> String {
+  let all_named = collect_named_schemas(schema)
+  let selected_schemas = filter_named_schemas(all_named, include_names)
+
+  if selected_schemas.is_empty() {
     return "// No named schemas found"
   }
 
-  let sorted_schemas = topological_sort_schemas(named_schemas)
+  let sorted_schemas = topological_sort_schemas(selected_schemas)
 
   let mut result = ""
   for s in sorted_schemas {

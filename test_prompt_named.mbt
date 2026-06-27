@@ -223,3 +223,132 @@ test "schema_to_prompt_named: complex schema with all types" {
   @debug.assert_eq(prompt.contains("IntersectionType"), true)
   @debug.assert_eq(prompt.contains("ObjectType"), true)
 }
+
+///|
+/// Test schema_to_prompt_named with include_names: default (None)
+test "schema_to_prompt_named with include_names: default (None)" {
+  let user_schema = object({ "name": string(), "age": number() }).name("User")
+  let product_schema = object({ "name": string(), "price": number() }).name(
+    "Product",
+  )
+  let order_schema = object({ "user": user_schema, "product": product_schema }).name(
+    "Order",
+  )
+
+  // Default behavior: include_names not provided (exports all)
+  let prompt_all = schema_to_prompt_named(order_schema)
+
+  // Both should contain all three names
+  @debug.assert_eq(prompt_all.contains("export interface User"), true)
+  @debug.assert_eq(prompt_all.contains("export interface Product"), true)
+  @debug.assert_eq(prompt_all.contains("export interface Order"), true)
+}
+
+///|
+/// Test schema_to_prompt_named with include_names: selective export
+test "schema_to_prompt_named with include_names: selective export" {
+  let user_schema = object({ "name": string() }).name("User")
+  let product_schema = object({ "name": string() }).name("Product")
+  let order_schema = object({ "user": user_schema, "product": product_schema }).name(
+    "Order",
+  )
+
+  // Selective export: only Order
+  let prompt_only_order = schema_to_prompt_named(
+    order_schema,
+    include_names=Some(["Order"]),
+  )
+
+  // Should only contain Order, not User or Product
+  @debug.assert_eq(prompt_only_order.contains("export interface Order"), true)
+  @debug.assert_eq(prompt_only_order.contains("export interface User"), false)
+  @debug.assert_eq(
+    prompt_only_order.contains("export interface Product"),
+    false,
+  )
+}
+
+///|
+/// Test schema_to_prompt_named with include_names: partial export
+test "schema_to_prompt_named with include_names: partial export" {
+  let user_schema = object({ "name": string() }).name("User")
+  let product_schema = object({ "name": string() }).name("Product")
+  let order_schema = object({ "user": user_schema, "product": product_schema }).name(
+    "Order",
+  )
+
+  // Selective export: Order and User, but not Product
+  let prompt_order_user = schema_to_prompt_named(
+    order_schema,
+    include_names=Some(["Order", "User"]),
+  )
+
+  // Should contain Order and User, but not Product
+  @debug.assert_eq(prompt_order_user.contains("export interface Order"), true)
+  @debug.assert_eq(prompt_order_user.contains("export interface User"), true)
+  @debug.assert_eq(
+    prompt_order_user.contains("export interface Product"),
+    false,
+  )
+}
+
+///|
+/// Test schema_to_prompt_named with include_names: empty list
+test "schema_to_prompt_named with include_names: empty list" {
+  let user_schema = object({ "name": string() }).name("User")
+  let order_schema = object({ "user": user_schema }).name("Order")
+
+  // Selective export: empty list
+  let prompt_empty = schema_to_prompt_named(
+    order_schema,
+    include_names=Some([]),
+  )
+
+  // Should not contain any interface definitions (empty export)
+  @debug.assert_eq(prompt_empty.contains("export interface"), false)
+}
+
+///|
+/// Test schema_to_prompt_named with include_names: non-existent name
+test "schema_to_prompt_named with include_names: non-existent name" {
+  let user_schema = object({ "name": string() }).name("User")
+  let order_schema = object({ "user": user_schema }).name("Order")
+
+  // Selective export: non-existent name
+  let prompt_non_existent = schema_to_prompt_named(
+    order_schema,
+    include_names=Some(["NonExistent"]),
+  )
+
+  // Should not contain any of the actual schemas
+  @debug.assert_eq(prompt_non_existent.contains("export interface User"), false)
+  @debug.assert_eq(
+    prompt_non_existent.contains("export interface Order"),
+    false,
+  )
+}
+
+///|
+/// Test schema_to_prompt_named with include_names: multiple valid names
+test "schema_to_prompt_named with include_names: multiple valid names" {
+  let address_schema = object({ "street": string() }).name("Address")
+  let user_schema = object({ "name": string(), "address": address_schema }).name(
+    "User",
+  )
+  let product_schema = object({ "name": string() }).name("Product")
+  let order_schema = object({ "user": user_schema, "product": product_schema }).name(
+    "Order",
+  )
+
+  // Export: User, Address, Order (skip Product)
+  let prompt_filtered = schema_to_prompt_named(
+    order_schema,
+    include_names=Some(["User", "Address", "Order"]),
+  )
+
+  // Verify includes and excludes
+  @debug.assert_eq(prompt_filtered.contains("export interface User"), true)
+  @debug.assert_eq(prompt_filtered.contains("export interface Address"), true)
+  @debug.assert_eq(prompt_filtered.contains("export interface Order"), true)
+  @debug.assert_eq(prompt_filtered.contains("export interface Product"), false)
+}

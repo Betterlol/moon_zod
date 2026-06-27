@@ -292,3 +292,28 @@ fn dfs_topo_sort(
 
   visited_set_status(visited, name, 2)
 }
+
+///|
+/// Filter named schemas based on `include_names` optional parameter.
+/// If `include_names` is `None`, returns all schemas.
+/// If `Some(names)`, returns only schemas whose names are in the list.
+fn filter_named_schemas(
+  all_named : Array[Schema],
+  include_names : Array[String]?,
+) -> Array[Schema] {
+  match include_names {
+    None => all_named
+    Some(names) => {
+      let filtered : Array[Schema] = []
+      for ns in all_named {
+        for name in names {
+          if ns.name == name {
+            filtered.push(ns)
+            break
+          }
+        }
+      }
+      filtered
+    }
+  }
+}
