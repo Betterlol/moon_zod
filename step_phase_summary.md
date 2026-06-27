@@ -646,7 +646,7 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 
 ---
 
-## Phase 32 — literal() 常量校验 + union.mbt 重构
+## Phase 32 — literal() 常量校验 + union.mbt 重构 (v0.7.1)
 
 **目标**: 实现任意 JSON 常量值校验，并按 "one factory per file" 约定重构 `union.mbt`。
 
@@ -691,7 +691,7 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 
 ---
 
-## Phase 33 — Trait-based Renderer Pattern 重构 (v0.7.1)
+## Phase 33 — Trait-based Renderer Pattern 重构 (v0.7.2)
 
 **目标**: 消除 3 个代码生成模块（prompt/json_schema/moonbit_struct）中 40 个散布的 `SchemaType` match 语句，统一为契约式的 trait 分发模式。
 
@@ -745,11 +745,33 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 
 ---
 
+## Phase 34 — `include_names` 选择性导出 + 过滤逻辑提取（v0.7.3）
+
+**目标**: 为三个 named 导出函数新增 `include_names?` 可选参数，支持选择性导出命名 Schema；提取 4 处重复的过滤逻辑。
+
+| 文件 | 变更 |
+|------|------|
+| `shared_utils.mbt` | 新增 `filter_named_schemas()` 统一过滤逻辑 |
+| `prompt.mbt` | `schema_to_prompt_named` 新增 `include_names?` 参数 |
+| `json_schema.mbt` | `to_json_schema_named` 新增 `include_names?` 参数 |
+| `moonbit_struct.mbt` | 两个 named 函数新增 `include_names?` 参数 |
+| `test_prompt_named.mbt` | 6 个 `include_names` 测试 |
+| `test_json_schema.mbt` | 5 个 `include_names` 测试 |
+
+**关键决策**:
+- `None`=导出全部，`Some([])`=不导出任何内容，`Some([...])`=选择性导出
+- 不过滤依赖链——调用者负责维护引用一致性
+- struct 函数因 API 不稳定未加测试
+
+**产出**: 396/396 测试全部通过；4 处重复逻辑消除。
+
+---
+
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 385 |
+| 测试数量 | 396 |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
 | 核心源码模块 | 24 个 `.mbt` 文件 |
@@ -836,6 +858,15 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 - [x] 共享工具抽取（shared_utils.mbt）
 - [x] SchemaType match 数从 40 降至 4（-90%）
 - [x] 385/385 测试通过
+
+---
+
+#### ☑ `include_names` 选择性导出
+
+**完成状态** (Phase 34):
+- [x] 4 个 named 函数新增 `include_names? : Array[String]? = None`
+- [x] 提取 `filter_named_schemas` 到 `shared_utils.mbt`
+- [x] 11 个新测试（prompt 6 + json_schema 5），396/396 通过
 
 ---
 
