@@ -13,6 +13,7 @@
 - [模块与包](#5-模块与包)
 - [测试](#6-测试)
 - [Wasm 特定](#7-wasm-特定)
+- [Trait 与泛型](#8-trait-与泛型)
 - [附录：运行命令](#附录运行命令)
 
 ---
@@ -339,6 +340,187 @@ fn main {
     _ => println("usage")
   }
 }
+```
+
+---
+
+## 8. Trait 与泛型
+
+### Trait 定义语法
+
+Trait 方法签名中的参数**必须有名字**，不能只写类型：
+
+```mbt
+// ❌ 编译错误：unexpected token id (uppercase start)
+pub(open) trait Renderer {
+  fn render_circle(Self, Double) -> String
+}
+
+// ✅ 正确：参数需要名字
+pub(open) trait Renderer {
+  fn render_circle(Self, radius: Double) -> String
+  fn render_rect(Self, w: Double, h: Double) -> String
+}
+```
+
+### Trait 方法不能有方法体
+
+Trait 定义中只能写签名，**不能有 `{ }` 方法体**：
+
+```mbt
+// ❌ 编译错误：unexpected token `{`
+pub(open) trait Renderer {
+  fn render(Self, Renderable) -> String { ... }
+}
+
+// ✅ 正确：只在 trait 里写签名
+pub(open) trait Renderer {
+  fn render_circle(Self, radius: Double) -> String
+  fn render_rect(Self, w: Double, h: Double) -> String
+}
+```
+
+### 默认方法实现用 `impl Trait with`
+
+如果所有实现类型共享某个默认方法，写在**独立的 `impl Trait with fn` 块**中（注意：无 `for Type`）：
+
+```mbt
+impl Renderer with fn render_inches(self, cm: Double) -> String {
+  self.render_circle(cm / 2.54)  // 可调用 trait 中其他方法
+}
+```
+
+### Trait 实现必须用 `with fn Type::method`
+
+```mbt
+pub struct SimpleRenderer {}
+
+// ✅ 正确语法
+pub impl Renderer for SimpleRenderer with fn render_circle(
+  self: SimpleRenderer,
+  radius: Double
+) -> String {
+  "circle:" + radius.to_string()
+}
+```
+
+### 泛型函数 —— `fn[...]` 在函数名前
+
+**新版语法**：`fn` 关键字后立刻跟 `[泛型参数]`，再跟函数名：
+
+```mbt
+// ❌ 弃用语法 (deprecated_syntax 警告)
+fn render[R : Renderer](renderer: R, st: Shape) -> String { ... }
+
+// ✅ 正确
+fn[R : Renderer] render(renderer: R, st: Shape) -> String { ... }
+```
+
+### 不支持带类型参数的 Trait
+
+MoonBit 不支持 `trait Foo[T]`，也不支持关联类型：
+
+```mbt
+// ❌ 编译错误：unexpected token `[`
+pub(open) trait SchemaRenderer[T] {
+  fn render_string(Self, s: Schema) -> T
+}
+
+// ✅ 正确做法：每个返回类型定义一个独立 trait
+pub(open) trait StringRenderer {
+  fn render_string(Self, s: Schema) -> String
+}
+pub(open) trait JsonRenderer {
+  fn render_string(Self, s: Schema) -> Json
+}
+```
+
+### 不能把 Trait 当参数类型
+
+Trait 名不能直接作参数类型，必须用泛型约束：
+
+```mbt
+// ❌ 编译错误：Renderer is a trait, not a type
+fn render(renderer: Renderer, shape: Shape) -> String { ... }
+
+// ✅ 正确：用泛型约束
+fn[R : Renderer] render(renderer: R, shape: Shape) -> String { ... }
+```
+
+### 结构体泛型参数不支持 Trait 约束
+
+结构体定义中，类型参数不能用 `: Trait` 约束。约束只能加在方法上：
+
+```mbt
+// ❌ 编译错误：unexpected token `:`
+pub struct Wrapper[R : Renderer] {
+  inner: R
+}
+
+// ✅ 正确：结构体只写类型名
+pub struct Wrapper[R] {
+  inner: R
+}
+// 约束加在方法上
+fn[R : Renderer] Wrapper::process(self: Wrapper[R], shape: Shape) -> String { ... }
+```
+
+### Struct 不会自动生成构造函数
+
+MoonBit 的 struct **必须显式声明构造函数**，否则无法用 `Type(args)` 语法创建：
+
+```mbt
+pub struct Point {
+  x: Int
+  y: String
+}
+
+// 必须写构造函数
+pub fn Point::Point(x~ : Int, y~ : String) -> Point {
+  { x, y }  // ~ 标记字段名即参数名
+}
+
+// 泛型结构体的构造函数
+pub struct Wrapper[T] {
+  inner: T
+  prefix: String
+}
+pub[T] fn Wrapper::Wrapper(inner~ : T, prefix~ : String) -> Wrapper[T] {
+  { inner, prefix }
+}
+```
+
+构造函数的参数标记 `~` 表示**字段名即参数名**（label punning），调用时：
+
+```mbt
+let p = Point(x=10, y="hello")
+let w = Wrapper(inner=some_val, prefix="tag")
+```
+
+### 空结构体的构造
+
+空结构体需要用 `Type::{}` 语法在构造函数体中使用：
+
+```mbt
+pub struct Empty {}
+pub fn Empty::Empty() -> Empty {
+  Empty::{}    // ← 不是 {}，{} 会被解析为 Map 字面量
+}
+```
+
+### 字符串中 `\{` 永远是插值
+
+MoonBit 字符串插值用 `\{expr}`，**无法在插值字符串中包含字面量 `{`**：
+
+```mbt
+// ❌ 编译错误：\{ radius: 被解析为插值开始
+"Circle \{ radius: \{r} }"
+
+// ✅ 正确：用 + 拼接
+"Circle " + radius.to_string()
+
+// ✅ 或用多行字符串 $|...|#
+$|{ "radius": \{r} }|
 ```
 
 ---
