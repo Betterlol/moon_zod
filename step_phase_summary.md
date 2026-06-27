@@ -691,14 +691,68 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 
 ---
 
+## Phase 33 — Trait-based Renderer Pattern 重构 (v0.7.1)
+
+**目标**: 消除 3 个代码生成模块（prompt/json_schema/moonbit_struct）中 40 个散布的 `SchemaType` match 语句，统一为契约式的 trait 分发模式。
+
+### Phase A: 快速修复 (fc04f42)
+
+修复 Union/Intersection/Literal 在 named schema 导出中的缺失：
+
+| 文件 | 变更 |
+|------|------|
+| `prompt.mbt` | +35 行：补全 `schema_to_interface_definition_with_names()` 分支 + `merge_intersection_object_specs()` |
+| `test_prompt_named.mbt` | +58 行：4 个新测试（Union/Intersection/Literal/Complex）|
+
+### Phase B: 约束提取器 (863fcea)
+
+统一约束提取逻辑，消除 ~150 行重复代码：
+
+| 新增文件 | 用途 |
+|---------|------|
+| `constraint_extractor.mbt` | `pub struct ConstraintInfo` + `extract_constraints()` 等统一约束管理 |
+
+| 修改文件 | 变更 |
+|---------|------|
+| `prompt.mbt` | -248 行：删除 5 个旧约束函数，改为调用 `constraint_extractor` |
+| `moonbit_struct.mbt` | +22 行：改进约束注释清晰度 |
+
+### Phase C: Trait Renderer 重构 (1a1c06e)
+
+核心架构变更 —— 从「40 个 match 散布」到「4 个 match + 3 个 trait」：
+
+| 新增文件 | 用途 |
+|---------|------|
+| `shared_utils.mbt` | 共享工具：`unwrap_schema`, `peel_optional`, `indent_str`, 命名收集 + 拓扑排序 |
+| `string_renderer.mbt` | `pub(open) trait StringRenderer` + `render_type` 分发 |
+| `json_schema_renderer.mbt` | `pub(open) trait JsonSchemaRenderer` + `render_json_type` 分发 |
+| `moonbit_renderer.mbt` | `pub(open) trait MoonBitStructRenderer` + `render_mbt_type` 分发 |
+
+| 修改文件 | 变更 |
+|---------|------|
+| `prompt.mbt` | 重写为 `BasicPromptRenderer` + `NamedPromptRenderer`；-498 行 |
+| `json_schema.mbt` | 重写为 `FullJsonRenderer` + `SkeletonJsonRenderer` + `NamedJsonRenderer`；-239 行 |
+| `moonbit_struct.mbt` | 重写为 `InlineStructRenderer` + `NamedStructRenderer`；-332 行 |
+| `constraint_extractor.mbt` | 新增 `pub fn constraint_comment()`；+59 行 |
+
+**关键决策**:
+- MoonBit 不支持泛型 trait（`trait Foo[T]`）和关联类型 → 必须为每输出类型分别定义 trait
+- MoonBit 不支持 trait 作为参数类型 → 必须用泛型 `fn[R : Trait] render_type(...)`
+- 原型验证 5/5 测试通过确认语法可行，然后全量实施
+- `extract_type_expr`（moonbit_struct.mbt 的 from_json 生成）保留独立 match，因代码生成逻辑过于特殊无法抽象
+
+**产出**: 385/385 测试全部通过 0 警告；SchemaType match 从 40 降至 4（-90%）；新增变体修改点从 ~15 降至 ~7。
+
+---
+
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 381 |
+| 测试数量 | 385 |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
-| 核心源码模块 | 20 个 `.mbt` 文件 |
+| 核心源码模块 | 24 个 `.mbt` 文件 |
 | CLI 工具 | 4 个（`cmd/main` 基准, `cmd/wasm` 跨语言, `cmd/json2schema` 代码生成, `cmd/validate` 校验） |
 | 展示示例 | 5 个（`llm_agent`, `educational_agent`, `real_llm_agent`, `json2schema`, `schema2json`） |
 
@@ -770,6 +824,18 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 - [x] MoonBit struct 代码生成支持
 - [x] 14 个新测试，381/381 通过
 - [x] 重构 `union.mbt` 拆分为独立模块文件（one factory per file）
+
+---
+
+#### ☑ Trait-based Renderer Pattern 重构
+
+**完成状态** (Phase 33):
+- [x] Phase A: Union/Intersection/Literal named 导出修复
+- [x] Phase B: constraint_extractor.mbt 约束提取统一
+- [x] Phase C: 3 个 trait（StringRenderer、JsonSchemaRenderer、MoonBitStructRenderer）
+- [x] 共享工具抽取（shared_utils.mbt）
+- [x] SchemaType match 数从 40 降至 4（-90%）
+- [x] 385/385 测试通过
 
 ---
 
