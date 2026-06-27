@@ -181,11 +181,43 @@ fn unwrap_schema(schema : Schema) -> Schema {
 /// For arrays, also merges element-level constraints.
 fn schema_comment(schema : Schema) -> String {
   let unwrapped = unwrap_schema(schema)
-  let inner = constraint_comment(unwrapped.rules, unwrapped.schema_type)
+
+  let inner = match unwrapped.schema_type {
+    StringType => {
+      let info = extract_constraints(unwrapped.rules)
+      constraint_info_to_string_comment(info)
+    }
+    NumberType => {
+      let info = extract_constraints(unwrapped.rules)
+      constraint_info_to_number_comment(info)
+    }
+    ArrayType(_) => {
+      let info = extract_constraints(unwrapped.rules)
+      constraint_info_to_array_comment(info)
+    }
+    _ => {
+      let info = extract_constraints(unwrapped.rules)
+      constraint_info_to_fallback_comment(info)
+    }
+  }
+
   let merged = match unwrapped.schema_type {
     ArrayType(elem) => {
       let euw = unwrap_schema(elem)
-      let ec = constraint_comment(euw.rules, euw.schema_type)
+      let ec = match euw.schema_type {
+        StringType => {
+          let info = extract_constraints(euw.rules)
+          constraint_info_to_string_comment(info)
+        }
+        NumberType => {
+          let info = extract_constraints(euw.rules)
+          constraint_info_to_number_comment(info)
+        }
+        _ => {
+          let info = extract_constraints(euw.rules)
+          constraint_info_to_fallback_comment(info)
+        }
+      }
       if inner.is_empty() {
         ec
       } else if ec.is_empty() {
@@ -196,6 +228,7 @@ fn schema_comment(schema : Schema) -> String {
     }
     _ => inner
   }
+
   let constraint_part = if merged.is_empty() { "" } else { "[" + merged + "]" }
   let desc = schema.description
   if constraint_part.is_empty() && desc.is_empty() {
@@ -258,241 +291,6 @@ fn json_to_ts_literal(json : Json) -> String {
 }
 
 ///|
-fn string_constraint_comment(rules : Array[Rule]) -> String {
-  let mut min_len = -1.0
-  let mut max_len = -1.0
-  let mut format_val = ""
-  let mut pattern = ""
-  let parts : Array[String] = []
-  for rule in rules {
-    match rule.annotation {
-      Object(map) => {
-        if map.contains("minLength") {
-          match map.get("minLength") {
-            Some(Number(v, ..)) => min_len = v
-            _ => ()
-          }
-        }
-        if map.contains("maxLength") {
-          match map.get("maxLength") {
-            Some(Number(v, ..)) => max_len = v
-            _ => ()
-          }
-        }
-        if map.contains("format") {
-          match map.get("format") {
-            Some(String(s)) => format_val = s
-            _ => ()
-          }
-        }
-        if map.contains("pattern") {
-          match map.get("pattern") {
-            Some(String(s)) => pattern = s
-            _ => ()
-          }
-        }
-      }
-      _ => ()
-    }
-    match rule.annotation {
-      Null =>
-        if rule.message != "String must not be empty" {
-          parts.push(rule.message)
-        }
-      _ => ()
-    }
-  }
-  if min_len >= 0.0 && max_len >= 0.0 {
-    parts.push(
-      format_double_simple(min_len) +
-      "-" +
-      format_double_simple(max_len) +
-      " chars",
-    )
-  } else if min_len >= 0.0 {
-    parts.push("min: " + format_double_simple(min_len))
-  } else if max_len >= 0.0 {
-    parts.push("max: " + format_double_simple(max_len))
-  }
-  if format_val == "email" {
-    parts.push("email")
-  } else if format_val == "uri" {
-    parts.push("url")
-  } else if !format_val.is_empty() {
-    parts.push(format_val)
-  }
-  if !pattern.is_empty() {
-    parts.push("pattern: " + pattern)
-  }
-  if parts.is_empty() {
-    ""
-  } else {
-    join_parts(parts)
-  }
-}
-
-///|
-fn number_constraint_comment(rules : Array[Rule]) -> String {
-  let mut is_int = false
-  let mut is_positive = false
-  let mut is_negative = false
-  let mut has_min = false
-  let mut has_max = false
-  let mut minimum = 0.0
-  let mut maximum = 0.0
-  let mut has_multiple = false
-  let mut multiple_of = 0.0
-  let parts : Array[String] = []
-  for rule in rules {
-    match rule.annotation {
-      Object(map) => {
-        if map.contains("type") {
-          match map.get("type") {
-            Some(String(s)) => if s == "integer" { is_int = true }
-            _ => ()
-          }
-        }
-        if map.contains("exclusiveMinimum") {
-          match map.get("exclusiveMinimum") {
-            Some(Number(v, ..)) => if v == 0.0 { is_positive = true }
-            _ => ()
-          }
-        }
-        if map.contains("exclusiveMaximum") {
-          match map.get("exclusiveMaximum") {
-            Some(Number(v, ..)) => if v == 0.0 { is_negative = true }
-            _ => ()
-          }
-        }
-        if map.contains("minimum") {
-          match map.get("minimum") {
-            Some(Number(v, ..)) => {
-              has_min = true
-              minimum = v
-            }
-            _ => ()
-          }
-        }
-        if map.contains("maximum") {
-          match map.get("maximum") {
-            Some(Number(v, ..)) => {
-              has_max = true
-              maximum = v
-            }
-            _ => ()
-          }
-        }
-        if map.contains("multipleOf") {
-          match map.get("multipleOf") {
-            Some(Number(v, ..)) => {
-              has_multiple = true
-              multiple_of = v
-            }
-            _ => ()
-          }
-        }
-      }
-      _ => ()
-    }
-    match rule.annotation {
-      Null => parts.push(rule.message)
-      _ => ()
-    }
-  }
-  if is_int {
-    parts.push("int")
-  }
-  if is_positive {
-    parts.push("positive")
-  }
-  if is_negative {
-    parts.push("negative")
-  }
-  if has_min && has_max {
-    parts.push(
-      format_double_simple(minimum) + "-" + format_double_simple(maximum),
-    )
-  } else if has_min {
-    parts.push("min: " + format_double_simple(minimum))
-  } else if has_max {
-    parts.push("max: " + format_double_simple(maximum))
-  }
-  if has_multiple {
-    parts.push("multiple of " + format_double_simple(multiple_of))
-  }
-  if parts.is_empty() {
-    ""
-  } else {
-    join_parts(parts)
-  }
-}
-
-///|
-fn array_constraint_comment(rules : Array[Rule]) -> String {
-  let mut min_items = -1.0
-  let mut max_items = -1.0
-  let parts : Array[String] = []
-  for rule in rules {
-    match rule.annotation {
-      Object(map) => {
-        if map.contains("minItems") {
-          match map.get("minItems") {
-            Some(Number(v, ..)) => min_items = v
-            _ => ()
-          }
-        }
-        if map.contains("maxItems") {
-          match map.get("maxItems") {
-            Some(Number(v, ..)) => max_items = v
-            _ => ()
-          }
-        }
-      }
-      _ => ()
-    }
-    match rule.annotation {
-      Null => parts.push(rule.message)
-      _ => ()
-    }
-  }
-  if min_items >= 0.0 {
-    parts.push("min: " + format_double_simple(min_items) + " items")
-  }
-  if max_items >= 0.0 {
-    parts.push("max: " + format_double_simple(max_items) + " items")
-  }
-  if parts.is_empty() {
-    ""
-  } else {
-    join_parts(parts)
-  }
-}
-
-///|
-fn fallback_constraint_comment(rules : Array[Rule]) -> String {
-  let parts : Array[String] = []
-  for rule in rules {
-    match rule.annotation {
-      Null => parts.push(rule.message)
-      _ => ()
-    }
-  }
-  if parts.is_empty() {
-    ""
-  } else {
-    join_parts(parts)
-  }
-}
-
-///|
-fn constraint_comment(rules : Array[Rule], base_type : SchemaType) -> String {
-  match base_type {
-    StringType => string_constraint_comment(rules)
-    NumberType => number_constraint_comment(rules)
-    ArrayType(_) => array_constraint_comment(rules)
-    _ => fallback_constraint_comment(rules)
-  }
-}
 
 ///|
 /// Collect all named schemas from the input schema tree.
