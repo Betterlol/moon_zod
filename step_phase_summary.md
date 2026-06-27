@@ -646,14 +646,59 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 
 ---
 
+## Phase 32 — literal() 常量校验 + union.mbt 重构
+
+**目标**: 实现任意 JSON 常量值校验，并按 "one factory per file" 约定重构 `union.mbt`。
+
+### Task 1: literal() 实现
+
+新增 `literal(value: Json)` 工厂函数，支持 String/Number/Boolean/Null/Array/Object 常量精确匹配。
+
+| 新增文件 | 用途 |
+|---|---|
+| `literal.mbt` | `literal()` 工厂 + `parse_literal()` + `json_to_literal_string()` |
+
+| 修改文件 | 变更 |
+|---|---|
+| `schema.mbt` | `SchemaType` 新增 `LiteralType(Json)` |
+| `union.mbt` | 新增 `literal()` + `parse_literal()` |
+| `json_schema.mbt` | LiteralType → `{"const": value}` |
+| `prompt.mbt` | 新增 `json_to_ts_literal()`，渲染 TS 字面量 |
+| `moonbit_struct.mbt` | 新增 `literal_to_moonbit_type()` + `json_to_literal_code()` |
+| `test_combinators.mbt` | 新增 14 个测试 |
+
+**使用示例**:
+```moonbit
+@moon_zod.literal(Json::string("active"))  // 只接受 "active"
+@moon_zod.literal(Json::number(42.0))       // 只接受 42
+```
+
+### Task 2: union.mbt 重构
+
+按 "one factory per file" 约定拆分 `union.mbt`：
+
+| 新文件 | 包含内容 |
+|---|---|
+| `optional.mbt` | `Schema::optional()` + `parse_optional()` |
+| `default.mbt` | `Schema::default()` + `parse_default()` |
+| `enum.mbt` | `enum_values()` + `parse_enum()` |
+| `literal.mbt` | `literal()` + `parse_literal()` |
+| `union.mbt` (改写) | 只保留 `union()` + `parse_union()` |
+
+**统计**: `union.mbt` 217行 → 42行 (-81%)，新增 4 个模块文件。
+
+**测试**: moon build ✓ 0 errors，moon test ✓ 381/381。
+
+---
+
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 377 |
+| 测试数量 | 381 |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
-| 核心源码模块 | 16 个 `.mbt` 文件（含 `from_json_schema.mbt` + `intersection.mbt`） |
+| 核心源码模块 | 20 个 `.mbt` 文件 |
 | CLI 工具 | 4 个（`cmd/main` 基准, `cmd/wasm` 跨语言, `cmd/json2schema` 代码生成, `cmd/validate` 校验） |
 | 展示示例 | 5 个（`llm_agent`, `educational_agent`, `real_llm_agent`, `json2schema`, `schema2json`） |
 
@@ -711,6 +756,20 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 - [x] 命名 Schema 分离为 `$defs` 条目，字段引用使用 `$ref: "#/$defs/Name"`
 - [x] 复用 Phase 25 的收集与拓扑排序，循环引用安全
 - [x] 9 个新测试，291/291 通过
+
+---
+
+#### ☑ `literal()` 常量值校验
+
+**完成状态** (Phase 32):
+- [x] `pub fn literal(value: Json) -> Schema`
+- [x] `LiteralType(Json)` 变体添加到 `SchemaType` 枚举
+- [x] 支持 String/Number/Boolean/Null/Array/Object 精确匹配
+- [x] JSON Schema 导出为 `{"const": value}`
+- [x] TypeScript prompt 渲染为字面量语法
+- [x] MoonBit struct 代码生成支持
+- [x] 14 个新测试，381/381 通过
+- [x] 重构 `union.mbt` 拆分为独立模块文件（one factory per file）
 
 ---
 
