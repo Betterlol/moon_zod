@@ -2,78 +2,92 @@
 /// Convert a moon_zod Schema into a TypeScript-interface-style prompt string
 /// suitable for LLM system prompts or correction feedback.
 ///
-/// # Example
-/// ```mbt nocheck
-/// let s = object({
-///   "name": string().min(2).max(50),
-///   "age": number().int().min(0).max(150),
-/// })
-///
-/// let prompt = schema_to_prompt(s)
-/// // {
-/// //   name: string,   // 2-50 chars
-/// //   age: number,    // int, 0-150
-/// // }
-/// ```
-pub fn schema_to_prompt(schema : Schema) -> String {
-  let tp = type_to_prompt(schema, 0)
-  let comment = schema_comment(schema)
-  if comment.is_empty() {
-    tp
-  } else {
-    tp + "  // " + comment
-  }
+/// Uses StringRenderer trait with BasicPromptRenderer / NamedPromptRenderer.
+
+///|
+/// Basic prompt renderer: renders all types inline (no name references).
+pub struct BasicPromptRenderer {}
+
+///|
+pub fn BasicPromptRenderer::BasicPromptRenderer() -> BasicPromptRenderer {
+  BasicPromptRenderer::{  }
 }
 
 ///|
-/// Convert a schema with named sub-schemas into a prompt with separate interface definitions.
-///
-/// Automatically collects all schemas with non-empty names from the input schema tree
-/// and generates separate TypeScript interface/type definitions for them.
-/// References to named schemas are replaced with just their name.
-///
-/// # Example
-/// ```mbt nocheck
-/// let user = object({ "name": string() }).name("User")
-///
-/// let order = object({ "user": user }).name("Order")
-///
-/// let prompt = schema_to_prompt_named(order)
-/// // export interface User {
-/// //   name: string;
-/// // }
-/// // export interface Order {
-/// //   user: User;
-/// // }
-/// ```
-pub fn schema_to_prompt_named(schema : Schema) -> String {
-  let named_schemas = collect_named_schemas(schema)
-  generate_prompt_with_interfaces(named_schemas)
+pub impl StringRenderer for BasicPromptRenderer with fn render_string(
+  self : BasicPromptRenderer,
+  _schema : Schema,
+  _indent : Int,
+) -> String {
+  "string"
 }
 
 ///|
-/// Recursively render the TypeScript type string (no comment).
-fn type_to_prompt(schema : Schema, indent : Int) -> String {
-  match schema.schema_type {
-    StringType => "string"
-    NumberType => "number"
-    BooleanType => "boolean"
-    NullType => "null"
-    OptionalType(inner) => type_to_prompt(inner, indent) + " | null"
-    DefaultType(inner, _) => type_to_prompt(inner, indent) + " | null"
-    TransformType(inner, _) => type_to_prompt(inner, indent)
-    EnumType(values) => enum_to_prompt(values)
-    ArrayType(elem) => type_to_prompt(elem, indent) + "[]"
-    UnionType(schemas) => union_to_prompt(schemas, indent)
-    IntersectionType(schemas) => intersection_to_prompt(schemas, indent)
-    ObjectType(spec, _) => object_to_prompt(spec, indent)
-    LiteralType(value) => json_to_ts_literal(value)
-  }
+pub impl StringRenderer for BasicPromptRenderer with fn render_number(
+  self : BasicPromptRenderer,
+  _schema : Schema,
+  _indent : Int,
+) -> String {
+  "number"
 }
 
 ///|
-/// Render an enum as "a" | "b" | "c".
-fn enum_to_prompt(values : Array[String]) -> String {
+pub impl StringRenderer for BasicPromptRenderer with fn render_boolean(
+  self : BasicPromptRenderer,
+  _schema : Schema,
+  _indent : Int,
+) -> String {
+  "boolean"
+}
+
+///|
+pub impl StringRenderer for BasicPromptRenderer with fn render_null(
+  self : BasicPromptRenderer,
+  _schema : Schema,
+  _indent : Int,
+) -> String {
+  "null"
+}
+
+///|
+pub impl StringRenderer for BasicPromptRenderer with fn render_optional(
+  self : BasicPromptRenderer,
+  inner : Schema,
+  schema : Schema,
+  indent : Int,
+) -> String {
+  render_type(self, inner, indent) + " | null"
+}
+
+///|
+pub impl StringRenderer for BasicPromptRenderer with fn render_default(
+  self : BasicPromptRenderer,
+  inner : Schema,
+  _default_val : Json,
+  schema : Schema,
+  indent : Int,
+) -> String {
+  render_type(self, inner, indent) + " | null"
+}
+
+///|
+pub impl StringRenderer for BasicPromptRenderer with fn render_transform(
+  self : BasicPromptRenderer,
+  inner : Schema,
+  _closure : TransformClosure,
+  schema : Schema,
+  indent : Int,
+) -> String {
+  render_type(self, inner, indent)
+}
+
+///|
+pub impl StringRenderer for BasicPromptRenderer with fn render_enum(
+  self : BasicPromptRenderer,
+  values : Array[String],
+  schema : Schema,
+  _indent : Int,
+) -> String {
   let mut result = ""
   let mut first = true
   for v in values {
@@ -88,15 +102,29 @@ fn enum_to_prompt(values : Array[String]) -> String {
 }
 
 ///|
-/// Render a union as type1 | type2 | ...
-fn union_to_prompt(schemas : Array[Schema], indent : Int) -> String {
+pub impl StringRenderer for BasicPromptRenderer with fn render_array(
+  self : BasicPromptRenderer,
+  elem : Schema,
+  schema : Schema,
+  indent : Int,
+) -> String {
+  render_type(self, elem, indent) + "[]"
+}
+
+///|
+pub impl StringRenderer for BasicPromptRenderer with fn render_union(
+  self : BasicPromptRenderer,
+  schemas : Array[Schema],
+  schema : Schema,
+  indent : Int,
+) -> String {
   let mut result = ""
   let mut first = true
   for s in schemas {
     if first {
-      result = type_to_prompt(s, indent)
+      result = render_type(self, s, indent)
     } else {
-      result = result + " | " + type_to_prompt(s, indent)
+      result = result + " | " + render_type(self, s, indent)
     }
     first = false
   }
@@ -104,15 +132,19 @@ fn union_to_prompt(schemas : Array[Schema], indent : Int) -> String {
 }
 
 ///|
-/// Render an intersection as "A & B & C".
-fn intersection_to_prompt(schemas : Array[Schema], indent : Int) -> String {
+pub impl StringRenderer for BasicPromptRenderer with fn render_intersection(
+  self : BasicPromptRenderer,
+  schemas : Array[Schema],
+  schema : Schema,
+  indent : Int,
+) -> String {
   let mut result = ""
   let mut first = true
   for s in schemas {
     if first {
-      result = type_to_prompt(s, indent)
+      result = render_type(self, s, indent)
     } else {
-      result = result + " & " + type_to_prompt(s, indent)
+      result = result + " & " + render_type(self, s, indent)
     }
     first = false
   }
@@ -120,8 +152,13 @@ fn intersection_to_prompt(schemas : Array[Schema], indent : Int) -> String {
 }
 
 ///|
-/// Render an object as multiline { ... } with 2-space indentation.
-fn object_to_prompt(spec : Map[String, Schema], indent : Int) -> String {
+pub impl StringRenderer for BasicPromptRenderer with fn render_object(
+  self : BasicPromptRenderer,
+  spec : Map[String, Schema],
+  _mode : ObjectMode,
+  schema : Schema,
+  indent : Int,
+) -> String {
   if spec.length() == 0 {
     return "{}"
   }
@@ -130,16 +167,12 @@ fn object_to_prompt(spec : Map[String, Schema], indent : Int) -> String {
   for key, val_schema in spec {
     let key_is_optional = is_optional_schema(val_schema)
     let inner = if key_is_optional {
-      match val_schema.schema_type {
-        OptionalType(s) => s
-        DefaultType(s, _) => s
-        _ => val_schema
-      }
+      peel_optional(val_schema)
     } else {
       val_schema
     }
 
-    let field_type = type_to_prompt(inner, inner_indent)
+    let field_type = render_type(self, inner, inner_indent)
     let comment = schema_comment(val_schema)
     let opt_mark = if key_is_optional { "?" } else { "" }
     let line = indent_str(inner_indent) + key + opt_mark + ": " + field_type
@@ -155,25 +188,272 @@ fn object_to_prompt(spec : Map[String, Schema], indent : Int) -> String {
 }
 
 ///|
-/// Generate n * 2 spaces.
-fn indent_str(n : Int) -> String {
-  let mut s = ""
-  for i = 0; i < n; i = i + 1 {
-    s = s + "  "
-  }
-  s
+pub impl StringRenderer for BasicPromptRenderer with fn render_literal(
+  self : BasicPromptRenderer,
+  value : Json,
+  schema : Schema,
+  _indent : Int,
+) -> String {
+  json_to_ts_literal(value)
 }
 
 ///|
-/// Peel OptionalType / DefaultType / TransformType wrappers to find the
-/// innermost schema that carries the actual rules.
-fn unwrap_schema(schema : Schema) -> Schema {
-  match schema.schema_type {
-    OptionalType(inner) => unwrap_schema(inner)
-    DefaultType(inner, _) => unwrap_schema(inner)
-    TransformType(inner, _) => unwrap_schema(inner)
-    _ => schema
+/// Named prompt renderer: uses name references for named schemas.
+pub struct NamedPromptRenderer {
+  named_schemas : Array[Schema]
+}
+
+///|
+pub fn NamedPromptRenderer::NamedPromptRenderer(
+  named_schemas~ : Array[Schema],
+) -> NamedPromptRenderer {
+  { named_schemas, }
+}
+
+///|
+pub impl StringRenderer for NamedPromptRenderer with fn render_string(
+  self : NamedPromptRenderer,
+  schema : Schema,
+  indent : Int,
+) -> String {
+  if has_name_in(schema, self.named_schemas) {
+    schema.name
+  } else {
+    "string"
   }
+}
+
+///|
+pub impl StringRenderer for NamedPromptRenderer with fn render_number(
+  self : NamedPromptRenderer,
+  schema : Schema,
+  indent : Int,
+) -> String {
+  if has_name_in(schema, self.named_schemas) {
+    schema.name
+  } else {
+    "number"
+  }
+}
+
+///|
+pub impl StringRenderer for NamedPromptRenderer with fn render_boolean(
+  self : NamedPromptRenderer,
+  schema : Schema,
+  indent : Int,
+) -> String {
+  if has_name_in(schema, self.named_schemas) {
+    schema.name
+  } else {
+    "boolean"
+  }
+}
+
+///|
+pub impl StringRenderer for NamedPromptRenderer with fn render_null(
+  self : NamedPromptRenderer,
+  schema : Schema,
+  indent : Int,
+) -> String {
+  if has_name_in(schema, self.named_schemas) {
+    schema.name
+  } else {
+    "null"
+  }
+}
+
+///|
+pub impl StringRenderer for NamedPromptRenderer with fn render_optional(
+  self : NamedPromptRenderer,
+  inner : Schema,
+  _schema : Schema,
+  indent : Int,
+) -> String {
+  render_type_named(self, inner, indent, self.named_schemas) + " | null"
+}
+
+///|
+pub impl StringRenderer for NamedPromptRenderer with fn render_default(
+  self : NamedPromptRenderer,
+  inner : Schema,
+  _default_val : Json,
+  _schema : Schema,
+  indent : Int,
+) -> String {
+  render_type_named(self, inner, indent, self.named_schemas) + " | null"
+}
+
+///|
+pub impl StringRenderer for NamedPromptRenderer with fn render_transform(
+  self : NamedPromptRenderer,
+  inner : Schema,
+  _closure : TransformClosure,
+  _schema : Schema,
+  indent : Int,
+) -> String {
+  render_type_named(self, inner, indent, self.named_schemas)
+}
+
+///|
+pub impl StringRenderer for NamedPromptRenderer with fn render_enum(
+  self : NamedPromptRenderer,
+  values : Array[String],
+  schema : Schema,
+  _indent : Int,
+) -> String {
+  if has_name_in(schema, self.named_schemas) {
+    return schema.name
+  }
+  let mut result = ""
+  let mut first = true
+  for v in values {
+    if first {
+      result = "\"" + v + "\""
+    } else {
+      result = result + " | \"" + v + "\""
+    }
+    first = false
+  }
+  result
+}
+
+///|
+pub impl StringRenderer for NamedPromptRenderer with fn render_array(
+  self : NamedPromptRenderer,
+  elem : Schema,
+  _schema : Schema,
+  indent : Int,
+) -> String {
+  render_type_named(self, elem, indent, self.named_schemas) + "[]"
+}
+
+///|
+pub impl StringRenderer for NamedPromptRenderer with fn render_union(
+  self : NamedPromptRenderer,
+  schemas : Array[Schema],
+  schema : Schema,
+  indent : Int,
+) -> String {
+  if has_name_in(schema, self.named_schemas) {
+    return schema.name
+  }
+  let mut result = ""
+  let mut first = true
+  for s in schemas {
+    if first {
+      result = render_type_named(self, s, indent, self.named_schemas)
+    } else {
+      result = result +
+        " | " +
+        render_type_named(self, s, indent, self.named_schemas)
+    }
+    first = false
+  }
+  result
+}
+
+///|
+pub impl StringRenderer for NamedPromptRenderer with fn render_intersection(
+  self : NamedPromptRenderer,
+  schemas : Array[Schema],
+  schema : Schema,
+  indent : Int,
+) -> String {
+  if has_name_in(schema, self.named_schemas) {
+    return schema.name
+  }
+  let mut result = ""
+  let mut first = true
+  for s in schemas {
+    if first {
+      result = render_type_named(self, s, indent, self.named_schemas)
+    } else {
+      result = result +
+        " & " +
+        render_type_named(self, s, indent, self.named_schemas)
+    }
+    first = false
+  }
+  result
+}
+
+///|
+pub impl StringRenderer for NamedPromptRenderer with fn render_object(
+  self : NamedPromptRenderer,
+  spec : Map[String, Schema],
+  _mode : ObjectMode,
+  schema : Schema,
+  indent : Int,
+) -> String {
+  if has_name_in(schema, self.named_schemas) {
+    return schema.name
+  }
+  if spec.length() == 0 {
+    return "{}"
+  }
+  let mut result = "{\n"
+  let inner_indent = indent + 1
+  for key, val_schema in spec {
+    let key_is_optional = is_optional_schema(val_schema)
+    let inner = if key_is_optional {
+      peel_optional(val_schema)
+    } else {
+      val_schema
+    }
+
+    let field_type = render_type_named(
+      self,
+      inner,
+      inner_indent,
+      self.named_schemas,
+    )
+    let comment = schema_comment(val_schema)
+    let opt_mark = if key_is_optional { "?" } else { "" }
+    let line = indent_str(inner_indent) + key + opt_mark + ": " + field_type
+
+    if comment.is_empty() {
+      result = result + line + ",\n"
+    } else {
+      result = result + line + ",  // " + comment + "\n"
+    }
+  }
+  result = result + indent_str(indent) + "}"
+  result
+}
+
+///|
+pub impl StringRenderer for NamedPromptRenderer with fn render_literal(
+  self : NamedPromptRenderer,
+  value : Json,
+  schema : Schema,
+  _indent : Int,
+) -> String {
+  if has_name_in(schema, self.named_schemas) {
+    schema.name
+  } else {
+    json_to_ts_literal(value)
+  }
+}
+
+///|
+/// Public API: convert a schema to a TypeScript-interface-style prompt string.
+pub fn schema_to_prompt(schema : Schema) -> String {
+  let renderer = BasicPromptRenderer()
+  let tp = render_type(renderer, schema, 0)
+  let comment = schema_comment(schema)
+  if comment.is_empty() {
+    tp
+  } else {
+    tp + "  // " + comment
+  }
+}
+
+///|
+/// Public API: convert a schema with named sub-schemas into a prompt with
+/// separate interface definitions and name-based references.
+pub fn schema_to_prompt_named(schema : Schema) -> String {
+  let named_schemas = collect_named_schemas(schema)
+  generate_prompt_with_interfaces(named_schemas)
 }
 
 ///|
@@ -182,42 +462,11 @@ fn unwrap_schema(schema : Schema) -> Schema {
 fn schema_comment(schema : Schema) -> String {
   let unwrapped = unwrap_schema(schema)
 
-  let inner = match unwrapped.schema_type {
-    StringType => {
-      let info = extract_constraints(unwrapped.rules)
-      constraint_info_to_string_comment(info)
-    }
-    NumberType => {
-      let info = extract_constraints(unwrapped.rules)
-      constraint_info_to_number_comment(info)
-    }
-    ArrayType(_) => {
-      let info = extract_constraints(unwrapped.rules)
-      constraint_info_to_array_comment(info)
-    }
-    _ => {
-      let info = extract_constraints(unwrapped.rules)
-      constraint_info_to_fallback_comment(info)
-    }
-  }
+  let inner = constraint_comment(schema)
 
   let merged = match unwrapped.schema_type {
     ArrayType(elem) => {
-      let euw = unwrap_schema(elem)
-      let ec = match euw.schema_type {
-        StringType => {
-          let info = extract_constraints(euw.rules)
-          constraint_info_to_string_comment(info)
-        }
-        NumberType => {
-          let info = extract_constraints(euw.rules)
-          constraint_info_to_number_comment(info)
-        }
-        _ => {
-          let info = extract_constraints(euw.rules)
-          constraint_info_to_fallback_comment(info)
-        }
-      }
+      let ec = constraint_comment(elem)
       if inner.is_empty() {
         ec
       } else if ec.is_empty() {
@@ -239,26 +488,6 @@ fn schema_comment(schema : Schema) -> String {
     constraint_part
   } else {
     constraint_part + " — " + desc
-  }
-}
-
-///|
-/// Join constraint parts with ", ".
-fn join_parts(parts : Array[String]) -> String {
-  let mut result = parts[0]
-  for i = 1; i < parts.length(); i = i + 1 {
-    result = result + ", " + parts[i]
-  }
-  result
-}
-
-///|
-/// Format a Double as a string, stripping ".0" for whole numbers.
-fn format_double_simple(v : Double) -> String {
-  if v == v.to_int().to_double() {
-    v.to_int().to_string()
-  } else {
-    v.to_string()
   }
 }
 
@@ -291,270 +520,12 @@ fn json_to_ts_literal(json : Json) -> String {
 }
 
 ///|
-
-///|
-/// Collect all named schemas from the input schema tree.
-fn collect_named_schemas(schema : Schema) -> Array[Schema] {
-  let visited : Array[String] = []
-  let result : Array[Schema] = []
-  collect_named_schemas_impl(schema, visited, result)
-  result
-}
-
-///|
-fn collect_named_schemas_impl(
-  schema : Schema,
-  visited : Array[String],
-  result : Array[Schema],
-) -> Unit {
-  // If this schema has a name, add it (and mark as visited)
-  if !schema.name.is_empty() {
-    let already_visited = value_in_array(schema.name, visited)
-    if !already_visited {
-      visited.push(schema.name)
-      result.push(schema)
-    } else {
-      // Already visited, skip to avoid duplicates
-      return
-    }
-  }
-
-  // Recursively collect from nested schemas
-  match schema.schema_type {
-    ObjectType(fields, _) =>
-      for _key, field_schema in fields {
-        collect_named_schemas_impl(field_schema, visited, result)
-      }
-    ArrayType(elem) => collect_named_schemas_impl(elem, visited, result)
-    OptionalType(inner) => collect_named_schemas_impl(inner, visited, result)
-    DefaultType(inner, _) => collect_named_schemas_impl(inner, visited, result)
-    TransformType(inner, _) =>
-      collect_named_schemas_impl(inner, visited, result)
-    UnionType(schemas) =>
-      for s in schemas {
-        collect_named_schemas_impl(s, visited, result)
-      }
-    IntersectionType(schemas) =>
-      for s in schemas {
-        collect_named_schemas_impl(s, visited, result)
-      }
-    _ => ()
-  }
-}
-
-///|
-/// Topologically sort named schemas so dependents come before dependees.
-/// Ensures definitions appear before they are referenced.
-fn topological_sort_schemas(named_schemas : Array[Schema]) -> Array[Schema] {
-  if named_schemas.is_empty() {
-    return named_schemas
-  }
-
-  // Build dependency list: Array[(name, dependencies)]
-  let deps_list : Array[(String, Array[String])] = []
-  for schema in named_schemas {
-    let deps = find_schema_dependencies(schema, named_schemas)
-    deps_list.push((schema.name, deps))
-  }
-
-  // Topological sort using DFS
-  let visited_list : Array[(String, Int)] = [] // 0=unvisited, 1=visiting, 2=visited
-  let sorted : Array[Schema] = []
-
-  for schema in named_schemas {
-    if !visited_contains(visited_list, schema.name) {
-      dfs_topo_sort(schema.name, deps_list, visited_list, sorted, named_schemas)
-    }
-  }
-
-  sorted
-}
-
-///|
-/// Helper: check if a name is in visited list
-fn visited_contains(visited_list : Array[(String, Int)], name : String) -> Bool {
-  for i = 0; i < visited_list.length(); i = i + 1 {
-    let (n, _status) = visited_list[i]
-    if n == name {
-      return true
-    }
-  }
-  false
-}
-
-///|
-/// Helper: get status from visited list (0 = unvisited by default)
-fn visited_get_status(
-  visited_list : Array[(String, Int)],
-  name : String,
-) -> Int {
-  for i = 0; i < visited_list.length(); i = i + 1 {
-    let (n, status) = visited_list[i]
-    if n == name {
-      return status
-    }
-  }
-  0
-}
-
-///|
-/// Helper: set status in visited list
-fn visited_set_status(
-  visited_list : Array[(String, Int)],
-  name : String,
-  status : Int,
-) -> Unit {
-  for i = 0; i < visited_list.length(); i = i + 1 {
-    let (n, _) = visited_list[i]
-    if n == name {
-      visited_list[i] = (name, status)
-      return
-    }
-  }
-  // Not found, add new entry
-  visited_list.push((name, status))
-}
-
-///|
-/// Find all named schema dependencies within a schema.
-fn find_schema_dependencies(
-  schema : Schema,
-  schema_map : Array[Schema],
-) -> Array[String] {
-  let deps : Array[String] = []
-  let visited_names : Array[String] = []
-  find_schema_dependencies_impl(schema, schema_map, deps, visited_names)
-  deps
-}
-
-///|
-fn find_schema_dependencies_impl(
-  schema : Schema,
-  schema_map : Array[Schema],
-  deps : Array[String],
-  visited_names : Array[String],
-) -> Unit {
-  // Avoid infinite recursion on circular references
-  if value_in_array(schema.name, visited_names) {
-    return
-  }
-  if !schema.name.is_empty() {
-    visited_names.push(schema.name)
-  }
-
-  // Helper to check if a name exists in schema_map
-  let name_exists_in_map = fn(name : String) {
-    for s in schema_map {
-      if s.name == name {
-        return true
-      }
-    }
-    false
-  }
-
-  match schema.schema_type {
-    ObjectType(fields, _) =>
-      for _key, field_schema in fields {
-        // If the field schema is named and in schema_map, it's a dependency
-        if !field_schema.name.is_empty() &&
-          name_exists_in_map(field_schema.name) {
-          if !value_in_array(field_schema.name, deps) {
-            deps.push(field_schema.name)
-          }
-        }
-        // Also recurse to find transitive dependencies
-        find_schema_dependencies_impl(
-          field_schema, schema_map, deps, visited_names,
-        )
-      }
-    ArrayType(elem) => {
-      if !elem.name.is_empty() && name_exists_in_map(elem.name) {
-        if !value_in_array(elem.name, deps) {
-          deps.push(elem.name)
-        }
-      }
-      find_schema_dependencies_impl(elem, schema_map, deps, visited_names)
-    }
-    OptionalType(inner) =>
-      find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
-    DefaultType(inner, _) =>
-      find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
-    TransformType(inner, _) =>
-      find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
-    UnionType(schemas) =>
-      for s in schemas {
-        if !s.name.is_empty() && name_exists_in_map(s.name) {
-          if !value_in_array(s.name, deps) {
-            deps.push(s.name)
-          }
-        }
-        find_schema_dependencies_impl(s, schema_map, deps, visited_names)
-      }
-    IntersectionType(schemas) =>
-      for s in schemas {
-        if !s.name.is_empty() && name_exists_in_map(s.name) {
-          if !value_in_array(s.name, deps) {
-            deps.push(s.name)
-          }
-        }
-        find_schema_dependencies_impl(s, schema_map, deps, visited_names)
-      }
-    _ => ()
-  }
-}
-
-///|
-/// DFS for topological sorting. Adds schemas to sorted list in dependency order.
-fn dfs_topo_sort(
-  name : String,
-  deps_list : Array[(String, Array[String])],
-  visited : Array[(String, Int)],
-  sorted : Array[Schema],
-  schema_map : Array[Schema],
-) -> Unit {
-  // Mark as visiting
-  visited_set_status(visited, name, 1)
-
-  // Find dependencies for this name
-  let mut deps = []
-  for i = 0; i < deps_list.length(); i = i + 1 {
-    let (n, d) = deps_list[i]
-    if n == name {
-      deps = d
-    }
-  }
-
-  // Visit all dependencies first
-  for dep_name in deps {
-    let status = visited_get_status(visited, dep_name)
-    if status == 0 {
-      // Unvisited, recurse
-      dfs_topo_sort(dep_name, deps_list, visited, sorted, schema_map)
-    }
-    // Skip if status == 1 (cycle detected) or status == 2 (already visited)
-  }
-
-  // After visiting all dependencies, add this schema
-  for i = 0; i < schema_map.length(); i = i + 1 {
-    let schema = schema_map[i]
-    if schema.name == name {
-      sorted.push(schema)
-    }
-  }
-
-  // Mark as visited
-  visited_set_status(visited, name, 2)
-}
-
-///|
 /// Generate the full prompt with interface definitions and the root schema.
 fn generate_prompt_with_interfaces(named_schemas : Array[Schema]) -> String {
-  // Sort schemas topologically so dependencies come before dependents
   let sorted_schemas = topological_sort_schemas(named_schemas)
 
   let mut prompt = ""
 
-  // Generate interface definitions for sorted schemas
   for schema in sorted_schemas {
     let interface_def = schema_to_interface_definition_with_names(
       schema, sorted_schemas,
@@ -580,140 +551,42 @@ fn schema_to_interface_definition_with_names(
     return ""
   }
 
+  let renderer = NamedPromptRenderer(named_schemas~)
+
   match schema.schema_type {
     ObjectType(spec, _) =>
       "export interface " +
       schema.name +
       " " +
-      object_to_inline_prompt(spec, 0, named_schemas)
-    EnumType(values) => "type " + schema.name + " = " + enum_to_prompt(values)
+      render_object_prompt(renderer, spec, named_schemas, 0)
+    EnumType(values) =>
+      "type " + schema.name + " = " + enum_values_to_string(values)
     UnionType(schemas) => {
-      let union_type = union_to_prompt_inline(schemas, 0, named_schemas)
+      let union_type = union_to_prompt_inline_str(
+        renderer, schemas, named_schemas, 0,
+      )
       "export type " + schema.name + " = " + union_type
     }
     IntersectionType(schemas) => {
-      // For intersection, we need to merge the object specs
       let merged_spec = merge_intersection_object_specs(schemas)
       "export interface " +
       schema.name +
       " " +
-      object_to_inline_prompt(merged_spec, 0, named_schemas)
+      render_object_prompt(renderer, merged_spec, named_schemas, 0)
     }
-    LiteralType(value) => {
+    LiteralType(value) =>
       "export type " + schema.name + " = " + json_to_ts_literal(value)
-    }
     _ => ""
   }
 }
 
 ///|
-/// Merge object specs from multiple schemas in an intersection.
-/// For intersection types that are objects, combine their fields.
-/// Recursively handles nested intersections.
-fn merge_intersection_object_specs(schemas : Array[Schema]) -> Map[String, Schema] {
-  let merged : Map[String, Schema] = {}
-
-  for s in schemas {
-    match s.schema_type {
-      ObjectType(spec, _) =>
-        for key, val_schema in spec {
-          merged.set(key, val_schema)
-        }
-      IntersectionType(nested_schemas) => {
-        // Recursively merge nested intersections
-        let nested_merged = merge_intersection_object_specs(nested_schemas)
-        for key, val_schema in nested_merged {
-          merged.set(key, val_schema)
-        }
-      }
-      _ => ()
-    }
-  }
-
-  merged
-}
-
-///|
-/// Render schema to inline type (for use in object definitions).
-/// If schema has a name and is in the named list, render just the name.
-fn type_to_inline_prompt(
-  schema : Schema,
-  indent : Int,
-  named_schemas : Array[Schema],
-) -> String {
-  // Check if this schema is named and in our named schemas list
-  if !schema.name.is_empty() {
-    for ns in named_schemas {
-      if ns.name == schema.name {
-        return schema.name
-      }
-    }
-  }
-
-  match schema.schema_type {
-    StringType => "string"
-    NumberType => "number"
-    BooleanType => "boolean"
-    NullType => "null"
-    OptionalType(inner) =>
-      type_to_inline_prompt(inner, indent, named_schemas) + " | null"
-    DefaultType(inner, _) =>
-      type_to_inline_prompt(inner, indent, named_schemas) + " | null"
-    TransformType(inner, _) =>
-      type_to_inline_prompt(inner, indent, named_schemas)
-    EnumType(values) => enum_to_prompt(values)
-    ArrayType(elem) => type_to_inline_prompt(elem, indent, named_schemas) + "[]"
-    UnionType(schemas) => union_to_prompt_inline(schemas, indent, named_schemas)
-    IntersectionType(schemas) =>
-      intersection_to_prompt_inline(schemas, indent, named_schemas)
-    ObjectType(spec, _) => object_to_inline_prompt(spec, indent, named_schemas)
-    LiteralType(value) => json_to_ts_literal(value)
-  }
-}
-
-///|
-fn union_to_prompt_inline(
-  schemas : Array[Schema],
-  indent : Int,
-  named_schemas : Array[Schema],
-) -> String {
-  let mut result = ""
-  let mut first = true
-  for s in schemas {
-    if first {
-      result = type_to_inline_prompt(s, indent, named_schemas)
-    } else {
-      result = result + " | " + type_to_inline_prompt(s, indent, named_schemas)
-    }
-    first = false
-  }
-  result
-}
-
-///|
-fn intersection_to_prompt_inline(
-  schemas : Array[Schema],
-  indent : Int,
-  named_schemas : Array[Schema],
-) -> String {
-  let mut result = ""
-  let mut first = true
-  for s in schemas {
-    if first {
-      result = type_to_inline_prompt(s, indent, named_schemas)
-    } else {
-      result = result + " & " + type_to_inline_prompt(s, indent, named_schemas)
-    }
-    first = false
-  }
-  result
-}
-
-///|
-fn object_to_inline_prompt(
+/// Helper: render an object spec with named references.
+fn render_object_prompt(
+  renderer : NamedPromptRenderer,
   spec : Map[String, Schema],
-  indent : Int,
   named_schemas : Array[Schema],
+  indent : Int,
 ) -> String {
   if spec.length() == 0 {
     return "{}"
@@ -723,16 +596,14 @@ fn object_to_inline_prompt(
   for key, val_schema in spec {
     let key_is_optional = is_optional_schema(val_schema)
     let inner = if key_is_optional {
-      match val_schema.schema_type {
-        OptionalType(s) => s
-        DefaultType(s, _) => s
-        _ => val_schema
-      }
+      peel_optional(val_schema)
     } else {
       val_schema
     }
 
-    let field_type = type_to_inline_prompt(inner, inner_indent, named_schemas)
+    let field_type = render_type_named(
+      renderer, inner, inner_indent, named_schemas,
+    )
     let comment = schema_comment(val_schema)
     let opt_mark = if key_is_optional { "?" } else { "" }
     let line = indent_str(inner_indent) + key + opt_mark + ": " + field_type
@@ -745,4 +616,83 @@ fn object_to_inline_prompt(
   }
   result = result + indent_str(indent) + "}"
   result
+}
+
+///|
+/// Helper: render union with named references.
+fn union_to_prompt_inline_str(
+  renderer : NamedPromptRenderer,
+  schemas : Array[Schema],
+  named_schemas : Array[Schema],
+  indent : Int,
+) -> String {
+  let mut result = ""
+  let mut first = true
+  for s in schemas {
+    if first {
+      result = render_type_named(renderer, s, indent, named_schemas)
+    } else {
+      result = result +
+        " | " +
+        render_type_named(renderer, s, indent, named_schemas)
+    }
+    first = false
+  }
+  result
+}
+
+///|
+/// Helper: render enum values as a string.
+fn enum_values_to_string(values : Array[String]) -> String {
+  let mut result = ""
+  let mut first = true
+  for v in values {
+    if first {
+      result = "\"" + v + "\""
+    } else {
+      result = result + " | \"" + v + "\""
+    }
+    first = false
+  }
+  result
+}
+
+///|
+/// Helper: check if a schema has a name present in the named schemas list.
+fn has_name_in(schema : Schema, named_schemas : Array[Schema]) -> Bool {
+  if schema.name.is_empty() {
+    return false
+  }
+  for ns in named_schemas {
+    if ns.name == schema.name {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Merge object specs from multiple schemas in an intersection.
+fn merge_intersection_object_specs(
+  schemas : Array[Schema],
+) -> Map[String, Schema] {
+  let merged : Map[String, Schema] = {}
+
+  for s in schemas {
+    match s.schema_type {
+      ObjectType(spec, _) =>
+        for key, val_schema in spec {
+          merged.set(key, val_schema)
+        }
+      IntersectionType(nested_schemas) => {
+        let nested_merged = merge_intersection_object_specs(nested_schemas)
+        for key, val_schema in nested_merged {
+          merged.set(key, val_schema)
+        }
+      }
+      _ => ()
+    }
+  }
+
+  merged
 }

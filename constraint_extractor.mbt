@@ -2,15 +2,15 @@
 /// Unified constraint information extracted from Rule annotations.
 /// This data structure consolidates all constraint metadata across different types.
 pub struct ConstraintInfo {
-  min_value: Double  // For string length, number min, array minItems
-  max_value: Double  // For string length, number max, array maxItems
-  format: String     // "email", "uri", "date-time", "uuid", "ipv4", etc.
-  pattern: String    // regex pattern
-  is_int: Bool       // For numbers: must be integer
-  is_positive: Bool  // For numbers: > 0
-  is_negative: Bool  // For numbers: < 0
-  multiple_of: Double // For numbers: multiple of N
-  custom_messages: Array[String]  // Custom error messages
+  min_value : Double // For string length, number min, array minItems
+  max_value : Double // For string length, number max, array maxItems
+  format : String // "email", "uri", "date-time", "uuid", "ipv4", etc.
+  pattern : String // regex pattern
+  is_int : Bool // For numbers: must be integer
+  is_positive : Bool // For numbers: > 0
+  is_negative : Bool // For numbers: < 0
+  multiple_of : Double // For numbers: multiple of N
+  custom_messages : Array[String] // Custom error messages
 }
 
 ///|
@@ -32,7 +32,7 @@ pub fn constraint_info_default() -> ConstraintInfo {
 ///|
 /// Extract all constraint information from a Rule array.
 /// Unified extraction that works across all types.
-pub fn extract_constraints(rules: Array[Rule]) -> ConstraintInfo {
+pub fn extract_constraints(rules : Array[Rule]) -> ConstraintInfo {
   let mut min_value = -1.0
   let mut max_value = -1.0
   let mut format_val = ""
@@ -41,7 +41,7 @@ pub fn extract_constraints(rules: Array[Rule]) -> ConstraintInfo {
   let mut is_positive_val = false
   let mut is_negative_val = false
   let mut multiple_of_val = 0.0
-  let custom_messages_val: Array[String] = []
+  let custom_messages_val : Array[String] = []
 
   // First pass: extract from JSON annotations
   for rule in rules {
@@ -134,12 +134,11 @@ pub fn extract_constraints(rules: Array[Rule]) -> ConstraintInfo {
   // Second pass: collect custom error messages
   for rule in rules {
     match rule.annotation {
-      Null => {
+      Null =>
         // Skip certain standard messages
         if rule.message != "String must not be empty" {
           custom_messages_val.push(rule.message)
         }
-      }
       _ => ()
     }
   }
@@ -159,8 +158,8 @@ pub fn extract_constraints(rules: Array[Rule]) -> ConstraintInfo {
 
 ///|
 /// Convert ConstraintInfo to prompt comment string for strings.
-pub fn constraint_info_to_string_comment(info: ConstraintInfo) -> String {
-  let parts: Array[String] = []
+pub fn constraint_info_to_string_comment(info : ConstraintInfo) -> String {
+  let parts : Array[String] = []
 
   // Length constraints
   if info.min_value >= 0.0 && info.max_value >= 0.0 {
@@ -204,8 +203,8 @@ pub fn constraint_info_to_string_comment(info: ConstraintInfo) -> String {
 
 ///|
 /// Convert ConstraintInfo to prompt comment string for numbers.
-pub fn constraint_info_to_number_comment(info: ConstraintInfo) -> String {
-  let parts: Array[String] = []
+pub fn constraint_info_to_number_comment(info : ConstraintInfo) -> String {
+  let parts : Array[String] = []
 
   // Type
   if info.is_int {
@@ -219,7 +218,9 @@ pub fn constraint_info_to_number_comment(info: ConstraintInfo) -> String {
     parts.push("negative")
   } else if info.min_value >= 0.0 && info.max_value >= 0.0 {
     parts.push(
-      format_double_simple(info.min_value) + "-" + format_double_simple(info.max_value),
+      format_double_simple(info.min_value) +
+      "-" +
+      format_double_simple(info.max_value),
     )
   } else if info.min_value >= 0.0 {
     parts.push("min: " + format_double_simple(info.min_value))
@@ -246,8 +247,8 @@ pub fn constraint_info_to_number_comment(info: ConstraintInfo) -> String {
 
 ///|
 /// Convert ConstraintInfo to prompt comment string for arrays.
-pub fn constraint_info_to_array_comment(info: ConstraintInfo) -> String {
-  let parts: Array[String] = []
+pub fn constraint_info_to_array_comment(info : ConstraintInfo) -> String {
+  let parts : Array[String] = []
 
   // Item count (use min/max format, not range format like strings)
   if info.min_value >= 0.0 {
@@ -271,8 +272,8 @@ pub fn constraint_info_to_array_comment(info: ConstraintInfo) -> String {
 
 ///|
 /// Convert ConstraintInfo to prompt comment string (fallback for unknown types).
-pub fn constraint_info_to_fallback_comment(info: ConstraintInfo) -> String {
-  let parts: Array[String] = []
+pub fn constraint_info_to_fallback_comment(info : ConstraintInfo) -> String {
+  let parts : Array[String] = []
 
   for msg in info.custom_messages {
     parts.push(msg)
@@ -282,5 +283,19 @@ pub fn constraint_info_to_fallback_comment(info: ConstraintInfo) -> String {
     ""
   } else {
     join_parts(parts)
+  }
+}
+
+///|
+/// Extract and format constraint comment for a schema (without description).
+/// Dispatches to type-appropriate formatter based on the unwrapped schema type.
+pub fn constraint_comment(schema : Schema) -> String {
+  let unwrapped = unwrap_schema(schema)
+  let info = extract_constraints(unwrapped.rules)
+  match unwrapped.schema_type {
+    StringType => constraint_info_to_string_comment(info)
+    NumberType => constraint_info_to_number_comment(info)
+    ArrayType(_) => constraint_info_to_array_comment(info)
+    _ => constraint_info_to_fallback_comment(info)
   }
 }

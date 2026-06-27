@@ -135,4 +135,3 @@ fn order_schema() -> @moon_zod.Schema {
     "info": order_info_schema(),
   }).name("Order")
 }
-
