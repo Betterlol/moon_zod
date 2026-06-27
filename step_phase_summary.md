@@ -689,6 +689,10 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 
 **测试**: moon build ✓ 0 errors，moon test ✓ 381/381。
 
+> `enum_values()` 仍然保留只支持枚举字符串，而不拓展其他类型甚至混合类型，`literal()` 则支持任意 JSON 常量值；这主要是为了防止逻辑复杂化和类型推导困难。
+> 我们推荐使用 `union` + `literal()` 组合来实现任意类型的枚举。
+> 特别需要考虑的是 `union` 枚举被导出 ts prompt 时应该作为 `type` 还是 `interface` 呢？不过目前暂时不深入讨论这个问题。
+
 ---
 
 ## Phase 33 — Trait-based Renderer Pattern 重构 (v0.7.2)
@@ -948,17 +952,61 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 
 #### ☐ Schema 条件逻辑与逻辑组合子
 
-**问题**: 缺少 `if/then/else`、`not`、`oneOf` 精确匹配等 Zod 标配的能力。
+**问题**: 缺少 `if/then/else`、`not`、`oneOf` 精确匹配等的逻辑组合子，无法实现复杂业务规则校验。
 
 **任务**:
 - [ ] `Schema::not(Schema)` — 新 `NotType` 变体，输入不能通过内层 schema
+> not 不应该阻塞原本类型的渲染，不该实现为覆盖，而是体现为 rule 约束，即导出 prompt:
+> `name: "not(...)"` ❌️
+> `name: "string" // [not(...)]` ✅️
 - [ ] `Schema::if_then_else(condition, then, else)` — 条件校验
 - [ ] 增强 `oneOf` 严格模式：精确匹配一个分支 vs 当前 `union` 近似
 - [ ] 所有新逻辑组合子支持 JSON Schema 导出、prompt 生成
 
-**价值**: 对齐 Zod 能力，支持复杂业务规则校验。
+**价值**: 支持复杂业务规则校验。
+> 事实上，Zod/Pydantic/Rust 都没有实现 `if/then/else` `not` `oneOf`。
+> `not` 变体可用于实现 `Schema::exclude(Schema)`，即排除某些值的校验，这个是比较有用的功能。
+> 然而，`not` 的实现事实上可以用 `refine()` 来间接实现，而且实现起来也比较简单；同时 `not` 实现风险很高，它对 prompt 和 Json Schema 的渲染都比较难处理。
+> 另外，`if/then/else` 和 `oneOf` 有用与否却是有待商榷了，事实上，虽然它们与 `union` 语义上严格来说不完全等价，但在实际业务中，`union` 已经足够覆盖大部分场景了。
+> 举例来说：
+> ```mbt
+> let schema = Schema::union([
+>  object({ "status": literal("success"), "data": ..., "error": null() }),
+>  object({ "status": literal("error"), "error": ..., "data": null() }),
+> ])
+> 等价于
+> let schema = Schema::oneOf([
+>  object({ "status": literal("success"), "data": ..., "error": null() }),
+>  object({ "status": literal("error"), "error": ..., "data": null() }),
+> ])
+> 等价于
+> let schema = Schema::if_then_else(
+>  if=object({ "status": literal(Json::string("success")) }),
+>  then=object({ "data": ..., "error": null() }),
+>  else=object({ "data": null(), "error": ... }),
+> )
+> ```
+> `if/then/else` 和 `oneOf` 的主要价值在于 `严格模式`，即要求输入必须严格匹配一个分支，而不是多个分支的近似匹配，这在某些业务场景下可能是有用的，但在大多数情况下，`union` 已经足够了。
 
 ---
+
+#### ☐ 枚举类型的 `exclude()` 和 `extract()` 方法
+
+**问题**: 当前无法在枚举类型中排除某些值，也无法提取某些值的子集，导致在复杂业务规则中无法灵活组合枚举类型。
+
+**任务**:
+- [ ] `Schema::exclude(self : Schema, values: Array[Json])` — 排除某些值的校验
+- [ ] `Schema::extract(self : Schema, values: Array[Json])` — 提取某些值的子集校验
+- [ ] 枚举类型支持 JSON Schema 导出、prompt 生成
+
+**价值**: 支持复杂业务规则校验，尤其是在枚举类型中灵活组合。
+> 这个功能相比于 `not()` 等来说更有实现的必要和价值。
+> 示例：
+> ```mbt
+> let schema = Schema::enum(["red", "green", "blue"])
+> let schema_exclude = schema.exclude(["green"]) // 只允许 "red" 和 "blue"
+> let schema_extract = schema.extract(["red"]) // 只允许 "red"
+> ```
 
 #### ☐ Schema 递归类型支持
 
