@@ -70,6 +70,7 @@ fn to_json_schema_full(schema : Schema) -> Json {
       Json::object({
         "allOf": Json::array(schemas.map(fn(s) { to_json_schema_full(s) })),
       })
+    LiteralType(value) => Json::object({ "const": value })
   }
   merge_annotations(base, schema.rules)
 }
@@ -142,6 +143,7 @@ fn to_json_schema_inner(t : SchemaType) -> Json {
           schemas.map(fn(s) { to_json_schema_inner(s.schema_type) }),
         ),
       })
+    LiteralType(value) => Json::object({ "const": value })
   }
 }
 
@@ -284,6 +286,7 @@ fn to_json_schema_named_full(
           schemas.map(fn(s) { to_json_schema_ref(s, named_names) }),
         ),
       })
+    LiteralType(value) => Json::object({ "const": value })
   }
   merge_annotations(base, schema.rules)
 }

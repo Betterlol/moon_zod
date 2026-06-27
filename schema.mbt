@@ -21,6 +21,7 @@ pub(all) enum SchemaType {
   UnionType(Array[Schema])
   IntersectionType(Array[Schema])
   TransformType(Schema, TransformClosure)
+  LiteralType(Json)
 }
 
 ///|
@@ -133,6 +134,7 @@ pub fn inner_type(t : SchemaType) -> SchemaType {
     OptionalType(inner) => inner.schema_type
     DefaultType(inner, _) => inner.schema_type
     TransformType(inner, _) => inner.schema_type
+    LiteralType(_) => t
     other => other
   }
 }
@@ -222,6 +224,7 @@ fn expected_msg(schema_type : SchemaType) -> String {
     EnumType(_) => "Invalid enum value"
     IntersectionType(_) => "Expected intersection match"
     TransformType(_, _) => "Validation failed"
+    LiteralType(_) => "Expected literal value"
     _ => "Validation failed"
   }
 }
@@ -317,6 +320,7 @@ fn parse_inner(
       schema.parse_intersection(schemas, json, path_stack)
     TransformType(inner, closure) =>
       schema.parse_transform(inner, closure, json, path_stack)
+    LiteralType(expected) => schema.parse_literal(expected, json, path_stack)
     _ => {
       let valid = match (schema.schema_type, json) {
         (StringType, String(_)) => true

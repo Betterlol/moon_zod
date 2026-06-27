@@ -67,6 +67,7 @@ fn type_to_prompt(schema : Schema, indent : Int) -> String {
     UnionType(schemas) => union_to_prompt(schemas, indent)
     IntersectionType(schemas) => intersection_to_prompt(schemas, indent)
     ObjectType(spec, _) => object_to_prompt(spec, indent)
+    LiteralType(value) => json_to_ts_literal(value)
   }
 }
 
@@ -225,6 +226,34 @@ fn format_double_simple(v : Double) -> String {
     v.to_int().to_string()
   } else {
     v.to_string()
+  }
+}
+
+///|
+/// Convert a Json value to its TypeScript literal representation.
+fn json_to_ts_literal(json : Json) -> String {
+  match json {
+    String(s) => "\"" + s + "\""
+    Number(v, ..) =>
+      if v == v.to_int().to_double() {
+        v.to_int().to_string()
+      } else {
+        v.to_string()
+      }
+    True => "true"
+    False => "false"
+    Null => "null"
+    Array(arr) => {
+      let parts = arr.map(fn(v) { json_to_ts_literal(v) })
+      "[" + parts.join(", ") + "]"
+    }
+    Object(map) => {
+      let pairs : Array[String] = []
+      for k, v in map {
+        pairs.push("\"" + k + "\": " + json_to_ts_literal(v))
+      }
+      "{" + pairs.join(", ") + "}"
+    }
   }
 }
 
@@ -798,6 +827,7 @@ fn type_to_inline_prompt(
     IntersectionType(schemas) =>
       intersection_to_prompt_inline(schemas, indent, named_schemas)
     ObjectType(spec, _) => object_to_inline_prompt(spec, indent, named_schemas)
+    LiteralType(value) => json_to_ts_literal(value)
   }
 }
 
