@@ -789,8 +789,50 @@ fn schema_to_interface_definition_with_names(
       " " +
       object_to_inline_prompt(spec, 0, named_schemas)
     EnumType(values) => "type " + schema.name + " = " + enum_to_prompt(values)
+    UnionType(schemas) => {
+      let union_type = union_to_prompt_inline(schemas, 0, named_schemas)
+      "export type " + schema.name + " = " + union_type
+    }
+    IntersectionType(schemas) => {
+      // For intersection, we need to merge the object specs
+      let merged_spec = merge_intersection_object_specs(schemas)
+      "export interface " +
+      schema.name +
+      " " +
+      object_to_inline_prompt(merged_spec, 0, named_schemas)
+    }
+    LiteralType(value) => {
+      "export type " + schema.name + " = " + json_to_ts_literal(value)
+    }
     _ => ""
   }
+}
+
+///|
+/// Merge object specs from multiple schemas in an intersection.
+/// For intersection types that are objects, combine their fields.
+/// Recursively handles nested intersections.
+fn merge_intersection_object_specs(schemas : Array[Schema]) -> Map[String, Schema] {
+  let merged : Map[String, Schema] = {}
+
+  for s in schemas {
+    match s.schema_type {
+      ObjectType(spec, _) =>
+        for key, val_schema in spec {
+          merged.set(key, val_schema)
+        }
+      IntersectionType(nested_schemas) => {
+        // Recursively merge nested intersections
+        let nested_merged = merge_intersection_object_specs(nested_schemas)
+        for key, val_schema in nested_merged {
+          merged.set(key, val_schema)
+        }
+      }
+      _ => ()
+    }
+  }
+
+  merged
 }
 
 ///|

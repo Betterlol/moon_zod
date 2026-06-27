@@ -110,3 +110,113 @@ test "schema_to_prompt_named: optional named field" {
   // Just verify that we get both interfaces generated
   @debug.assert_eq(prompt.length() > 0, true)
 }
+
+///|
+/// Test schema_to_prompt_named: union type export
+test "schema_to_prompt_named: union type export" {
+  let home_address_schema = object({
+    "type": literal(Json::string("home")),
+    "street": string(),
+  }).name("HomeAddress")
+
+  let office_address_schema = object({
+    "type": literal(Json::string("office")),
+    "company": string(),
+  }).name("OfficeAddress")
+
+  let address_schema = union([home_address_schema, office_address_schema]).name(
+    "Address",
+  )
+
+  let prompt = schema_to_prompt_named(address_schema)
+
+  // Verify union type is exported
+  @debug.assert_eq(prompt.contains("export type Address"), true)
+  @debug.assert_eq(prompt.contains("HomeAddress | OfficeAddress"), true)
+}
+
+///|
+/// Test schema_to_prompt_named: intersection type export
+test "schema_to_prompt_named: intersection type export" {
+  let positive_schema = object({ "id": number().int().positive() })
+
+  let bounded_schema = object({ "id": number().int().max(100) })
+
+  let order_id_schema = intersection([positive_schema, bounded_schema]).name(
+    "OrderId",
+  )
+
+  let prompt = schema_to_prompt_named(order_id_schema)
+
+  // Verify intersection type is exported as interface
+  @debug.assert_eq(prompt.contains("export interface OrderId"), true)
+  @debug.assert_eq(prompt.contains("id: number"), true)
+}
+
+///|
+/// Test schema_to_prompt_named: literal type export
+test "schema_to_prompt_named: literal type export" {
+  let status_schema = literal(Json::string("active")).name("Status")
+
+  let prompt = schema_to_prompt_named(status_schema)
+
+  // Verify literal type is exported
+  @debug.assert_eq(prompt.contains("export type Status"), true)
+  @debug.assert_eq(prompt.contains("\"active\""), true)
+}
+
+///|
+/// Test schema_to_prompt_named: all schema types in one
+test "schema_to_prompt_named: complex schema with all types" {
+  // Create all 13 SchemaType variants
+  let string_schema = string().min(2).name("StringType")
+  let number_schema = number().int().name("NumberType")
+  let boolean_schema = boolean().name("BooleanType")
+  let null_schema = null().name("NullType")
+  let array_schema = array(string()).name("ArrayType")
+  let enum_schema = enum_values(["a", "b", "c"]).name("EnumType")
+  let literal_schema = literal(Json::string("x")).name("LiteralType")
+  let optional_schema = string().optional().name("OptionalType")
+  let default_schema = string().default(Json::string("default")).name("DefaultType")
+  let transform_schema = string().transform(fn(j) { Ok(j) }).name("TransformType")
+  let union_schema = union([string(), number()]).name("UnionType")
+  let intersection_schema = intersection([
+    object({ "x": number() }),
+    object({ "y": string() }),
+  ]).name("IntersectionType")
+  let object_schema = object({
+    "field1": string(),
+    "field2": number(),
+  }).name("ObjectType")
+
+  // Create a parent schema that references all of them
+  let parent = object({
+    "str": string_schema,
+    "num": number_schema,
+    "bool": boolean_schema,
+    "null": null_schema,
+    "arr": array_schema,
+    "enum": enum_schema,
+    "literal": literal_schema,
+    "optional": optional_schema,
+    "default": default_schema,
+    "transform": transform_schema,
+    "union": union_schema,
+    "intersection": intersection_schema,
+    "obj": object_schema,
+  }).name("Parent")
+
+  let prompt = schema_to_prompt_named(parent)
+
+  // Verify all named types are exported (except wrapper types like Optional/Default/Transform)
+  @debug.assert_eq(prompt.contains("StringType"), true)
+  @debug.assert_eq(prompt.contains("NumberType"), true)
+  @debug.assert_eq(prompt.contains("BooleanType"), true)
+  @debug.assert_eq(prompt.contains("NullType"), true)
+  @debug.assert_eq(prompt.contains("ArrayType"), true)
+  @debug.assert_eq(prompt.contains("EnumType"), true)
+  @debug.assert_eq(prompt.contains("LiteralType"), true)
+  @debug.assert_eq(prompt.contains("UnionType"), true)
+  @debug.assert_eq(prompt.contains("IntersectionType"), true)
+  @debug.assert_eq(prompt.contains("ObjectType"), true)
+}
