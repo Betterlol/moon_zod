@@ -44,7 +44,7 @@ pub(open) trait MoonBitStructRenderer {
 
 ///|
 /// Dispatch to the appropriate MoonBitStructRenderer method based on SchemaType.
-fn[R : MoonBitStructRenderer] render_mbt_type(
+pub fn[R : MoonBitStructRenderer] render_mbt_type(
   renderer : R,
   schema : Schema,
   indent : Int,
@@ -71,7 +71,7 @@ fn[R : MoonBitStructRenderer] render_mbt_type(
 
 ///|
 /// Named-aware version: renders a name reference if schema has a name in the list.
-fn[R : MoonBitStructRenderer] render_mbt_type_named(
+pub fn[R : MoonBitStructRenderer] render_mbt_type_named(
   renderer : R,
   schema : Schema,
   indent : Int,

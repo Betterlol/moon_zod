@@ -31,7 +31,7 @@ pub(open) trait JsonSchemaRenderer {
 
 ///|
 /// Dispatch to the appropriate JsonSchemaRenderer method based on SchemaType.
-fn[R : JsonSchemaRenderer] render_json_type(
+pub fn[R : JsonSchemaRenderer] render_json_type(
   renderer : R,
   schema : Schema,
 ) -> Json {
@@ -56,7 +56,7 @@ fn[R : JsonSchemaRenderer] render_json_type(
 
 ///|
 /// Named-aware version: emits a `$ref` if schema has a name in the list.
-fn[R : JsonSchemaRenderer] render_json_type_ref(
+pub fn[R : JsonSchemaRenderer] render_json_type_ref(
   renderer : R,
   schema : Schema,
   named_names : Array[String],

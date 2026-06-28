@@ -1,0 +1,78 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 100
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500
+    },
+    "price": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "USD",
+        "EUR",
+        "GBP",
+        "JPY",
+        "CNY"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "electronics",
+        "clothing",
+        "food",
+        "books",
+        "other"
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "stock": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "brand": {
+          "type": "string",
+          "minLength": 1
+        },
+        "weight_kg": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "brand",
+        "weight_kg"
+      ]
+    }
+  },
+  "additionalProperties": true,
+  "required": [
+    "name",
+    "description",
+    "price",
+    "currency",
+    "category",
+    "tags",
+    "stock"
+  ]
+}

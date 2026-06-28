@@ -44,7 +44,7 @@ pub(open) trait StringRenderer {
 
 ///|
 /// Dispatch to the appropriate StringRenderer method based on SchemaType.
-fn[R : StringRenderer] render_type(
+pub fn[R : StringRenderer] render_type(
   renderer : R,
   schema : Schema,
   indent : Int,
@@ -72,7 +72,7 @@ fn[R : StringRenderer] render_type(
 ///|
 /// Named-aware version: renders a name reference if the schema has a name
 /// present in the named schemas list, otherwise dispatches normally.
-fn[R : StringRenderer] render_type_named(
+pub fn[R : StringRenderer] render_type_named(
   renderer : R,
   schema : Schema,
   indent : Int,

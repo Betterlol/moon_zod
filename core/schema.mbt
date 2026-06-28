@@ -4,7 +4,7 @@ pub(all) enum ObjectMode {
   Passthrough
   Strict
   Strip
-}
+} derive(Debug)
 
 ///|
 /// Internal tag for runtime type dispatch.
@@ -22,13 +22,13 @@ pub(all) enum SchemaType {
   IntersectionType(Array[Schema])
   TransformType(Schema, TransformClosure)
   LiteralType(Json)
-}
+} derive(Debug)
 
 ///|
 /// Internal wrapper for a transform function stored in TransformType.
 pub(all) struct TransformClosure {
   f : (Json) -> Result[Json, String]
-}
+} derive(Debug)
 
 ///|
 /// A single validation rule: a predicate + error message + optional JSON Schema annotation.
@@ -36,18 +36,18 @@ pub(all) struct Rule {
   check : (Json) -> Bool
   message : String
   annotation : Json
-}
+} derive(Debug)
 
 ///|
 /// A schema defines the shape and constraints of JSON data.
-pub struct Schema {
+pub(all) struct Schema {
   schema_type : SchemaType
   rules : Array[Rule]
   description : String
   required_error : String
   invalid_type_error : String
   name : String
-}
+} derive(Debug)
 
 ///|
 /// Attach a human-readable description to a schema.

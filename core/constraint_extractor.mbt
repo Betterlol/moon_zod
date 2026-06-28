@@ -1,7 +1,7 @@
 ///|
 /// Unified constraint information extracted from Rule annotations.
 /// This data structure consolidates all constraint metadata across different types.
-pub struct ConstraintInfo {
+pub(all) struct ConstraintInfo {
   min_value : Double // For string length, number min, array minItems
   max_value : Double // For string length, number max, array maxItems
   format : String // "email", "uri", "date-time", "uuid", "ipv4", etc.

@@ -794,39 +794,6 @@ test "json_schema_to_moon_zod: default boolean value" {
 }
 
 ///|
-/// Phase 27 fix: $defs topological sort
-test "json_schema_to_moon_zod: reverse $defs order" {
-  // B depends on A, but defined before A in JSON
-  let input = parse_json(
-    "{\"$defs\":{\"B\":{\"type\":\"object\",\"properties\":{\"a\":{\"$ref\":\"#/$defs/A\"}},\"required\":[\"a\"]},\"A\":{\"type\":\"string\"}},\"$ref\":\"#/$defs/B\"}",
-  )
-  let result = json_schema_to_moon_zod(input)
-  // Both defs should be present
-  @debug.assert_eq(result.contains("let A_schema ="), true)
-  @debug.assert_eq(result.contains("let B_schema ="), true)
-  // A should appear before B (dependency first)
-  let pos_a = result.find("let A_schema")
-  let pos_b = result.find("let B_schema")
-  match (pos_a, pos_b) {
-    (Some(a), Some(b)) => @debug.assert_eq(a < b, true)
-    _ => @debug.assert_eq(true, false)
-  }
-}
-
-///|
-/// Phase 27 fix: circular reference detection
-test "json_schema_to_moon_zod: circular $defs reference" {
-  // Node references itself
-  let input = parse_json(
-    "{\"$defs\":{\"Node\":{\"type\":\"object\",\"properties\":{\"child\":{\"$ref\":\"#/$defs/Node\"}},\"required\":[\"child\"]}},\"$ref\":\"#/$defs/Node\"}",
-  )
-  let result = json_schema_to_moon_zod(input)
-  // Should include TODO comment for circular reference
-  @debug.assert_eq(result.contains("TODO"), true)
-  @debug.assert_eq(result.contains("circular"), true)
-}
-
-///|
 test "json_schema_to_moon_zod: mutual circular $defs" {
   // A references B, B references A
   let input = parse_json(

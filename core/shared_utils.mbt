@@ -7,7 +7,7 @@
 ///|
 /// Peel OptionalType / DefaultType / TransformType wrappers to find the
 /// innermost schema that carries the actual rules.
-fn unwrap_schema(schema : Schema) -> Schema {
+pub fn unwrap_schema(schema : Schema) -> Schema {
   match schema.schema_type {
     OptionalType(inner) => unwrap_schema(inner)
     DefaultType(inner, _) => unwrap_schema(inner)
@@ -18,7 +18,7 @@ fn unwrap_schema(schema : Schema) -> Schema {
 
 ///|
 /// Peel OptionalType / DefaultType wrappers to check optionality.
-fn peel_optional(schema : Schema) -> Schema {
+pub fn peel_optional(schema : Schema) -> Schema {
   match schema.schema_type {
     OptionalType(s) | DefaultType(s, _) => s
     _ => schema
@@ -27,7 +27,7 @@ fn peel_optional(schema : Schema) -> Schema {
 
 ///|
 /// Generate n * 2 spaces.
-fn indent_str(n : Int) -> String {
+pub fn indent_str(n : Int) -> String {
   let mut s = ""
   for i = 0; i < n; i = i + 1 {
     s = s + "  "
@@ -37,7 +37,7 @@ fn indent_str(n : Int) -> String {
 
 ///|
 /// Format a Double as a string, stripping ".0" for whole numbers.
-fn format_double_simple(v : Double) -> String {
+pub fn format_double_simple(v : Double) -> String {
   if v == v.to_int().to_double() {
     v.to_int().to_string()
   } else {
@@ -47,7 +47,7 @@ fn format_double_simple(v : Double) -> String {
 
 ///|
 /// Join constraint parts with ", ".
-fn join_parts(parts : Array[String]) -> String {
+pub fn join_parts(parts : Array[String]) -> String {
   let mut result = parts[0]
   for i = 1; i < parts.length(); i = i + 1 {
     result = result + ", " + parts[i]
@@ -59,7 +59,7 @@ fn join_parts(parts : Array[String]) -> String {
 
 ///|
 /// Collect all named schemas from the input schema tree.
-fn collect_named_schemas(schema : Schema) -> Array[Schema] {
+pub fn collect_named_schemas(schema : Schema) -> Array[Schema] {
   let visited : Array[String] = []
   let result : Array[Schema] = []
   collect_named_schemas_impl(schema, visited, result)
@@ -67,7 +67,7 @@ fn collect_named_schemas(schema : Schema) -> Array[Schema] {
 }
 
 ///|
-fn collect_named_schemas_impl(
+pub fn collect_named_schemas_impl(
   schema : Schema,
   visited : Array[String],
   result : Array[Schema],
@@ -106,7 +106,7 @@ fn collect_named_schemas_impl(
 
 ///|
 /// Topologically sort named schemas so dependents come before dependees.
-fn topological_sort_schemas(named_schemas : Array[Schema]) -> Array[Schema] {
+pub fn topological_sort_schemas(named_schemas : Array[Schema]) -> Array[Schema] {
   if named_schemas.is_empty() {
     return named_schemas
   }
@@ -131,7 +131,10 @@ fn topological_sort_schemas(named_schemas : Array[Schema]) -> Array[Schema] {
 
 ///|
 /// Helper: check if a name is in visited list
-fn visited_contains(visited_list : Array[(String, Int)], name : String) -> Bool {
+pub fn visited_contains(
+  visited_list : Array[(String, Int)],
+  name : String,
+) -> Bool {
   for i = 0; i < visited_list.length(); i = i + 1 {
     let (n, _status) = visited_list[i]
     if n == name {
@@ -143,7 +146,7 @@ fn visited_contains(visited_list : Array[(String, Int)], name : String) -> Bool 
 
 ///|
 /// Helper: get status from visited list (0 = unvisited by default)
-fn visited_get_status(
+pub fn visited_get_status(
   visited_list : Array[(String, Int)],
   name : String,
 ) -> Int {
@@ -158,7 +161,7 @@ fn visited_get_status(
 
 ///|
 /// Helper: set status in visited list
-fn visited_set_status(
+pub fn visited_set_status(
   visited_list : Array[(String, Int)],
   name : String,
   status : Int,
@@ -175,7 +178,7 @@ fn visited_set_status(
 
 ///|
 /// Find all named schema dependencies within a schema.
-fn find_schema_dependencies(
+pub fn find_schema_dependencies(
   schema : Schema,
   schema_map : Array[Schema],
 ) -> Array[String] {
@@ -186,7 +189,7 @@ fn find_schema_dependencies(
 }
 
 ///|
-fn find_schema_dependencies_impl(
+pub fn find_schema_dependencies_impl(
   schema : Schema,
   schema_map : Array[Schema],
   deps : Array[String],
@@ -259,7 +262,7 @@ fn find_schema_dependencies_impl(
 
 ///|
 /// DFS for topological sorting. Adds schemas to sorted list in dependency order.
-fn dfs_topo_sort(
+pub fn dfs_topo_sort(
   name : String,
   deps_list : Array[(String, Array[String])],
   visited : Array[(String, Int)],
@@ -297,7 +300,7 @@ fn dfs_topo_sort(
 /// Filter named schemas based on `include_names` optional parameter.
 /// If `include_names` is `None`, returns all schemas.
 /// If `Some(names)`, returns only schemas whose names are in the list.
-fn filter_named_schemas(
+pub fn filter_named_schemas(
   all_named : Array[Schema],
   include_names : Array[String]?,
 ) -> Array[Schema] {

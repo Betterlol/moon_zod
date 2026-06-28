@@ -42,6 +42,7 @@ fn main raise {
     let data_raw = args[3]
     let schema_json = try! @json.parse(schema_raw)
     let schema = @moon_zod.json_schema_to_schema(schema_json)
+    println("Using schema: \{@moon_zod.schema_to_moon_zod_code(schema)}")
     validate(schema, data_raw)
     return
   }
@@ -58,88 +59,9 @@ fn main raise {
 
   let sample_json = try! @json.parse(sample_raw)
 
-  let schema = infer_schema(sample_json)
-
+  let schema = @moon_zod.json_infer_schema(sample_json)
+  println("Inferred schema: \{@moon_zod.schema_to_moon_zod_code(schema)}")
   validate(schema, data_raw)
-}
-
-///|
-fn infer_schema(json : Json) -> @moon_zod.Schema {
-  json_to_schema(json, "GeneratedStruct")
-}
-
-///|
-fn json_to_schema(json : Json, name_hint : String) -> @moon_zod.Schema {
-  match json {
-    String(_) => @moon_zod.string()
-    Number(v, ..) =>
-      if v == v.to_int().to_double() {
-        @moon_zod.number().int()
-      } else {
-        @moon_zod.number()
-      }
-    True | False => @moon_zod.boolean()
-    Null => @moon_zod.null()
-    Array(elements) => {
-      let elem_schema = if elements.length() > 0 {
-        json_to_schema(elements[0], name_hint + "Element")
-      } else {
-        @moon_zod.string()
-      }
-      @moon_zod.array(elem_schema)
-    }
-    Object(map) => {
-      let fields : Map[String, @moon_zod.Schema] = {}
-      for key, val in map {
-        let field_name = auto_struct_name(key)
-        let field_schema = json_to_schema(val, field_name)
-        fields.set(key, field_schema)
-      }
-      @moon_zod.object(fields).name(name_hint)
-    }
-  }
-}
-
-///|
-fn auto_struct_name(key : String) -> String {
-  let arr = key.to_array()
-  let mut result = ""
-  let mut capitalize_next = true
-  for i = 0; i < arr.length(); i = i + 1 {
-    let c = arr[i]
-    if (c >= 'a' && c <= 'z') ||
-      (c >= 'A' && c <= 'Z') ||
-      (c >= '0' && c <= '9') {
-      if capitalize_next {
-        if c >= 'a' && c <= 'z' {
-          let code = c.to_int()
-          let upper = (code - 32).to_char()
-          match upper {
-            Some(ch) => result = result + ch.to_string()
-            None => result = result + c.to_string()
-          }
-        } else {
-          result = result + c.to_string()
-        }
-        capitalize_next = false
-      } else {
-        result = result + c.to_string()
-      }
-    } else if c == '_' || c == '-' || c == ' ' {
-      capitalize_next = true
-    }
-  }
-
-  if result.is_empty() {
-    result = "Field"
-  } else {
-    let first = result[0]
-    if !((first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z')) {
-      result = "F" + result
-    }
-  }
-
-  result
 }
 
 ///|
