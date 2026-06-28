@@ -320,3 +320,77 @@ pub fn filter_named_schemas(
     }
   }
 }
+
+///|
+/// Escape a string for use in MoonBit code, handling backslashes, quotes, newlines, and tabs.
+pub fn escape_mbt_string(s : String) -> String {
+  let mut result = ""
+  for c in s.to_array() {
+    if c == '\\' {
+      result = result + "\\\\"
+    } else if c == '"' {
+      result = result + "\\\""
+    } else if c == '\n' {
+      result = result + "\\n"
+    } else if c == '\t' {
+      result = result + "\\t"
+    } else {
+      result = result + c.to_string()
+    }
+  }
+  result
+}
+
+///|
+/// escape a string to be a valid MoonBit identifier by replacing invalid characters with underscores.
+pub fn escape_ident(name : String) -> String {
+  let arr = name.to_array()
+  let mut result = ""
+  for i = 0; i < arr.length(); i = i + 1 {
+    let c = arr[i]
+    if (c >= 'a' && c <= 'z') ||
+      (c >= 'A' && c <= 'Z') ||
+      (c >= '0' && c <= '9') ||
+      c == '_' {
+      result = result + c.to_string()
+    } else {
+      result = result + "_"
+    }
+  }
+  if result.length() > 0 && result[0] >= '0' && result[0] <= '9' {
+    result = "_" + result
+  }
+  result
+}
+
+///|
+/// escape a string to be a valid MoonBit variable name (lowercase first letter, valid identifier).
+pub fn escape_variable_name(name : String) -> String {
+  let escaped = escape_ident(name)
+  if escaped.is_empty() {
+    "var".to_string()
+  } else if escaped[0] >= 'A' && escaped[0] <= 'Z' {
+    escaped[0:1].to_string().to_lower() + escaped[1:].to_string()
+  } else {
+    escaped
+  }
+}
+
+///|
+/// escape a string to be a valid MoonBit function name (lowercase first letter, valid identifier).
+pub fn escape_function_name(name : String) -> String {
+  escape_variable_name(name)
+}
+
+///|
+/// escape a string to be a valid MoonBit type name (uppercase first letter, valid identifier).
+pub fn escape_type_name(name : String) -> String {
+  let escaped = escape_ident(name)
+  if escaped.is_empty() {
+    "Type".to_string()
+  } else if escaped[0] >= 'a' && escaped[0] <= 'z' {
+    escaped[0:1].to_string().to_upper() + escaped[1:].to_string()
+  } else {
+    escaped
+  }
+}

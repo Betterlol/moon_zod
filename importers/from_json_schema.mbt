@@ -23,7 +23,7 @@ pub fn json_schema_to_schema(schema : Json) -> Schema {
     }
   }
 
-  json_to_schema_impl(schema, defs_json, defs_cache)
+  json_to_schema_impl(schema, defs_json, defs_cache, visiting)
 }
 
 ///|
@@ -46,7 +46,7 @@ fn process_json_def(
   visiting.push(name)
   match defs_json.get(name) {
     Some(def) => {
-      let schema = json_to_schema_impl(def, defs_json, cache)
+      let schema = json_to_schema_impl(def, defs_json, cache, visiting)
       cache.set(name, schema.name(name))
     }
     None => ()
@@ -66,6 +66,7 @@ fn json_to_schema_impl(
   json : Json,
   defs_json : Map[String, Json],
   defs_cache : Map[String, Schema],
+  visiting : Array[String],
 ) -> Schema {
   match json {
     Object(m) => {
@@ -75,7 +76,24 @@ fn json_to_schema_impl(
           let ref_name = parse_ref_name(ref_str)
           match defs_cache.get(ref_name) {
             Some(s) => return s
-            None => return string()
+            None =>
+              // Ref not yet processed, check for forward ref or cycle
+              match defs_json.get(ref_name) {
+                Some(def) => {
+                  // Check if this would create a cycle
+                  if value_in_array(ref_name, visiting) {
+                    // Cycle detected
+                    return null().name(ref_name)
+                  }
+                  // Process the forward ref
+                  process_json_def(ref_name, defs_json, defs_cache, visiting)
+                  match defs_cache.get(ref_name) {
+                    Some(s) => return s
+                    None => return string()
+                  }
+                }
+                None => return string()
+              }
           }
         }
         _ => ()
@@ -112,7 +130,7 @@ fn json_to_schema_impl(
                 let required_set = parse_required(m.get("required"))
                 for key, field_json in props {
                   let mut field = json_to_schema_impl(
-                    field_json, defs_json, defs_cache,
+                    field_json, defs_json, defs_cache, visiting,
                   )
                   if !required_set.contains(key) {
                     field = field.optional()
@@ -125,7 +143,8 @@ fn json_to_schema_impl(
             }
           Some(String("array")) => {
             let elem = match m.get("items") {
-              Some(items) => json_to_schema_impl(items, defs_json, defs_cache)
+              Some(items) =>
+                json_to_schema_impl(items, defs_json, defs_cache, visiting)
               None => string()
             }
             array(elem)
@@ -144,7 +163,7 @@ fn json_to_schema_impl(
       match m.get("anyOf") {
         Some(Array(schemas)) => {
           let parts = schemas.map(fn(s) {
-            json_to_schema_impl(s, defs_json, defs_cache)
+            json_to_schema_impl(s, defs_json, defs_cache, visiting)
           })
           return union(parts)
         }
@@ -153,7 +172,7 @@ fn json_to_schema_impl(
       match m.get("allOf") {
         Some(Array(schemas)) => {
           let parts = schemas.map(fn(s) {
-            json_to_schema_impl(s, defs_json, defs_cache)
+            json_to_schema_impl(s, defs_json, defs_cache, visiting)
           })
           return intersection(parts)
         }
@@ -162,7 +181,7 @@ fn json_to_schema_impl(
       match m.get("oneOf") {
         Some(Array(schemas)) => {
           let parts = schemas.map(fn(s) {
-            json_to_schema_impl(s, defs_json, defs_cache)
+            json_to_schema_impl(s, defs_json, defs_cache, visiting)
           })
           return union(parts)
         }
@@ -290,62 +309,8 @@ fn apply_json_schema_constraints(
 /// ```
 pub fn json_schema_to_moon_zod(schema : Json) -> String {
   let schema_obj = json_schema_to_schema(schema)
-
-  // Collect and sort named schemas
-  let named = collect_named_schemas(schema_obj)
-  let sorted_named = topological_sort_schemas(named)
-
-  let mut result = ""
-
-  // Build list of defined schema names for reference generation
-  let defined_names : Array[String] = []
-  for s in sorted_named {
-    defined_names.push(s.name)
-  }
-
-  // Output named schema definitions
-  if sorted_named.length() > 0 {
-    let defs_output : Array[String] = []
-    for s in sorted_named {
-      // When defining a schema, exclude its own name to prevent self-reference
-      let deps_names : Array[String] = []
-      for name in defined_names {
-        if name != s.name {
-          deps_names.push(name)
-        }
-      }
-      let code = schema_to_moon_zod_code_with_names(s, deps_names)
-      let has_cycle = has_circular_ref(s)
-      let comment = if has_cycle {
-        "  /* TODO: circular reference — manual fix needed */"
-      } else {
-        ""
-      }
-      defs_output.push(
-        "let " +
-        escape_ident(s.name) +
-        "_schema = " +
-        code +
-        ".name(\"" +
-        escape_mbt_string(s.name) +
-        "\")" +
-        comment,
-      )
-    }
-    result = join_lines(defs_output) + "\n\n"
-  }
-
-  // Output root schema
-  let root_code = if !schema_obj.name.is_empty() &&
-    value_in_array(schema_obj.name, defined_names) {
-    // Root is a named schema already defined above
-    escape_ident(schema_obj.name) + "_schema"
-  } else {
-    // Root is inline, but use the defined_names list so it can reference defined schemas
-    schema_to_moon_zod_code_with_names(schema_obj, defined_names)
-  }
-
-  result + root_code
+  let named_defs = schema_to_moon_zod_code_named(schema_obj)
+  named_defs
 }
 
 // ─── Utility functions ───

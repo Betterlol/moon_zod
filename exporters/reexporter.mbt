@@ -55,5 +55,5 @@ pub using @core {
   escape_ident,
   parse_json,
   schema_to_moon_zod_code,
-  schema_to_moon_zod_code_with_names,
+  schema_to_moon_zod_code_named,
 }

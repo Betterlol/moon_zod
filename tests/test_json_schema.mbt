@@ -552,31 +552,31 @@ test "to_json_schema_named with include_names: non-existent name" {
 /// Phase 27 — json_schema_to_moon_zod
 test "json_schema_to_moon_zod: basic string type" {
   let result = json_schema_to_moon_zod(parse_json("{\"type\":\"string\"}"))
-  @debug.assert_eq(result, "@moon_zod.string()")
+  @debug.assert_eq(result.contains("@moon_zod.string()"), true)
 }
 
 ///|
 test "json_schema_to_moon_zod: basic number type" {
   let result = json_schema_to_moon_zod(parse_json("{\"type\":\"number\"}"))
-  @debug.assert_eq(result, "@moon_zod.number()")
+  @debug.assert_eq(result.contains("@moon_zod.number()"), true)
 }
 
 ///|
 test "json_schema_to_moon_zod: integer type" {
   let result = json_schema_to_moon_zod(parse_json("{\"type\":\"integer\"}"))
-  @debug.assert_eq(result, "@moon_zod.number().int()")
+  @debug.assert_eq(result.contains("@moon_zod.number().int()"), true)
 }
 
 ///|
 test "json_schema_to_moon_zod: boolean type" {
   let result = json_schema_to_moon_zod(parse_json("{\"type\":\"boolean\"}"))
-  @debug.assert_eq(result, "@moon_zod.boolean()")
+  @debug.assert_eq(result.contains("@moon_zod.boolean()"), true)
 }
 
 ///|
 test "json_schema_to_moon_zod: null type" {
   let result = json_schema_to_moon_zod(parse_json("{\"type\":\"null\"}"))
-  @debug.assert_eq(result, "@moon_zod.null()")
+  @debug.assert_eq(result.contains("@moon_zod.null()"), true)
 }
 
 ///|
@@ -596,7 +596,7 @@ test "json_schema_to_moon_zod: array type" {
   let result = json_schema_to_moon_zod(
     parse_json("{\"type\":\"array\",\"items\":{\"type\":\"string\"}}"),
   )
-  @debug.assert_eq(result, "@moon_zod.array(@moon_zod.string())")
+  @debug.assert_eq(result.contains("@moon_zod.array(@moon_zod.string())"), true)
 }
 
 ///|
@@ -605,7 +605,10 @@ test "json_schema_to_moon_zod: enum type" {
     parse_json("{\"type\":\"string\",\"enum\":[\"a\",\"b\",\"c\"]}"),
   )
   // enum should take priority over type
-  @debug.assert_eq(result, "@moon_zod.enum_values([\"a\", \"b\", \"c\"])")
+  @debug.assert_eq(
+    result.contains("@moon_zod.enum_values([\"a\", \"b\", \"c\"])"),
+    true,
+  )
 }
 
 ///|
@@ -613,7 +616,7 @@ test "json_schema_to_moon_zod: string with constraints" {
   let result = json_schema_to_moon_zod(
     parse_json("{\"type\":\"string\",\"minLength\":3,\"maxLength\":100}"),
   )
-  @debug.assert_eq(result, "@moon_zod.string().min(3).max(100)")
+  @debug.assert_eq(result.contains("@moon_zod.string().min(3).max(100)"), true)
 }
 
 ///|
@@ -621,7 +624,7 @@ test "json_schema_to_moon_zod: number with constraints" {
   let result = json_schema_to_moon_zod(
     parse_json("{\"type\":\"number\",\"minimum\":0,\"maximum\":150}"),
   )
-  @debug.assert_eq(result, "@moon_zod.number().min(0).max(150)")
+  @debug.assert_eq(result.contains("@moon_zod.number().min(0).max(150)"), true)
 }
 
 ///|
@@ -629,7 +632,7 @@ test "json_schema_to_moon_zod: email format" {
   let result = json_schema_to_moon_zod(
     parse_json("{\"type\":\"string\",\"format\":\"email\"}"),
   )
-  @debug.assert_eq(result, "@moon_zod.string().email()")
+  @debug.assert_eq(result.contains("@moon_zod.string().email()"), true)
 }
 
 ///|
@@ -637,7 +640,7 @@ test "json_schema_to_moon_zod: uri format" {
   let result = json_schema_to_moon_zod(
     parse_json("{\"type\":\"string\",\"format\":\"uri\"}"),
   )
-  @debug.assert_eq(result, "@moon_zod.string().url()")
+  @debug.assert_eq(result.contains("@moon_zod.string().url()"), true)
 }
 
 ///|
@@ -646,7 +649,8 @@ test "json_schema_to_moon_zod: anyOf type" {
     parse_json("{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"}]}"),
   )
   @debug.assert_eq(
-    result, "@moon_zod.union([@moon_zod.string(), @moon_zod.number()])",
+    result.contains("@moon_zod.union([@moon_zod.string(), @moon_zod.number()])"),
+    true,
   )
 }
 
@@ -656,7 +660,10 @@ test "json_schema_to_moon_zod: allOf type" {
     parse_json("{\"allOf\":[{\"type\":\"string\"},{\"type\":\"number\"}]}"),
   )
   @debug.assert_eq(
-    result, "@moon_zod.intersection([@moon_zod.string(), @moon_zod.number()])",
+    result.contains(
+      "@moon_zod.intersection([@moon_zod.string(), @moon_zod.number()])",
+    ),
+    true,
   )
 }
 
@@ -666,9 +673,12 @@ test "json_schema_to_moon_zod: $defs with $ref" {
     "{\"$defs\":{\"Address\":{\"type\":\"object\",\"properties\":{\"street\":{\"type\":\"string\"}},\"required\":[\"street\"]}},\"$ref\":\"#/$defs/Address\"}",
   )
   let result = json_schema_to_moon_zod(input)
-  @debug.assert_eq(result.contains("let Address_schema ="), true)
-  @debug.assert_eq(result.contains(".name(\"Address\")"), true)
-  @debug.assert_eq(result.contains("Address_schema"), true)
+  @debug.assert_eq(
+    result.contains(
+      "let address = @moon_zod.object({ \"street\": @moon_zod.string() }).name(\"Address\")",
+    ),
+    true,
+  )
 }
 
 ///|
@@ -677,8 +687,18 @@ test "json_schema_to_moon_zod: object field with $ref" {
     "{\"$defs\":{\"Address\":{\"type\":\"object\",\"properties\":{\"street\":{\"type\":\"string\"}},\"required\":[\"street\"]}},\"type\":\"object\",\"properties\":{\"user\":{\"$ref\":\"#/$defs/Address\"}},\"required\":[\"user\"]}",
   )
   let result = json_schema_to_moon_zod(input)
-  @debug.assert_eq(result.contains("let Address_schema ="), true)
-  @debug.assert_eq(result.contains("\"user\": Address_schema"), true)
+  @debug.assert_eq(
+    result.contains(
+      "let address = @moon_zod.object({ \"street\": @moon_zod.string() }).name(\"Address\")",
+    ),
+    true,
+  )
+  @debug.assert_eq(
+    result.contains(
+      "let root = @moon_zod.object({ \"user\": address }).name(\"Root\")",
+    ),
+    true,
+  )
 }
 
 ///|
@@ -686,7 +706,10 @@ test "json_schema_to_moon_zod: pattern constraint" {
   let result = json_schema_to_moon_zod(
     parse_json("{\"type\":\"string\",\"pattern\":\"^[a-z]+$\"}"),
   )
-  @debug.assert_eq(result, "@moon_zod.string().regex(\"^[a-z]+$\")")
+  @debug.assert_eq(
+    result.contains("@moon_zod.string().regex(\"^[a-z]+$\")"),
+    true,
+  )
 }
 
 ///|
@@ -696,7 +719,10 @@ test "json_schema_to_moon_zod: array with minItems" {
       "{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"minItems\":1}",
     ),
   )
-  @debug.assert_eq(result, "@moon_zod.array(@moon_zod.string()).min(1)")
+  @debug.assert_eq(
+    result.contains("@moon_zod.array(@moon_zod.string()).min(1)"),
+    true,
+  )
 }
 
 ///|
@@ -704,7 +730,7 @@ test "json_schema_to_moon_zod: exclusive minimum (positive)" {
   let result = json_schema_to_moon_zod(
     parse_json("{\"type\":\"number\",\"exclusiveMinimum\":0}"),
   )
-  @debug.assert_eq(result, "@moon_zod.number().positive()")
+  @debug.assert_eq(result.contains("@moon_zod.number().positive()"), true)
 }
 
 ///|
@@ -712,7 +738,7 @@ test "json_schema_to_moon_zod: exclusive maximum (negative)" {
   let result = json_schema_to_moon_zod(
     parse_json("{\"type\":\"number\",\"exclusiveMaximum\":0}"),
   )
-  @debug.assert_eq(result, "@moon_zod.number().negative()")
+  @debug.assert_eq(result.contains("@moon_zod.number().negative()"), true)
 }
 
 ///|
@@ -720,7 +746,7 @@ test "json_schema_to_moon_zod: multipleOf constraint" {
   let result = json_schema_to_moon_zod(
     parse_json("{\"type\":\"number\",\"multipleOf\":5}"),
   )
-  @debug.assert_eq(result, "@moon_zod.number().multipleOf(5)")
+  @debug.assert_eq(result.contains("@moon_zod.number().multipleOf(5)"), true)
 }
 
 ///|
@@ -739,7 +765,7 @@ test "json_schema_to_moon_zod: empty object" {
   let result = json_schema_to_moon_zod(
     parse_json("{\"type\":\"object\",\"properties\":{}}"),
   )
-  @debug.assert_eq(result, "@moon_zod.object({})")
+  @debug.assert_eq(result.contains("@moon_zod.object({})"), true)
 }
 
 ///|
@@ -748,7 +774,10 @@ test "json_schema_to_moon_zod: oneOf treated as union" {
     parse_json("{\"oneOf\":[{\"type\":\"string\"},{\"type\":\"boolean\"}]}"),
   )
   @debug.assert_eq(
-    result, "@moon_zod.union([@moon_zod.string(), @moon_zod.boolean()])",
+    result.contains(
+      "@moon_zod.union([@moon_zod.string(), @moon_zod.boolean()])",
+    ),
+    true,
   )
 }
 
@@ -758,7 +787,7 @@ test "json_schema_to_moon_zod: definitions alias for $defs" {
     "{\"definitions\":{\"Item\":{\"type\":\"string\"}},\"$ref\":\"#/definitions/Item\"}",
   )
   let result = json_schema_to_moon_zod(input)
-  @debug.assert_eq(result.contains("let Item_schema ="), true)
+  @debug.assert_eq(result.contains("let item = "), true)
   @debug.assert_eq(result.contains(".name(\"Item\")"), true)
 }
 
@@ -800,9 +829,8 @@ test "json_schema_to_moon_zod: mutual circular $defs" {
     "{\"$defs\":{\"A\":{\"$ref\":\"#/$defs/B\"},\"B\":{\"$ref\":\"#/$defs/A\"}},\"$ref\":\"#/$defs/A\"}",
   )
   let result = json_schema_to_moon_zod(input)
-  // Should include TODO comment for circular reference
-  @debug.assert_eq(result.contains("TODO"), true)
-  @debug.assert_eq(result.contains("circular"), true)
+  // Circular refs are replaced with null schema placeholders
+  @debug.assert_eq(result.contains("null()"), true)
 }
 
 ///|

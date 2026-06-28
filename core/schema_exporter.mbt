@@ -2,50 +2,128 @@
 /// **Schema → moon_zod source code**
 ///
 /// Convert Schema objects to moon_zod method chain source code.
-/// This is the unified code generation layer used by multiple exporters.
+/// Supports inline expansion and named schema references.
 
 ///|
-/// Generate moon_zod source code from a Schema object.
+/// Generate moon_zod source code from a Schema object (inline expansion).
 ///
 /// # Example
 /// ```mbt nocheck
-/// let schema = @moon_zod.string().min(3)
+/// let schema = @moon_zod.string().min(3).describe("username")
 ///
 /// let code = schema_to_moon_zod_code(schema)
-/// // "@moon_zod.string().min(3)"
+/// // "@moon_zod.string().min(3).describe(\"username\")"
 /// ```
 pub fn schema_to_moon_zod_code(schema : Schema) -> String {
-  schema_to_moon_zod_code_with_refs(schema, [])
+  let schema_name = if schema.name.is_empty() { "Root" } else { schema.name }
+  let code = schema_to_moon_zod_code_inline(schema, None)
+  let result = "let " +
+    escape_variable_name(schema_name) +
+    " = " +
+    code +
+    ".name(" +
+    escape_mbt_string(schema_name) +
+    ")"
+  result
 }
 
 ///|
-/// Generate code with support for a set of defined named schemas.
-/// When a schema's name is in defined_names, outputs reference instead of inline code.
+/// Generate code with optional support for named schema references.
+///
+/// If `include_names` is None, renders all schemas inline.
+/// If `include_names` is Some(names), replaces references to named schemas with variable names.
+///
+/// For use with `schema_to_moon_zod_code_named()` which produces separate definitions.
 pub fn schema_to_moon_zod_code_with_names(
   schema : Schema,
-  defined_names : Array[String],
+  include_names : Array[String]?,
 ) -> String {
-  schema_to_moon_zod_code_with_refs(schema, defined_names)
+  schema_to_moon_zod_code_inline(schema, include_names)
 }
 
 ///|
-/// Generate code with support for named schema references.
-/// When a schema's name is in defined_names, outputs reference instead of inline code.
-fn schema_to_moon_zod_code_with_refs(
+/// Generate separate named schema definitions and return as newline-separated list.
+///
+/// # Example
+/// ```
+/// let named_list = schema_to_moon_zod_code_named(root_schema, None)
+/// // Returns:
+/// // "User: @moon_zod.object({ ... }).name(\"User\")\n
+/// //  Profile: @moon_zod.object({ ... }).name(\"Profile\")"
+/// ```
+pub fn schema_to_moon_zod_code_named(
   schema : Schema,
-  defined_names : Array[String],
+  include_names? : Array[String]? = None,
 ) -> String {
-  // If this schema has a name and it's defined, use reference
+  let mut schema = schema
+  if schema.name.is_empty() {
+    schema = schema.name("Root")
+  }
+  let all_named = collect_named_schemas(schema)
+  let selected = filter_named_schemas(all_named, include_names)
+  let sorted = topological_sort_schemas(selected)
+
+  let defined_names = selected.map(fn(x) { x.name })
+  let mut result = ""
+  for s in sorted {
+    if !s.name.is_empty() {
+      let self_names = defined_names.filter(fn(n) { n != s.name })
+      let code = schema_to_moon_zod_code_inline(s, Some(self_names))
+      if !result.is_empty() {
+        result = result + "\n"
+      }
+      let line = "let " +
+        escape_variable_name(s.name) +
+        " = " +
+        code +
+        ".name(\"" +
+        escape_mbt_string(s.name) +
+        "\")"
+      result = result + line
+    }
+  }
+  result
+}
+
+///|
+/// Internal: Generate code with optional named schema reference support.
+fn schema_to_moon_zod_code_inline(
+  schema : Schema,
+  include_names : Array[String]?,
+) -> String {
+  let defined_names = match include_names {
+    None => []
+    Some(names) => names
+  }
+
+  // If this schema has a name and it's in the defined_names list, use reference
   if !schema.name.is_empty() && value_in_array(schema.name, defined_names) {
-    return escape_ident(schema.name) + "_schema"
+    return escape_variable_name(schema.name)
   }
 
   let base = schema_type_to_code(schema.schema_type, defined_names)
   let mut result = apply_rules_to_code(base, schema)
 
-  // If schema has a name but it's not in defined_names, append .named()
-  if !schema.name.is_empty() && !value_in_array(schema.name, defined_names) {
-    result = result + ".named('" + escape_mbt_string(schema.name) + "')"
+  // Apply description if present
+  if !schema.description.is_empty() {
+    result = result +
+      ".describe(\"" +
+      escape_mbt_string(schema.description) +
+      "\")"
+  }
+
+  // Apply type-level error messages if present
+  if !schema.required_error.is_empty() {
+    result = result +
+      ".required_error(\"" +
+      escape_mbt_string(schema.required_error) +
+      "\")"
+  }
+  if !schema.invalid_type_error.is_empty() {
+    result = result +
+      ".invalid_type_error(\"" +
+      escape_mbt_string(schema.invalid_type_error) +
+      "\")"
   }
 
   result
@@ -62,27 +140,36 @@ fn schema_type_to_code(
     NumberType => "@moon_zod.number()"
     BooleanType => "@moon_zod.boolean()"
     NullType => "@moon_zod.null()"
-    ObjectType(fields, _mode) => {
-      if fields.length() == 0 {
-        return "@moon_zod.object({})"
+    ObjectType(fields, mode) => {
+      let base = if fields.length() == 0 {
+        "@moon_zod.object({})"
+      } else {
+        let parts : Array[String] = []
+        for key, field_schema in fields {
+          let field_code = schema_to_moon_zod_code_inline(
+            field_schema,
+            Some(defined_names),
+          )
+          parts.push("\"" + escape_mbt_string(key) + "\": " + field_code)
+        }
+        "@moon_zod.object({ " + join_with(parts, ", ") + " })"
       }
-      let parts : Array[String] = []
-      for key, field_schema in fields {
-        let field_code = schema_to_moon_zod_code_with_refs(
-          field_schema, defined_names,
-        )
-        parts.push("\"" + escape_mbt_string(key) + "\": " + field_code)
+
+      // Apply object mode if not default Strip
+      match mode {
+        Strip => base
+        Passthrough => base + ".passthrough()"
+        Strict => base + ".strict()"
       }
-      "@moon_zod.object({ " + join_with(parts, ", ") + " })"
     }
     ArrayType(elem) => {
-      let elem_code = schema_to_moon_zod_code_with_refs(elem, defined_names)
+      let elem_code = schema_to_moon_zod_code_inline(elem, Some(defined_names))
       "@moon_zod.array(" + elem_code + ")"
     }
     OptionalType(inner) =>
-      schema_to_moon_zod_code_with_refs(inner, defined_names) + ".optional()"
+      schema_to_moon_zod_code_inline(inner, Some(defined_names)) + ".optional()"
     DefaultType(inner, default_val) =>
-      schema_to_moon_zod_code_with_refs(inner, defined_names) +
+      schema_to_moon_zod_code_inline(inner, Some(defined_names)) +
       ".default(" +
       json_to_literal(default_val) +
       ")"
@@ -96,26 +183,28 @@ fn schema_type_to_code(
     UnionType(schemas) => {
       let parts : Array[String] = []
       for s in schemas {
-        parts.push(schema_to_moon_zod_code_with_refs(s, defined_names))
+        parts.push(schema_to_moon_zod_code_inline(s, Some(defined_names)))
       }
       "@moon_zod.union([" + join_with(parts, ", ") + "])"
     }
     IntersectionType(schemas) => {
       let parts : Array[String] = []
       for s in schemas {
-        parts.push(schema_to_moon_zod_code_with_refs(s, defined_names))
+        parts.push(schema_to_moon_zod_code_inline(s, Some(defined_names)))
       }
       "@moon_zod.intersection([" + join_with(parts, ", ") + "])"
     }
     LiteralType(val) => "@moon_zod.literal(" + json_to_literal(val) + ")"
     TransformType(inner, _) =>
-      schema_to_moon_zod_code_with_refs(inner, defined_names) +
+      schema_to_moon_zod_code_inline(inner, Some(defined_names)) +
       ".transform(fn(x) { x })"
   }
 }
 
 ///|
 /// Apply rules as method chain.
+/// Note: Only outputs constraint annotations, not rule messages,
+/// since rule.message may be auto-generated defaults.
 fn apply_rules_to_code(base : String, schema : Schema) -> String {
   let mut result = base
   let mut has_int_type = false
@@ -258,46 +347,6 @@ fn json_to_literal(val : Json) -> String {
       "Json::object({" + join_with(parts, ", ") + "})"
     }
   }
-}
-
-///|
-pub fn escape_mbt_string(s : String) -> String {
-  let mut result = ""
-  for c in s.to_array() {
-    if c == '\\' {
-      result = result + "\\\\"
-    } else if c == '"' {
-      result = result + "\\\""
-    } else if c == '\n' {
-      result = result + "\\n"
-    } else if c == '\t' {
-      result = result + "\\t"
-    } else {
-      result = result + c.to_string()
-    }
-  }
-  result
-}
-
-///|
-pub fn escape_ident(name : String) -> String {
-  let arr = name.to_array()
-  let mut result = ""
-  for i = 0; i < arr.length(); i = i + 1 {
-    let c = arr[i]
-    if (c >= 'a' && c <= 'z') ||
-      (c >= 'A' && c <= 'Z') ||
-      (c >= '0' && c <= '9') ||
-      c == '_' {
-      result = result + c.to_string()
-    } else {
-      result = result + "_"
-    }
-  }
-  if result.length() > 0 && result[0] >= '0' && result[0] <= '9' {
-    result = "_" + result
-  }
-  result
 }
 
 ///|
