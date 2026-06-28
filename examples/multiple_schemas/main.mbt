@@ -23,7 +23,7 @@ fn main {
   }
 }
 
-///| 
+///|
 /// to show 3 different ways to generate json schema
 fn show_json() -> Unit {
   let json_schema = show_json_schema()
@@ -39,7 +39,7 @@ fn show_json() -> Unit {
   println("\n======================\n")
 }
 
-///| 
+///|
 /// to show 3 different ways to generate TypeScript interface
 fn show_ts() -> Unit {
   let ts_interface = show_ts_interface()

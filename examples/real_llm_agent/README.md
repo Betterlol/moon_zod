@@ -86,4 +86,15 @@ moon run examples/real_llm_agent -- product prompt
 
 # Validate JSON
 moon run examples/real_llm_agent -- product validate '{"name":"Widget","description":"A useful gadget","price":9.99,"currency":"USD","category":"electronics","tags":["gadget"],"stock":100}'
+
+# for wrong Json:
+moon run examples/real_llm_agent -- product validate '{"name":"Widget","description":"A useful gadget","price":999,"currency":"US","category":"electron","tags":["gadget"],"stock":100, "metadata": {"brand": 2}}'
+
+# Result:
+# ERR
+# 4
+# [currency] Invalid enum value (got: String("US"))
+# [category] Invalid enum value (got: String("electron"))
+# [metadata.brand] Expected string (got: Number(2))
+# [metadata.weight_kg] Required (got: Null)
 ```
