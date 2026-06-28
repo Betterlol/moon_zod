@@ -24,6 +24,40 @@ The generator recursively infers types (`string`, `number`, `boolean`, `null`, `
 
 ---
 
+### JSON Schema Reverse Importer (CLI)
+
+Generate `@moon_zod` schema code from a standard **JSON Schema (draft-07)** definition — the inverse of `to_json_schema()`.
+
+```bash
+moon run cmd/json2schema -- --from-json-schema '{
+  "type": "object",
+  "properties": {
+    "name": {"type": "string", "minLength": 2},
+    "age": {"type": "integer", "minimum": 0, "maximum": 150}
+  },
+  "required": ["name", "age"]
+}'
+```
+
+Output:
+
+```moonbit
+@moon_zod.object({
+  "name": @moon_zod.string().min(2),
+  "age": @moon_zod.number().int().min(0).max(150),
+})
+```
+
+**Features**:
+- Converts all JSON Schema types (string, number, integer, boolean, null, array, object)
+- Extracts constraints: `minLength`, `maxLength`, `minimum`, `maximum`, `multipleOf`, `pattern`, `format` (email, uri, date-time, ipv4, ipv6, uuid)
+- Handles `$defs` and `$ref` references — generates separate named schema declarations
+- Supports `enum` and `oneOf` / `anyOf` / `allOf`
+- Fields not in `required` auto-wrapped with `.optional()`
+- Outputs **copy-paste-ready MoonBit source code**
+
+---
+
 ### MoonBit Struct Generator (CLI)
 
 Generate MoonBit struct definitions from any JSON sample — struct definitions + `from_json()` functions for type-safe conversion.

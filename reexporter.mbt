@@ -58,7 +58,6 @@ pub using @core {
   schema_to_moon_zod_code_with_names,
 }
 
-
 ///|
 pub using @exporters {
   trait JsonSchemaRenderer,
@@ -75,7 +74,5 @@ pub using @exporters {
   schema_to_prompt_named,
 }
 
-pub using @importers {
-  json_schema_to_moon_zod,
-  json_schema_to_schema,
-}
+///|
+pub using @importers {json_schema_to_moon_zod, json_schema_to_schema}

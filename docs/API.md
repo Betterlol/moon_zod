@@ -11,6 +11,7 @@
 | `array(Schema, required_error?, invalid_type_error?)` | Validates arrays, recursively checking elements |
 | `object(Map[String, Schema], required_error?, invalid_type_error?)` | Validates objects. **Default: Strip mode** |
 | `enum_values(Array[String], required_error?, invalid_type_error?)` | Fixed set of allowed string values |
+| `literal(Json, required_error?, invalid_type_error?)` | **NEW**: Constant value validation — only accepts exact JSON match (string, number, boolean, null, array, or object) |
 | `union(Array[Schema], required_error?, invalid_type_error?)` | Union type — passes if any schema matches |
 | `intersection(Array[Schema], required_error?, invalid_type_error?)` | Intersection — passes if all schemas match; object fields are merged |
 
@@ -61,14 +62,15 @@
 | Function | Description |
 |---|---|
 | `schema_to_prompt(Schema)` | Generate TypeScript-interface prompt string for LLM (with constraint comments) — inline expansion |
-| `schema_to_prompt_named(Schema)` | Generate modular TypeScript interfaces from named schemas with topological sorting and type name references — for complex, nested LLM tool schemas |
+| `schema_to_prompt_named(Schema, include_names?)` | Generate modular TypeScript interfaces from named schemas with topological sorting and type name references — for complex, nested LLM tool schemas |
 | `to_json_schema(Schema)` | Export standard JSON Schema object with full constraint annotations |
 | `to_json_schema_skeleton(Schema)` | Export lightweight JSON Schema skeleton (structure only, no constraints) |
-| `to_json_schema_named(Schema)` | Export named schemas as separate JSON Schema definitions with `$defs` |
+| `to_json_schema_named(Schema, include_names?)` | Export named schemas as separate JSON Schema definitions with `$defs` and `$ref` |
+| `json_schema_to_moon_zod(Json)` | **NEW**: Reverse-generate moon_zod schema source code from a JSON Schema object; supports `$defs`, `$ref`, constraints, format validation |
 | `schema_to_moonbit_struct(Schema)` | Generate MoonBit struct definition (type name, fields, constraints) from ObjectType/EnumType |
 | `schema_to_moonbit_struct_full(Schema)` | Generate struct definition + `from_json()` function for type-safe JSON → struct conversion |
-| `schema_to_moonbit_struct_named(Schema)` | Same as `schema_to_moonbit_struct()` but extracts and topologically sorts all nested named schemas |
-| `schema_to_moonbit_struct_named_full(Schema)` | Same as `schema_to_moonbit_struct_full()` but extracts all nested named schemas |
+| `schema_to_moonbit_struct_named(Schema, include_names?)` | Same as `schema_to_moonbit_struct()` but extracts and topologically sorts all nested named schemas |
+| `schema_to_moonbit_struct_named_full(Schema, include_names?)` | Same as `schema_to_moonbit_struct_full()` but extracts all nested named schemas |
 | `format_path(Array[String])` | Join path stack to dot-notation string |
 | `ValidationError::to_string()` | Format error as `[path] message (got: value)` |
 

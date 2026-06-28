@@ -11,6 +11,7 @@
 | `array(Schema, required_error?, invalid_type_error?)` | 校验数组，递归检查元素 |
 | `object(Map[String, Schema], required_error?, invalid_type_error?)` | 校验对象。**默认：Strip 模式** |
 | `enum_values(Array[String], required_error?, invalid_type_error?)` | 固定的允许字符串值集合 |
+| `literal(Json, required_error?, invalid_type_error?)` | **新增**：常量值校验 — 仅接受精确的 JSON 匹配（字符串、数字、布尔值、null、数组或对象） |
 | `union(Array[Schema], required_error?, invalid_type_error?)` | 联合类型 — 如果任何 schema 匹配则通过 |
 | `intersection(Array[Schema], required_error?, invalid_type_error?)` | 交集 — 如果所有 schema 都匹配则通过；对象字段被合并 |
 
@@ -61,14 +62,15 @@
 | 函数 | 描述 |
 |---|---|
 | `schema_to_prompt(Schema)` | 为 LLM 生成 TypeScript 接口提示字符串（含约束注释） — 内联展开 |
-| `schema_to_prompt_named(Schema)` | 从命名 schema 生成模块化 TypeScript 接口，含拓扑排序和类型名称引用 — 用于复杂、嵌套的 LLM 工具 schema |
+| `schema_to_prompt_named(Schema, include_names?)` | 从命名 schema 生成模块化 TypeScript 接口，含拓扑排序和类型名称引用 — 用于复杂、嵌套的 LLM 工具 schema |
 | `to_json_schema(Schema)` | 导出标准 JSON Schema 对象，含完整约束注解 |
 | `to_json_schema_skeleton(Schema)` | 导出轻量级 JSON Schema 骨架（仅结构，无约束） |
-| `to_json_schema_named(Schema)` | 导出命名 schema 为独立的 JSON Schema 定义，含 `$defs` |
+| `to_json_schema_named(Schema, include_names?)` | 导出命名 schema 为独立的 JSON Schema 定义，含 `$defs` 和 `$ref` 引用 |
+| `json_schema_to_moon_zod(Json)` | **新增**：反向生成 moon_zod Schema 源代码；完整支持 `$defs`、`$ref`、约束、格式验证 |
 | `schema_to_moonbit_struct(Schema)` | 从 ObjectType/EnumType 生成 MoonBit 结构体定义（类型名、字段、约束） |
 | `schema_to_moonbit_struct_full(Schema)` | 生成结构体定义 + `from_json()` 函数用于类型安全的 JSON → 结构体转换 |
-| `schema_to_moonbit_struct_named(Schema)` | 同 `schema_to_moonbit_struct()`，但提取并拓扑排序所有嵌套命名 schema |
-| `schema_to_moonbit_struct_named_full(Schema)` | 同 `schema_to_moonbit_struct_full()`，但提取所有嵌套命名 schema |
+| `schema_to_moonbit_struct_named(Schema, include_names?)` | 同 `schema_to_moonbit_struct()`，但提取并拓扑排序所有嵌套命名 schema |
+| `schema_to_moonbit_struct_named_full(Schema, include_names?)` | 同 `schema_to_moonbit_struct_full()`，但提取所有嵌套命名 schema |
 | `format_path(Array[String])` | 将路径栈连接为点号记号字符串 |
 | `ValidationError::to_string()` | 将错误格式化为 `[path] message (got: value)` |
 

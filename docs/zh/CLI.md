@@ -24,6 +24,40 @@ Object({hello: String(world)})
 
 ---
 
+### JSON Schema 反向导入器 (CLI)
+
+从标准 **JSON Schema (draft-07)** 定义生成 `@moon_zod` schema 代码 — `to_json_schema()` 的逆操作。
+
+```bash
+moon run cmd/json2schema -- --from-json-schema '{
+  "type": "object",
+  "properties": {
+    "name": {"type": "string", "minLength": 2},
+    "age": {"type": "integer", "minimum": 0, "maximum": 150}
+  },
+  "required": ["name", "age"]
+}'
+```
+
+输出：
+
+```moonbit
+@moon_zod.object({
+  "name": @moon_zod.string().min(2),
+  "age": @moon_zod.number().int().min(0).max(150),
+})
+```
+
+**特性**：
+- 转换所有 JSON Schema 类型（string、number、integer、boolean、null、array、object）
+- 提取约束：`minLength`、`maxLength`、`minimum`、`maximum`、`multipleOf`、`pattern`、`format`（email、uri、date-time、ipv4、ipv6、uuid）
+- 处理 `$defs` 和 `$ref` 引用 — 生成单独的命名 schema 声明
+- 支持 `enum` 和 `oneOf` / `anyOf` / `allOf`
+- 不在 `required` 中的字段自动用 `.optional()` 包装
+- 输出 **可直接复制粘贴的 MoonBit 源代码**
+
+---
+
 ### MoonBit 结构体生成器 (CLI)
 
 从任何 JSON 示例生成 MoonBit 结构体定义 — 包括结构体定义和 `from_json()` 函数，用于类型安全转换。
@@ -81,3 +115,5 @@ moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}\n{"a
 ```
 
 **错误输出格式**：`[field_path] message (got: value)`
+
+---
