@@ -584,3 +584,272 @@ fn pad(level : Int) -> String {
   }
   spaces
 }
+
+// ─── Runtime JSON Schema → moon_zod Schema parser ───
+
+///|
+/// Convert a JSON Schema (draft-07) document into a runtime moon_zod Schema value.
+///
+/// Unlike `json_schema_to_moon_zod()` which outputs MoonBit source code,
+/// this function produces a live Schema that can be used immediately
+/// for validation via `schema.parse(data)`.
+///
+/// Supports: $defs, $ref, enum, type (string/number/integer/boolean/null/
+/// object/array), anyOf/allOf/oneOf, and all constraint annotations.
+pub fn json_schema_to_schema(schema : Json) -> Schema {
+  let defs = extract_defs(schema)
+  let defs_processed : Map[String, Schema] = {}
+  let defs_visiting : Array[String] = []
+
+  // Process $defs with cycle handling
+  for name, def_json in defs {
+    if !defs_processed.contains(name) {
+      process_def(name, def_json, defs, defs_processed, defs_visiting)
+    }
+  }
+
+  schema_json_to_schema(schema, defs, defs_processed)
+}
+
+///|
+fn process_def(
+  name : String,
+  def_json : Json,
+  defs : Map[String, Json],
+  processed : Map[String, Schema],
+  visiting : Array[String],
+) -> Unit {
+  if processed.contains(name) {
+    return
+  }
+  if value_in_array(name, visiting) {
+    // Cycle detected — use null schema as placeholder
+    processed.set(name, null())
+    return
+  }
+  visiting.push(name)
+
+  let schema = schema_json_to_schema(def_json, defs, processed)
+  let named_schema = schema.name(name)
+  processed.set(name, named_schema)
+
+  // Remove from visiting
+  for i = 0; i < visiting.length(); i = i + 1 {
+    if visiting[i] == name {
+      let _ = visiting.remove(i)
+      break
+    }
+  }
+}
+
+///|
+fn schema_json_to_schema(
+  schema : Json,
+  defs : Map[String, Json],
+  defs_processed : Map[String, Schema],
+) -> Schema {
+  match schema {
+    Object(m) => {
+      // 1. Check $ref
+      match m.get("$ref") {
+        Some(String(ref_str)) => {
+          let ref_name = parse_ref_name(ref_str)
+          match defs_processed.get(ref_name) {
+            Some(s) => return s
+            None => return string()
+          }
+        }
+        _ => ()
+      }
+
+      // 2. Check enum
+      match m.get("enum") {
+        Some(Array(values)) => {
+          let strs : Array[String] = []
+          for v in values {
+            match v {
+              String(s) => strs.push(s)
+              _ => ()
+            }
+          }
+          return enum_values(strs)
+        }
+        _ => ()
+      }
+
+      // 3. Type-based
+      if m.contains("type") {
+        let base = match m.get("type") {
+          Some(String("object")) =>
+            match m.get("properties") {
+              Some(Object(props)) =>
+                object_json_to_schema(
+                  props,
+                  m.get("required"),
+                  defs,
+                  defs_processed,
+                )
+              _ => object({})
+            }
+          Some(String("array")) => {
+            let items_schema = match m.get("items") {
+              Some(items) => schema_json_to_schema(items, defs, defs_processed)
+              None => string()
+            }
+            array(items_schema)
+          }
+          Some(String("string")) => string()
+          Some(String("number")) => number()
+          Some(String("integer")) => number().int()
+          Some(String("boolean")) => boolean()
+          Some(String("null")) => null()
+          _ => string()
+        }
+        return apply_constraints_to_schema(base, m)
+      }
+
+      // 4. anyOf / allOf / oneOf
+      match m.get("anyOf") {
+        Some(Array(schemas)) => {
+          let parts = schemas.map(fn(s) {
+            schema_json_to_schema(s, defs, defs_processed)
+          })
+          return union(parts)
+        }
+        _ => ()
+      }
+      match m.get("allOf") {
+        Some(Array(schemas)) => {
+          let parts = schemas.map(fn(s) {
+            schema_json_to_schema(s, defs, defs_processed)
+          })
+          return intersection(parts)
+        }
+        _ => ()
+      }
+      match m.get("oneOf") {
+        Some(Array(schemas)) => {
+          let parts = schemas.map(fn(s) {
+            schema_json_to_schema(s, defs, defs_processed)
+          })
+          return union(parts)
+        }
+        _ => ()
+      }
+
+      string()
+    }
+    _ => string()
+  }
+}
+
+///|
+fn object_json_to_schema(
+  props : Map[String, Json],
+  required_opt : Json?,
+  defs : Map[String, Json],
+  defs_processed : Map[String, Schema],
+) -> Schema {
+  let required_set : Map[String, Bool] = {}
+  match required_opt {
+    Some(Array(reqs)) =>
+      for r in reqs {
+        match r {
+          String(s) => required_set.set(s, true)
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+
+  let field_map : Map[String, Schema] = {}
+  for key, val_json in props {
+    let mut field_schema = schema_json_to_schema(val_json, defs, defs_processed)
+    if !required_set.contains(key) {
+      field_schema = field_schema.optional()
+    }
+    field_map.set(key, field_schema)
+  }
+  object(field_map)
+}
+
+///|
+/// Apply JSON Schema constraints (minLength, maximum, pattern, etc.)
+/// to a moon_zod Schema via chain calls.
+fn apply_constraints_to_schema(base : Schema, m : Map[String, Json]) -> Schema {
+  let mut result = base
+
+  // String constraints
+  match m.get("minLength") {
+    Some(Number(v, ..)) => result = result.min(v.to_int())
+    _ => ()
+  }
+  match m.get("maxLength") {
+    Some(Number(v, ..)) => result = result.max(v.to_int())
+    _ => ()
+  }
+  match m.get("pattern") {
+    Some(String(p)) => result = result.regex(p)
+    _ => ()
+  }
+  match m.get("format") {
+    Some(String("email")) => result = result.email()
+    Some(String("uri")) => result = result.url()
+    Some(String("date-time")) => result = result.datetime()
+    Some(String("ipv4")) => result = result.ipv4()
+    Some(String("ipv6")) => result = result.ipv6()
+    Some(String("uuid")) => result = result.uuid()
+    _ => ()
+  }
+
+  // Number constraints (min/max only accept Int for string length;
+  // for number range, the annotation is stored for JSON Schema export)
+  match m.get("minimum") {
+    Some(Number(v, ..)) => result = result.min(v.to_int())
+    _ => ()
+  }
+  match m.get("maximum") {
+    Some(Number(v, ..)) => result = result.max(v.to_int())
+    _ => ()
+  }
+  match m.get("exclusiveMinimum") {
+    Some(Number(v, ..)) =>
+      if v == 0.0 {
+        result = result.positive()
+      } else {
+        result = result.min(v.to_int())
+      }
+    _ => ()
+  }
+  match m.get("exclusiveMaximum") {
+    Some(Number(v, ..)) =>
+      if v == 0.0 {
+        result = result.negative()
+      } else {
+        result = result.max(v.to_int())
+      }
+    _ => ()
+  }
+  match m.get("multipleOf") {
+    Some(Number(v, ..)) => result = result.multipleOf(v.to_int())
+    _ => ()
+  }
+
+  // Array constraints
+  match m.get("minItems") {
+    Some(Number(v, ..)) => result = result.min(v.to_int())
+    _ => ()
+  }
+  match m.get("maxItems") {
+    Some(Number(v, ..)) => result = result.max(v.to_int())
+    _ => ()
+  }
+
+  // Default value
+  match m.get("default") {
+    Some(val) => result = result.default(val)
+    _ => ()
+  }
+
+  result
+}

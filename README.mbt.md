@@ -482,6 +482,7 @@ Then **LLM sees only the definitions it needs**, reducing token count and improv
 **Example usage:**
 ```mbt nocheck
 // Define named schemas
+
 ///|
 let user_schema = @moon_zod.object(
   {

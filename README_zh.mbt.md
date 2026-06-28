@@ -474,6 +474,7 @@ Product → uses type name `Product`
 **使用示例：**
 ```mbt nocheck
 // Define named schemas
+
 ///|
 let user_schema = @moon_zod.object(
   {

@@ -837,3 +837,155 @@ test "json_schema_to_moon_zod: mutual circular $defs" {
   @debug.assert_eq(result.contains("TODO"), true)
   @debug.assert_eq(result.contains("circular"), true)
 }
+
+///|
+/// Phase 36 — json_schema_to_schema runtime parser
+test "json_schema_to_schema: basic string type" {
+  let s = json_schema_to_schema(parse_json("{\"type\":\"string\"}"))
+  match s.parse(Json::string("hello")) {
+    Ok(_) => assert_true(true)
+    _ => fail("expected Ok")
+  }
+  match s.parse(Json::number(42.0)) {
+    Err(_) => assert_true(true)
+    _ => fail("expected Err")
+  }
+}
+
+///|
+test "json_schema_to_schema: string with constraints" {
+  let s = json_schema_to_schema(
+    parse_json("{\"type\":\"string\",\"minLength\":2,\"maxLength\":5}"),
+  )
+  match s.parse(Json::string("hi")) {
+    Ok(_) => ()
+    _ => fail("hi")
+  }
+  match s.parse(Json::string("toolonger")) {
+    Err(_) => ()
+    _ => fail("too long")
+  }
+  match s.parse(Json::string("a")) {
+    Err(_) => ()
+    _ => fail("too short")
+  }
+}
+
+///|
+test "json_schema_to_schema: number" {
+  let s = json_schema_to_schema(parse_json("{\"type\":\"number\"}"))
+  match s.parse(Json::number(3.14)) {
+    Ok(_) => ()
+    _ => fail("expected Ok")
+  }
+}
+
+///|
+test "json_schema_to_schema: integer" {
+  let s = json_schema_to_schema(parse_json("{\"type\":\"integer\"}"))
+  match s.parse(Json::number(42.0)) {
+    Ok(_) => ()
+    _ => fail("expected Ok")
+  }
+}
+
+///|
+test "json_schema_to_schema: boolean" {
+  let s = json_schema_to_schema(parse_json("{\"type\":\"boolean\"}"))
+  match s.parse(Json::boolean(true)) {
+    Ok(_) => ()
+    _ => fail("expected Ok")
+  }
+}
+
+///|
+test "json_schema_to_schema: enum" {
+  let s = json_schema_to_schema(
+    parse_json("{\"type\":\"string\",\"enum\":[\"a\",\"b\"]}"),
+  )
+  match s.parse(Json::string("a")) {
+    Ok(_) => ()
+    _ => fail("expected Ok")
+  }
+  match s.parse(Json::string("c")) {
+    Err(_) => ()
+    _ => fail("expected Err")
+  }
+}
+
+///|
+test "json_schema_to_schema: object" {
+  let s = json_schema_to_schema(
+    parse_json(
+      "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required\":[\"name\"]}",
+    ),
+  )
+  match s.parse(Json::object({ "name": Json::string("Alice") })) {
+    Ok(_) => ()
+    _ => fail("expected Ok")
+  }
+}
+
+///|
+test "json_schema_to_schema: array" {
+  let s = json_schema_to_schema(
+    parse_json("{\"type\":\"array\",\"items\":{\"type\":\"number\"}}"),
+  )
+  match s.parse(Json::array([Json::number(1.0), Json::number(2.0)])) {
+    Ok(_) => ()
+    _ => fail("expected Ok")
+  }
+  match s.parse(Json::array([Json::string("x")])) {
+    Err(_) => ()
+    _ => fail("expected Err")
+  }
+}
+
+///|
+test "json_schema_to_schema: anyOf → union" {
+  let s = json_schema_to_schema(
+    parse_json("{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"}]}"),
+  )
+  match s.parse(Json::string("x")) {
+    Ok(_) => ()
+    _ => fail("expected Ok")
+  }
+  match s.parse(Json::number(1.0)) {
+    Ok(_) => ()
+    _ => fail("expected Ok")
+  }
+  match s.parse(Json::boolean(true)) {
+    Err(_) => ()
+    _ => fail("expected Err")
+  }
+}
+
+///|
+test "json_schema_to_schema: allOf → intersection" {
+  let s = json_schema_to_schema(
+    parse_json(
+      "{\"allOf\":[{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}},\"required\":[\"a\"]},{\"type\":\"object\",\"properties\":{\"b\":{\"type\":\"number\"}},\"required\":[\"b\"]}]}",
+    ),
+  )
+  match
+    s.parse(Json::object({ "a": Json::string("x"), "b": Json::number(1.0) })) {
+    Ok(_) => ()
+    _ => fail("expected Ok")
+  }
+}
+
+///|
+test "json_schema_to_schema: $defs and $ref" {
+  let input = parse_json(
+    "{\"$defs\":{\"Name\":{\"type\":\"string\",\"minLength\":1}},\"$ref\":\"#/$defs/Name\"}",
+  )
+  let s = json_schema_to_schema(input)
+  match s.parse(Json::string("Alice")) {
+    Ok(_) => ()
+    _ => fail("expected Ok")
+  }
+  match s.parse(Json::string("")) {
+    Err(_) => ()
+    _ => fail("expected Err")
+  }
+}
