@@ -6,7 +6,7 @@
 /// 2. json_schema_to_moon_zod() - Parse JSON Schema → moon_zod source code (uses layer 2)
 
 ///|
-/// **Layer 1 (Bottom): JSON Schema → Schema object**
+/// **JSON Schema → Schema object**
 ///
 /// Parses a JSON Schema (draft-07) document into a runtime Schema object.
 /// Handles $defs, $ref, enum, type constraints, and all JSON Schema keywords.
@@ -79,7 +79,7 @@ fn json_to_schema_impl(
             None =>
               // Ref not yet processed, check for forward ref or cycle
               match defs_json.get(ref_name) {
-                Some(def) => {
+                Some(_) => {
                   // Check if this would create a cycle
                   if value_in_array(ref_name, visiting) {
                     // Cycle detected
@@ -293,26 +293,6 @@ fn apply_json_schema_constraints(
   result
 }
 
-///|
-/// **Layer 3 (Top): JSON Schema → moon_zod source code**
-///
-/// Generates MoonBit source code by:
-/// 1. Converting JSON Schema to Schema objects (Layer 1)
-/// 2. Converting Schema objects to code (Layer 2 in exporters/prompt.mbt)
-///
-/// # Example
-/// ```mbt nocheck
-/// let schema = @json.parse("{\"type\":\"string\",\"minLength\":3}").unwrap()
-///
-/// let code = json_schema_to_moon_zod(schema)
-/// // "@moon_zod.string().min(3)"
-/// ```
-pub fn json_schema_to_moon_zod(schema : Json) -> String {
-  let schema_obj = json_schema_to_schema(schema)
-  let named_defs = schema_to_moon_zod_code_named(schema_obj)
-  named_defs
-}
-
 // ─── Utility functions ───
 
 ///|
@@ -351,58 +331,4 @@ fn parse_ref_name(ref_str : String) -> String {
   } else {
     last
   }
-}
-
-///|
-/// Check if a schema has circular self-reference.
-fn has_circular_ref(schema : Schema) -> Bool {
-  let visited : Array[String] = []
-  check_circular(schema, schema.name, visited)
-}
-
-///|
-fn check_circular(
-  schema : Schema,
-  target : String,
-  visited : Array[String],
-) -> Bool {
-  match schema.schema_type {
-    ObjectType(fields, _) => {
-      for _key, field in fields {
-        if check_circular(field, target, visited) {
-          return true
-        }
-      }
-      false
-    }
-    ArrayType(elem) => check_circular(elem, target, visited)
-    OptionalType(inner) | DefaultType(inner, _) | TransformType(inner, _) =>
-      check_circular(inner, target, visited)
-    UnionType(schemas) | IntersectionType(schemas) => {
-      for s in schemas {
-        if check_circular(s, target, visited) {
-          return true
-        }
-      }
-      false
-    }
-    _ =>
-      if !schema.name.is_empty() && schema.name == target {
-        true
-      } else {
-        false
-      }
-  }
-}
-
-///|
-fn join_lines(lines : Array[String]) -> String {
-  if lines.is_empty() {
-    return ""
-  }
-  let mut result = lines[0]
-  for i = 1; i < lines.length(); i = i + 1 {
-    result = result + "\n" + lines[i]
-  }
-  result
 }

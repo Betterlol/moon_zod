@@ -370,7 +370,7 @@ pub fn escape_variable_name(name : String) -> String {
   if escaped.is_empty() {
     "var".to_string()
   } else if escaped[0] >= 'A' && escaped[0] <= 'Z' {
-    escaped[0:1].to_string().to_lower() + escaped[1:].to_string()
+    escaped[0:1].to_owned().to_lower() + escaped[1:].to_owned()
   } else {
     escaped
   }
@@ -389,7 +389,7 @@ pub fn escape_type_name(name : String) -> String {
   if escaped.is_empty() {
     "Type".to_string()
   } else if escaped[0] >= 'a' && escaped[0] <= 'z' {
-    escaped[0:1].to_string().to_upper() + escaped[1:].to_string()
+    escaped[0:1].to_owned().to_upper() + escaped[1:].to_owned()
   } else {
     escaped
   }

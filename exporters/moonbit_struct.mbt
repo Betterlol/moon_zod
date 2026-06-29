@@ -72,6 +72,7 @@ pub fn InlineStructRenderer::InlineStructRenderer() -> InlineStructRenderer {
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_string(
   self : InlineStructRenderer,
   _schema : Schema,
@@ -81,6 +82,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_string(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_number(
   self : InlineStructRenderer,
   schema : Schema,
@@ -94,6 +96,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_number(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_boolean(
   self : InlineStructRenderer,
   _schema : Schema,
@@ -103,6 +106,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_boolean(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_null(
   self : InlineStructRenderer,
   _schema : Schema,
@@ -112,6 +116,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_null(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_optional(
   self : InlineStructRenderer,
   inner : Schema,
@@ -122,6 +127,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_optional(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_default(
   self : InlineStructRenderer,
   inner : Schema,
@@ -133,6 +139,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_default(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_transform(
   self : InlineStructRenderer,
   inner : Schema,
@@ -144,6 +151,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_transform
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_enum(
   self : InlineStructRenderer,
   _values : Array[String],
@@ -154,6 +162,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_enum(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_array(
   self : InlineStructRenderer,
   elem : Schema,
@@ -164,6 +173,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_array(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_union(
   self : InlineStructRenderer,
   schemas : Array[Schema],
@@ -174,6 +184,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_union(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_intersection(
   self : InlineStructRenderer,
   schemas : Array[Schema],
@@ -184,6 +195,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_intersect
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_object(
   self : InlineStructRenderer,
   spec : Map[String, Schema],
@@ -199,6 +211,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_object(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_literal(
   self : InlineStructRenderer,
   value : Json,
@@ -223,6 +236,7 @@ pub fn NamedStructRenderer::NamedStructRenderer(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_string(
   self : NamedStructRenderer,
   schema : Schema,
@@ -236,6 +250,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_string(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_number(
   self : NamedStructRenderer,
   schema : Schema,
@@ -251,6 +266,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_number(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_boolean(
   self : NamedStructRenderer,
   schema : Schema,
@@ -264,6 +280,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_boolean(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_null(
   self : NamedStructRenderer,
   schema : Schema,
@@ -277,6 +294,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_null(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_optional(
   self : NamedStructRenderer,
   inner : Schema,
@@ -287,6 +305,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_optional(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_default(
   self : NamedStructRenderer,
   inner : Schema,
@@ -298,6 +317,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_default(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_transform(
   self : NamedStructRenderer,
   inner : Schema,
@@ -309,6 +329,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_transform(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_enum(
   self : NamedStructRenderer,
   _values : Array[String],
@@ -323,6 +344,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_enum(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_array(
   self : NamedStructRenderer,
   elem : Schema,
@@ -333,6 +355,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_array(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_union(
   self : NamedStructRenderer,
   schemas : Array[Schema],
@@ -343,6 +366,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_union(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_intersection(
   self : NamedStructRenderer,
   schemas : Array[Schema],
@@ -368,6 +392,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_object(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_literal(
   self : NamedStructRenderer,
   value : Json,
@@ -540,6 +565,7 @@ fn[R : MoonBitStructRenderer] union_to_moonbit_named(
 }
 
 ///|
+#warnings("-unused_value")
 fn[R : MoonBitStructRenderer] intersection_to_moonbit_named(
   renderer : R,
   schemas : Array[Schema],
@@ -635,6 +661,7 @@ fn enum_to_moonbit(values : Array[String], enum_name : String) -> String {
 
 ///|
 /// Named-aware union renderer (uses NamedStructRenderer).
+#warnings("-unused_value")
 fn union_to_inline_moonbit(
   schemas : Array[Schema],
   indent : Int,
@@ -646,6 +673,7 @@ fn union_to_inline_moonbit(
 
 ///|
 /// Render an intersection type (uses InlineStructRenderer).
+#warnings("-unused_value")
 fn intersection_to_moonbit(schemas : Array[Schema], indent : Int) -> String {
   intersection_to_moonbit_inline(InlineStructRenderer(), schemas, indent)
 }
@@ -654,6 +682,7 @@ fn intersection_to_moonbit(schemas : Array[Schema], indent : Int) -> String {
 
 ///|
 /// Named-aware intersection renderer (uses NamedStructRenderer).
+#warnings("-unused_value")
 fn intersection_to_inline_moonbit(
   schemas : Array[Schema],
   indent : Int,

@@ -27,7 +27,7 @@ fn print_help() -> Unit {
 }
 
 ///|
-fn main raise {
+fn main {
   let args = @env.args()
 
   if args.length() < 2 || args[1] == "--help" {

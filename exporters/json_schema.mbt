@@ -45,6 +45,7 @@ pub fn FullJsonRenderer::FullJsonRenderer() -> FullJsonRenderer {
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_string(
   self : FullJsonRenderer,
   schema : Schema,
@@ -53,6 +54,7 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_string(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_number(
   self : FullJsonRenderer,
   schema : Schema,
@@ -61,6 +63,7 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_number(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_boolean(
   self : FullJsonRenderer,
   schema : Schema,
@@ -72,6 +75,7 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_boolean(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_null(
   self : FullJsonRenderer,
   schema : Schema,
@@ -129,6 +133,7 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_array(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_optional(
   self : FullJsonRenderer,
   inner : Schema,
@@ -138,6 +143,7 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_optional(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_default(
   self : FullJsonRenderer,
   inner : Schema,
@@ -155,6 +161,7 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_default(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_transform(
   self : FullJsonRenderer,
   inner : Schema,
@@ -165,6 +172,7 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_transform(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_enum(
   self : FullJsonRenderer,
   values : Array[String],
@@ -208,6 +216,7 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_intersection(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_literal(
   self : FullJsonRenderer,
   value : Json,
@@ -227,6 +236,7 @@ pub fn SkeletonJsonRenderer::SkeletonJsonRenderer() -> SkeletonJsonRenderer {
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_string(
   self : SkeletonJsonRenderer,
   _schema : Schema,
@@ -235,6 +245,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_string(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_number(
   self : SkeletonJsonRenderer,
   _schema : Schema,
@@ -243,6 +254,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_number(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_boolean(
   self : SkeletonJsonRenderer,
   _schema : Schema,
@@ -251,6 +263,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_boolean(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_null(
   self : SkeletonJsonRenderer,
   _schema : Schema,
@@ -259,6 +272,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_null(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_object(
   self : SkeletonJsonRenderer,
   spec : Map[String, Schema],
@@ -287,6 +301,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_object(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_array(
   self : SkeletonJsonRenderer,
   elem : Schema,
@@ -299,6 +314,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_array(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_optional(
   self : SkeletonJsonRenderer,
   inner : Schema,
@@ -308,6 +324,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_optional(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_default(
   self : SkeletonJsonRenderer,
   inner : Schema,
@@ -325,6 +342,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_default(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_transform(
   self : SkeletonJsonRenderer,
   inner : Schema,
@@ -335,6 +353,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_transform(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_enum(
   self : SkeletonJsonRenderer,
   values : Array[String],
@@ -347,6 +366,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_enum(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_union(
   self : SkeletonJsonRenderer,
   schemas : Array[Schema],
@@ -358,6 +378,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_union(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_intersection(
   self : SkeletonJsonRenderer,
   schemas : Array[Schema],
@@ -369,6 +390,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_intersection
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_literal(
   self : SkeletonJsonRenderer,
   value : Json,
@@ -394,6 +416,7 @@ pub fn NamedJsonRenderer::NamedJsonRenderer(
 ///|
 /// The named renderer's methods call render_json_type_ref for sub-elements,
 /// which emits $ref for named schemas in the named_names list.
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_string(
   self : NamedJsonRenderer,
   schema : Schema,
@@ -402,6 +425,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_string(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_number(
   self : NamedJsonRenderer,
   schema : Schema,
@@ -410,6 +434,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_number(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_boolean(
   self : NamedJsonRenderer,
   schema : Schema,
@@ -421,6 +446,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_boolean(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_null(
   self : NamedJsonRenderer,
   schema : Schema,
@@ -478,6 +504,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_array(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_optional(
   self : NamedJsonRenderer,
   inner : Schema,
@@ -487,6 +514,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_optional(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_default(
   self : NamedJsonRenderer,
   inner : Schema,
@@ -504,6 +532,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_default(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_transform(
   self : NamedJsonRenderer,
   inner : Schema,
@@ -514,6 +543,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_transform(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_enum(
   self : NamedJsonRenderer,
   values : Array[String],
@@ -561,6 +591,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_intersection(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_literal(
   self : NamedJsonRenderer,
   value : Json,

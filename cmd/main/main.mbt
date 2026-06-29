@@ -247,7 +247,7 @@ fn fmt_moonzod_results(summary : String) -> String {
 ///
 /// Run with: moon run cmd/main
 fn main {
-  let bench = @bench.new()
+  let bench = @bench.Bench()
   let args = @env.args()
 
   // ── Parse arguments ───────────────────────────────────────────────

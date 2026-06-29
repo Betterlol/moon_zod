@@ -54,8 +54,6 @@ pub using @core {
   escape_mbt_string,
   escape_ident,
   parse_json,
-  schema_to_moon_zod_code,
-  schema_to_moon_zod_code_named,
 }
 
 ///|
@@ -72,7 +70,10 @@ pub using @exporters {
   schema_to_moonbit_struct_named_full,
   schema_to_prompt,
   schema_to_prompt_named,
+  schema_to_moon_zod_code,
+  schema_to_moon_zod_code_named,
+  json_schema_to_moon_zod,
 }
 
 ///|
-pub using @importers {json_schema_to_moon_zod, json_schema_to_schema}
+pub using @importers {json_schema_to_schema}

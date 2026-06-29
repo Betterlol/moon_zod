@@ -14,6 +14,7 @@ pub fn BasicPromptRenderer::BasicPromptRenderer() -> BasicPromptRenderer {
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_string(
   self : BasicPromptRenderer,
   _schema : Schema,
@@ -23,6 +24,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_string(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_number(
   self : BasicPromptRenderer,
   _schema : Schema,
@@ -32,6 +34,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_number(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_boolean(
   self : BasicPromptRenderer,
   _schema : Schema,
@@ -41,6 +44,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_boolean(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_null(
   self : BasicPromptRenderer,
   _schema : Schema,
@@ -50,6 +54,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_null(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_optional(
   self : BasicPromptRenderer,
   inner : Schema,
@@ -60,6 +65,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_optional(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_default(
   self : BasicPromptRenderer,
   inner : Schema,
@@ -71,6 +77,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_default(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_transform(
   self : BasicPromptRenderer,
   inner : Schema,
@@ -82,6 +89,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_transform(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_enum(
   self : BasicPromptRenderer,
   values : Array[String],
@@ -102,6 +110,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_enum(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_array(
   self : BasicPromptRenderer,
   elem : Schema,
@@ -112,6 +121,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_array(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_union(
   self : BasicPromptRenderer,
   schemas : Array[Schema],
@@ -132,6 +142,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_union(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_intersection(
   self : BasicPromptRenderer,
   schemas : Array[Schema],
@@ -152,6 +163,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_intersection(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_object(
   self : BasicPromptRenderer,
   spec : Map[String, Schema],
@@ -188,6 +200,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_object(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_literal(
   self : BasicPromptRenderer,
   value : Json,
@@ -211,6 +224,7 @@ pub fn NamedPromptRenderer::NamedPromptRenderer(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for NamedPromptRenderer with fn render_string(
   self : NamedPromptRenderer,
   schema : Schema,
@@ -224,6 +238,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_string(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for NamedPromptRenderer with fn render_number(
   self : NamedPromptRenderer,
   schema : Schema,
@@ -237,6 +252,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_number(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for NamedPromptRenderer with fn render_boolean(
   self : NamedPromptRenderer,
   schema : Schema,
@@ -250,6 +266,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_boolean(
 }
 
 ///|
+#warnings("-unused_value")
 pub impl StringRenderer for NamedPromptRenderer with fn render_null(
   self : NamedPromptRenderer,
   schema : Schema,
