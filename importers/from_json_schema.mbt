@@ -324,9 +324,9 @@ fn apply_json_schema_constraints(
       } else {
         let int_val = v.to_int()
         let is_integer = v == int_val.to_double()
-        let bound = if is_integer { int_val - 1 } else { int_val }
-        result = result.max(bound)
-        if !is_integer {
+        if is_integer {
+          result = result.max(int_val - 1)
+        } else {
           result = @core.append_rule(
             result,
             fn(json) {

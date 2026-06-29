@@ -165,4 +165,117 @@ test "json_schema_roundtrip_string" {
   }
 }
 
+///|
+/// Test exclusiveMaximum with floating point
+test "exclusive_maximum_float validates correctly" {
+  let json_schema = parse_json(
+    "{\"type\": \"number\", \"exclusiveMaximum\": 9.5}",
+  )
+  let schema = json_schema_to_schema(json_schema)
+
+  // Should accept 9.4 (< 9.5)
+  match schema.parse(parse_json("9.4")) {
+    Ok(_) => ()
+    Err(_e) => fail("expected Ok for 9.4")
+  }
+
+  // Should reject 9.5 (not < 9.5)
+  guard schema.parse(parse_json("9.5")) is Err(_) else {
+    fail("exclusiveMaximum: should reject 9.5")
+  }
+
+  // Should reject 10 (> 9.5)
+  guard schema.parse(parse_json("10")) is Err(_) else {
+    fail("exclusiveMaximum: should reject 10")
+  }
+}
+
+///|
+/// Test number enum rejects values not in list
+test "enum_with_numbers_rejects_invalid" {
+  let json_schema = parse_json(
+    "{\"enum\": [1, 2, 3]}",
+  )
+  let schema = json_schema_to_schema(json_schema)
+
+  // Should accept 2 (in enum)
+  match schema.parse(parse_json("2")) {
+    Ok(_) => ()
+    Err(_e) => fail("expected Ok for 2")
+  }
+
+  // Should reject 5 (not in enum)
+  guard schema.parse(parse_json("5")) is Err(_) else {
+    fail("enum: should reject 5")
+  }
+
+  // Should reject string (wrong type)
+  guard schema.parse(parse_json("\"abc\"")) is Err(_) else {
+    fail("enum: should reject string when enum is numeric")
+  }
+}
+
+///|
+/// Test mixed string+number enum: only strings are kept
+test "enum_mixed_string_number" {
+  let json_schema = parse_json(
+    "{\"enum\": [\"a\", \"b\", 1, 2]}",
+  )
+  let schema = json_schema_to_schema(json_schema)
+
+  // Should accept string "a" (in enum)
+  match schema.parse(parse_json("\"a\"")) {
+    Ok(_) => ()
+    Err(_e) => fail("expected Ok for \"a\"")
+  }
+
+  // Should reject string "c" (not in enum)
+  guard schema.parse(parse_json("\"c\"")) is Err(_) else {
+    fail("enum: should reject \"c\"")
+  }
+
+  // Should reject number 1 (numbers dropped in mixed enum)
+  guard schema.parse(parse_json("1")) is Err(_) else {
+    fail("enum: should reject 1 when enum is mixed string+number")
+  }
+}
+
+///|
+/// Test boolean enum falls back to string (known limitation)
+test "enum_boolean_falls_back_to_string" {
+  let json_schema = parse_json(
+    "{\"enum\": [true, false]}",
+  )
+  let schema = json_schema_to_schema(json_schema)
+
+  // Current limitation: boolean enum falls back to string(),
+  // so it accepts any string but rejects booleans
+  guard schema.parse(parse_json("\"anything\"")) is Ok(_) else {
+    fail("boolean enum fallback: should accept any string")
+  }
+
+  // Should reject boolean true (not a string)
+  guard schema.parse(parse_json("true")) is Err(_) else {
+    fail("boolean enum fallback: should reject true")
+  }
+}
+
+///|
+/// Test null enum falls back to string (known limitation)
+test "enum_null_falls_back_to_string" {
+  let json_schema = parse_json(
+    "{\"enum\": [null]}",
+  )
+  let schema = json_schema_to_schema(json_schema)
+
+  // Current limitation: null enum falls back to string()
+  guard schema.parse(parse_json("\"any\"")) is Ok(_) else {
+    fail("null enum fallback: should accept any string")
+  }
+
+  // Should reject null (not a string)
+  guard schema.parse(parse_json("null")) is Err(_) else {
+    fail("null enum fallback: should reject null")
+  }
+}
 
