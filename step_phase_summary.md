@@ -771,14 +771,64 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 
 ---
 
+## Special Phase — 项目结构的重组
+
+将 moon_zod 项目拆分为 4 个子包
+| 子包 | 说明 |
+|------|------|
+| `moon_zod/core` | 核心库，包含所有 Schema 定义、验证器等 |
+| `moon_zod/tests` | 测试文件，包含所有 moon_zod 测试 |
+| `moon_zod/exporters` | 导出工具，包含 prompt/json_schema/moonbit_struct 等导出功能 |
+| `moon_zod/importers` | 导入工具，包含 json_schema -> moon_zod schema 对象转换和代码生成 |
+
+## Phase 35 — 代码生成重构 + 项目模块化 (v0.7.4)
+
+**目标**: 将 `from_json_schema.mbt` 中的混杂逻辑拆分为两层（JSON Schema → Schema → 代码），重构 `schema_to_moon_zod_code` 使其支持命名导出/description/object mode/错误消息，同时完成正式的子包模块化。
+
+| 新增文件 | 用途 |
+|---------|------|
+| `exporters/schema_exporter.mbt` | Schema → moon_zod 源码生成器（`schema_to_moon_zod_code`, `_named`, `_with_names`, `_inline`） |
+| `importers/from_json_schema.mbt` | JSON Schema → Schema 运行时对象（`json_schema_to_schema`，与原代码生成解耦） |
+| `core/moon.pkg` / `exporters/moon.pkg` / `importers/moon.pkg` / `tests/moon.pkg` | 四个正式子包声明 |
+| 各子包 `reexporter.mbt` | 按包隔离的导出重声明 |
+| `tests/test_schema_to_code.mbt` | 9 个代码生成专项测试 |
+| `examples/validate_cli/README.md` | validate CLI 使用说明 |
+
+| 修改文件 | 变更 |
+|---------|------|
+| `exporters/schema_exporter.mbt` | 重写：`schema_to_moon_zod_code` 输出 `let x = ... .name(...)` 格式；新增 `_named` 命名导出；支持 `.describe()` / `.required_error()` / `.invalid_type_error()` / `.strict()` / `.passthrough()` |
+| `importers/from_json_schema.mbt` | 重写：新增 `json_schema_to_schema` 返回运行时 Schema 对象；新增 `visiting` 循环检测 + 前向引用处理 |
+| `core/shared_utils.mbt` | 新增 `escape_variable_name` / `escape_type_name` / `escape_function_name` |
+| `moon.pkg` | 改为 re-export core + exporters + importers |
+| `tests/test_json_schema.mbt` | 27 个测试从 `assert_eq` 改为 `.contains()` |
+| `cmd/*/main.mbt` | import 路径随子包迁移调整 |
+
+| 移动文件 | 操作 |
+|---------|------|
+| `*.mbt` → `core/*.mbt` | 核心类型/验证器（17 文件） |
+| `*_exporter.mbt`, `prompt.mbt`, `json_schema.mbt`, `moonbit_struct.mbt` → `exporters/*.mbt` | 代码生成器（6 文件） |
+| `from_json_schema.mbt` → `importers/from_json_schema.mbt` | JSON Schema 导入器（移除旧的 586 行单体文件） |
+| `test_*.mbt` → `tests/test_*.mbt` | 测试文件（13 文件） |
+
+**关键决策**:
+- **子包隔离**：core 无任何外部依赖；exporters 依赖 core；tests 依赖 core + exporters + importers。每个子包独立 `moon.pkg` + `reexporter.mbt`。
+- **两层分离**：`json_schema_to_schema` 返回 Schema 对象（可做解析后处理），`schema_to_moon_zod_code_named` 负责代码生成。组合函数 `json_schema_to_moon_zod` = 两层串联。
+- **变量名首字母小写**：`escape_variable_name` 确保 `let mySchema = ...` 符合 MoonBit 命名约定。
+- **循环引用**：用 `null().name(name)` 占位 + `visiting` 数组跟踪当前遍历路径。
+
+**Bug 修复**:
+- `schema_to_moon_zod_code` 条件反转：`{ schema.name } else { "Root" }` → `{ "Root" } else { schema.name }`（此前 unnamed schema 生成空 `.name("")`、named schema 被覆盖为 "Root"）
+
+**产出**: 414/414 测试全部通过 0 警告。项目从平铺结构正式进化为 4 个子包模块化结构。
+
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 396 |
+| 测试数量 | 414 |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
-| 核心源码模块 | 24 个 `.mbt` 文件 |
+| 子包数量 | 4（`core`, `exporters`, `importers`, `tests`） |
 | CLI 工具 | 4 个（`cmd/main` 基准, `cmd/wasm` 跨语言, `cmd/json2schema` 代码生成, `cmd/validate` 校验） |
 | 展示示例 | 5 个（`llm_agent`, `educational_agent`, `real_llm_agent`, `json2schema`, `schema2json`） |
 
