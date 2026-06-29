@@ -1,5 +1,5 @@
 ///|
-/// Convert a moon_zod Schema into a TypeScript-interface-style prompt string
+/// Convert a moon_zod @core.Schema into a TypeScript-interface-style prompt @core.string
 /// suitable for LLM system prompts or correction feedback.
 ///
 /// Uses StringRenderer trait with BasicPromptRenderer / NamedPromptRenderer.
@@ -17,7 +17,7 @@ pub fn BasicPromptRenderer::BasicPromptRenderer() -> BasicPromptRenderer {
 #warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_string(
   self : BasicPromptRenderer,
-  _schema : Schema,
+  _schema : @core.Schema,
   _indent : Int,
 ) -> String {
   "string"
@@ -27,7 +27,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_string(
 #warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_number(
   self : BasicPromptRenderer,
-  _schema : Schema,
+  _schema : @core.Schema,
   _indent : Int,
 ) -> String {
   "number"
@@ -37,7 +37,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_number(
 #warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_boolean(
   self : BasicPromptRenderer,
-  _schema : Schema,
+  _schema : @core.Schema,
   _indent : Int,
 ) -> String {
   "boolean"
@@ -47,7 +47,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_boolean(
 #warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_null(
   self : BasicPromptRenderer,
-  _schema : Schema,
+  _schema : @core.Schema,
   _indent : Int,
 ) -> String {
   "null"
@@ -57,8 +57,8 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_null(
 #warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_optional(
   self : BasicPromptRenderer,
-  inner : Schema,
-  schema : Schema,
+  inner : @core.Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   render_type(self, inner, indent) + " | null"
@@ -68,9 +68,9 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_optional(
 #warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_default(
   self : BasicPromptRenderer,
-  inner : Schema,
+  inner : @core.Schema,
   _default_val : Json,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   render_type(self, inner, indent) + " | null"
@@ -80,9 +80,9 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_default(
 #warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_transform(
   self : BasicPromptRenderer,
-  inner : Schema,
-  _closure : TransformClosure,
-  schema : Schema,
+  inner : @core.Schema,
+  _closure : @core.TransformClosure,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   render_type(self, inner, indent)
@@ -93,7 +93,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_transform(
 pub impl StringRenderer for BasicPromptRenderer with fn render_enum(
   self : BasicPromptRenderer,
   values : Array[String],
-  schema : Schema,
+  schema : @core.Schema,
   _indent : Int,
 ) -> String {
   let mut result = ""
@@ -113,8 +113,8 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_enum(
 #warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_array(
   self : BasicPromptRenderer,
-  elem : Schema,
-  schema : Schema,
+  elem : @core.Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   render_type(self, elem, indent) + "[]"
@@ -124,8 +124,8 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_array(
 #warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_union(
   self : BasicPromptRenderer,
-  schemas : Array[Schema],
-  schema : Schema,
+  schemas : Array[@core.Schema],
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   let mut result = ""
@@ -145,8 +145,8 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_union(
 #warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_intersection(
   self : BasicPromptRenderer,
-  schemas : Array[Schema],
-  schema : Schema,
+  schemas : Array[@core.Schema],
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   let mut result = ""
@@ -166,9 +166,9 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_intersection(
 #warnings("-unused_value")
 pub impl StringRenderer for BasicPromptRenderer with fn render_object(
   self : BasicPromptRenderer,
-  spec : Map[String, Schema],
-  _mode : ObjectMode,
-  schema : Schema,
+  spec : Map[String, @core.Schema],
+  _mode : @core.ObjectMode,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if spec.length() == 0 {
@@ -177,9 +177,9 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_object(
   let mut result = "{\n"
   let inner_indent = indent + 1
   for key, val_schema in spec {
-    let key_is_optional = is_optional_schema(val_schema)
+    let key_is_optional = @core.is_optional_schema(val_schema)
     let inner = if key_is_optional {
-      peel_optional(val_schema)
+      @core.peel_optional(val_schema)
     } else {
       val_schema
     }
@@ -187,7 +187,11 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_object(
     let field_type = render_type(self, inner, inner_indent)
     let comment = schema_comment(val_schema)
     let opt_mark = if key_is_optional { "?" } else { "" }
-    let line = indent_str(inner_indent) + key + opt_mark + ": " + field_type
+    let line = @core.indent_str(inner_indent) +
+      key +
+      opt_mark +
+      ": " +
+      field_type
 
     if comment.is_empty() {
       result = result + line + ",\n"
@@ -195,7 +199,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_object(
       result = result + line + ",  // " + comment + "\n"
     }
   }
-  result = result + indent_str(indent) + "}"
+  result = result + @core.indent_str(indent) + "}"
   result
 }
 
@@ -204,7 +208,7 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_object(
 pub impl StringRenderer for BasicPromptRenderer with fn render_literal(
   self : BasicPromptRenderer,
   value : Json,
-  schema : Schema,
+  schema : @core.Schema,
   _indent : Int,
 ) -> String {
   json_to_ts_literal(value)
@@ -213,12 +217,12 @@ pub impl StringRenderer for BasicPromptRenderer with fn render_literal(
 ///|
 /// Named prompt renderer: uses name references for named schemas.
 pub struct NamedPromptRenderer {
-  named_schemas : Array[Schema]
+  named_schemas : Array[@core.Schema]
 }
 
 ///|
 pub fn NamedPromptRenderer::NamedPromptRenderer(
-  named_schemas~ : Array[Schema],
+  named_schemas~ : Array[@core.Schema],
 ) -> NamedPromptRenderer {
   { named_schemas, }
 }
@@ -227,7 +231,7 @@ pub fn NamedPromptRenderer::NamedPromptRenderer(
 #warnings("-unused_value")
 pub impl StringRenderer for NamedPromptRenderer with fn render_string(
   self : NamedPromptRenderer,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -241,7 +245,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_string(
 #warnings("-unused_value")
 pub impl StringRenderer for NamedPromptRenderer with fn render_number(
   self : NamedPromptRenderer,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -255,7 +259,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_number(
 #warnings("-unused_value")
 pub impl StringRenderer for NamedPromptRenderer with fn render_boolean(
   self : NamedPromptRenderer,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -269,7 +273,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_boolean(
 #warnings("-unused_value")
 pub impl StringRenderer for NamedPromptRenderer with fn render_null(
   self : NamedPromptRenderer,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -282,8 +286,8 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_null(
 ///|
 pub impl StringRenderer for NamedPromptRenderer with fn render_optional(
   self : NamedPromptRenderer,
-  inner : Schema,
-  _schema : Schema,
+  inner : @core.Schema,
+  _schema : @core.Schema,
   indent : Int,
 ) -> String {
   render_type_named(self, inner, indent, self.named_schemas) + " | null"
@@ -292,9 +296,9 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_optional(
 ///|
 pub impl StringRenderer for NamedPromptRenderer with fn render_default(
   self : NamedPromptRenderer,
-  inner : Schema,
+  inner : @core.Schema,
   _default_val : Json,
-  _schema : Schema,
+  _schema : @core.Schema,
   indent : Int,
 ) -> String {
   render_type_named(self, inner, indent, self.named_schemas) + " | null"
@@ -303,9 +307,9 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_default(
 ///|
 pub impl StringRenderer for NamedPromptRenderer with fn render_transform(
   self : NamedPromptRenderer,
-  inner : Schema,
-  _closure : TransformClosure,
-  _schema : Schema,
+  inner : @core.Schema,
+  _closure : @core.TransformClosure,
+  _schema : @core.Schema,
   indent : Int,
 ) -> String {
   render_type_named(self, inner, indent, self.named_schemas)
@@ -315,7 +319,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_transform(
 pub impl StringRenderer for NamedPromptRenderer with fn render_enum(
   self : NamedPromptRenderer,
   values : Array[String],
-  schema : Schema,
+  schema : @core.Schema,
   _indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -337,8 +341,8 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_enum(
 ///|
 pub impl StringRenderer for NamedPromptRenderer with fn render_array(
   self : NamedPromptRenderer,
-  elem : Schema,
-  _schema : Schema,
+  elem : @core.Schema,
+  _schema : @core.Schema,
   indent : Int,
 ) -> String {
   render_type_named(self, elem, indent, self.named_schemas) + "[]"
@@ -347,8 +351,8 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_array(
 ///|
 pub impl StringRenderer for NamedPromptRenderer with fn render_union(
   self : NamedPromptRenderer,
-  schemas : Array[Schema],
-  schema : Schema,
+  schemas : Array[@core.Schema],
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -372,8 +376,8 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_union(
 ///|
 pub impl StringRenderer for NamedPromptRenderer with fn render_intersection(
   self : NamedPromptRenderer,
-  schemas : Array[Schema],
-  schema : Schema,
+  schemas : Array[@core.Schema],
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -397,9 +401,9 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_intersection(
 ///|
 pub impl StringRenderer for NamedPromptRenderer with fn render_object(
   self : NamedPromptRenderer,
-  spec : Map[String, Schema],
-  _mode : ObjectMode,
-  schema : Schema,
+  spec : Map[String, @core.Schema],
+  _mode : @core.ObjectMode,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -411,9 +415,9 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_object(
   let mut result = "{\n"
   let inner_indent = indent + 1
   for key, val_schema in spec {
-    let key_is_optional = is_optional_schema(val_schema)
+    let key_is_optional = @core.is_optional_schema(val_schema)
     let inner = if key_is_optional {
-      peel_optional(val_schema)
+      @core.peel_optional(val_schema)
     } else {
       val_schema
     }
@@ -426,7 +430,11 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_object(
     )
     let comment = schema_comment(val_schema)
     let opt_mark = if key_is_optional { "?" } else { "" }
-    let line = indent_str(inner_indent) + key + opt_mark + ": " + field_type
+    let line = @core.indent_str(inner_indent) +
+      key +
+      opt_mark +
+      ": " +
+      field_type
 
     if comment.is_empty() {
       result = result + line + ",\n"
@@ -434,7 +442,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_object(
       result = result + line + ",  // " + comment + "\n"
     }
   }
-  result = result + indent_str(indent) + "}"
+  result = result + @core.indent_str(indent) + "}"
   result
 }
 
@@ -442,7 +450,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_object(
 pub impl StringRenderer for NamedPromptRenderer with fn render_literal(
   self : NamedPromptRenderer,
   value : Json,
-  schema : Schema,
+  schema : @core.Schema,
   _indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -453,8 +461,8 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_literal(
 }
 
 ///|
-/// Public API: convert a schema to a TypeScript-interface-style prompt string.
-pub fn schema_to_prompt(schema : Schema) -> String {
+/// Public API: convert a schema to a TypeScript-interface-style prompt @core.string.
+pub fn schema_to_prompt(schema : @core.Schema) -> String {
   let renderer = BasicPromptRenderer()
   let tp = render_type(renderer, schema, 0)
   let comment = schema_comment(schema)
@@ -472,25 +480,25 @@ pub fn schema_to_prompt(schema : Schema) -> String {
 /// If `include_names` is None, exports all named schemas.
 /// If `include_names` is Some(names), exports only the specified schema names.
 pub fn schema_to_prompt_named(
-  schema : Schema,
+  schema : @core.Schema,
   include_names? : Array[String]? = None,
 ) -> String {
-  let all_named = collect_named_schemas(schema)
-  let selected_schemas = filter_named_schemas(all_named, include_names)
+  let all_named = @core.collect_named_schemas(schema)
+  let selected_schemas = @core.filter_named_schemas(all_named, include_names)
   generate_prompt_with_interfaces(selected_schemas)
 }
 
 ///|
 /// Build the constraint comment for a schema.
 /// For arrays, also merges element-level constraints.
-fn schema_comment(schema : Schema) -> String {
-  let unwrapped = unwrap_schema(schema)
+fn schema_comment(schema : @core.Schema) -> String {
+  let unwrapped = @core.unwrap_schema(schema)
 
-  let inner = constraint_comment(schema)
+  let inner = @core.constraint_comment(schema)
 
   let merged = match unwrapped.schema_type {
     ArrayType(elem) => {
-      let ec = constraint_comment(elem)
+      let ec = @core.constraint_comment(elem)
       if inner.is_empty() {
         ec
       } else if ec.is_empty() {
@@ -516,7 +524,7 @@ fn schema_comment(schema : Schema) -> String {
 }
 
 ///|
-/// Convert a Json value to its TypeScript literal representation.
+/// Convert a Json value to its TypeScript @core.literal representation.
 fn json_to_ts_literal(json : Json) -> String {
   match json {
     String(s) => "\"" + s + "\""
@@ -545,8 +553,10 @@ fn json_to_ts_literal(json : Json) -> String {
 
 ///|
 /// Generate the full prompt with interface definitions and the root schema.
-fn generate_prompt_with_interfaces(named_schemas : Array[Schema]) -> String {
-  let sorted_schemas = topological_sort_schemas(named_schemas)
+fn generate_prompt_with_interfaces(
+  named_schemas : Array[@core.Schema],
+) -> String {
+  let sorted_schemas = @core.topological_sort_schemas(named_schemas)
 
   let mut prompt = ""
 
@@ -568,8 +578,8 @@ fn generate_prompt_with_interfaces(named_schemas : Array[Schema]) -> String {
 ///|
 /// Generate a TypeScript interface/type definition with proper name references.
 fn schema_to_interface_definition_with_names(
-  schema : Schema,
-  named_schemas : Array[Schema],
+  schema : @core.Schema,
+  named_schemas : Array[@core.Schema],
 ) -> String {
   if schema.name.is_empty() {
     return ""
@@ -605,11 +615,11 @@ fn schema_to_interface_definition_with_names(
 }
 
 ///|
-/// Helper: render an object spec with named references.
+/// Helper: render an @core.object spec with named references.
 fn render_object_prompt(
   renderer : NamedPromptRenderer,
-  spec : Map[String, Schema],
-  named_schemas : Array[Schema],
+  spec : Map[String, @core.Schema],
+  named_schemas : Array[@core.Schema],
   indent : Int,
 ) -> String {
   if spec.length() == 0 {
@@ -618,9 +628,9 @@ fn render_object_prompt(
   let mut result = "{\n"
   let inner_indent = indent + 1
   for key, val_schema in spec {
-    let key_is_optional = is_optional_schema(val_schema)
+    let key_is_optional = @core.is_optional_schema(val_schema)
     let inner = if key_is_optional {
-      peel_optional(val_schema)
+      @core.peel_optional(val_schema)
     } else {
       val_schema
     }
@@ -630,7 +640,11 @@ fn render_object_prompt(
     )
     let comment = schema_comment(val_schema)
     let opt_mark = if key_is_optional { "?" } else { "" }
-    let line = indent_str(inner_indent) + key + opt_mark + ": " + field_type
+    let line = @core.indent_str(inner_indent) +
+      key +
+      opt_mark +
+      ": " +
+      field_type
 
     if comment.is_empty() {
       result = result + line + ",\n"
@@ -638,16 +652,16 @@ fn render_object_prompt(
       result = result + line + ",  // " + comment + "\n"
     }
   }
-  result = result + indent_str(indent) + "}"
+  result = result + @core.indent_str(indent) + "}"
   result
 }
 
 ///|
-/// Helper: render union with named references.
+/// Helper: render @core.union with named references.
 fn union_to_prompt_inline_str(
   renderer : NamedPromptRenderer,
-  schemas : Array[Schema],
-  named_schemas : Array[Schema],
+  schemas : Array[@core.Schema],
+  named_schemas : Array[@core.Schema],
   indent : Int,
 ) -> String {
   let mut result = ""
@@ -666,7 +680,7 @@ fn union_to_prompt_inline_str(
 }
 
 ///|
-/// Helper: render enum values as a string.
+/// Helper: render enum values as a @core.string.
 fn enum_values_to_string(values : Array[String]) -> String {
   let mut result = ""
   let mut first = true
@@ -683,7 +697,10 @@ fn enum_values_to_string(values : Array[String]) -> String {
 
 ///|
 /// Helper: check if a schema has a name present in the named schemas list.
-fn has_name_in(schema : Schema, named_schemas : Array[Schema]) -> Bool {
+fn has_name_in(
+  schema : @core.Schema,
+  named_schemas : Array[@core.Schema],
+) -> Bool {
   if schema.name.is_empty() {
     return false
   }
@@ -696,11 +713,11 @@ fn has_name_in(schema : Schema, named_schemas : Array[Schema]) -> Bool {
 }
 
 ///|
-/// Merge object specs from multiple schemas in an intersection.
+/// Merge @core.object specs from multiple schemas in an @core.intersection.
 fn merge_intersection_object_specs(
-  schemas : Array[Schema],
-) -> Map[String, Schema] {
-  let merged : Map[String, Schema] = {}
+  schemas : Array[@core.Schema],
+) -> Map[String, @core.Schema] {
+  let merged : Map[String, @core.Schema] = {}
 
   for s in schemas {
     match s.schema_type {

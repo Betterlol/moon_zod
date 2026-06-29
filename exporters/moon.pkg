@@ -2,5 +2,4 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/core/debug",
   "Betterlol/moon_zod/core",
-  "Betterlol/moon_zod/importers",
 }

@@ -1,52 +1,72 @@
 ///|
-/// Trait for rendering Schema as MoonBit struct/enum type expressions.
+/// Trait for rendering @core.Schema as MoonBit struct/enum type expressions.
 ///
-/// Each method corresponds to one SchemaType variant and returns a String
+/// Each method corresponds to one @core.SchemaType variant and returns a String
 /// representing the MoonBit type expression.
 pub(open) trait MoonBitStructRenderer {
-  fn render_string(Self, schema : Schema, indent : Int) -> String
-  fn render_number(Self, schema : Schema, indent : Int) -> String
-  fn render_boolean(Self, schema : Schema, indent : Int) -> String
-  fn render_null(Self, schema : Schema, indent : Int) -> String
+  fn render_string(Self, schema : @core.Schema, indent : Int) -> String
+  fn render_number(Self, schema : @core.Schema, indent : Int) -> String
+  fn render_boolean(Self, schema : @core.Schema, indent : Int) -> String
+  fn render_null(Self, schema : @core.Schema, indent : Int) -> String
   fn render_object(
     Self,
-    spec : Map[String, Schema],
-    mode : ObjectMode,
-    schema : Schema,
+    spec : Map[String, @core.Schema],
+    mode : @core.ObjectMode,
+    schema : @core.Schema,
     indent : Int,
   ) -> String
-  fn render_array(Self, elem : Schema, schema : Schema, indent : Int) -> String
-  fn render_optional(Self, inner : Schema, schema : Schema, indent : Int) -> String
+  fn render_array(
+    Self,
+    elem : @core.Schema,
+    schema : @core.Schema,
+    indent : Int,
+  ) -> String
+  fn render_optional(
+    Self,
+    inner : @core.Schema,
+    schema : @core.Schema,
+    indent : Int,
+  ) -> String
   fn render_default(
     Self,
-    inner : Schema,
+    inner : @core.Schema,
     default_val : Json,
-    schema : Schema,
+    schema : @core.Schema,
     indent : Int,
   ) -> String
-  fn render_enum(Self, values : Array[String], schema : Schema, indent : Int) -> String
-  fn render_union(Self, schemas : Array[Schema], schema : Schema, indent : Int) -> String
+  fn render_enum(
+    Self,
+    values : Array[String],
+    schema : @core.Schema,
+    indent : Int,
+  ) -> String
+  fn render_union(
+    Self,
+    schemas : Array[@core.Schema],
+    schema : @core.Schema,
+    indent : Int,
+  ) -> String
   fn render_intersection(
     Self,
-    schemas : Array[Schema],
-    schema : Schema,
+    schemas : Array[@core.Schema],
+    schema : @core.Schema,
     indent : Int,
   ) -> String
   fn render_transform(
     Self,
-    inner : Schema,
-    closure : TransformClosure,
-    schema : Schema,
+    inner : @core.Schema,
+    closure : @core.TransformClosure,
+    schema : @core.Schema,
     indent : Int,
   ) -> String
-  fn render_literal(Self, value : Json, schema : Schema, indent : Int) -> String
+  fn render_literal(Self, value : Json, schema : @core.Schema, indent : Int) -> String
 }
 
 ///|
-/// Dispatch to the appropriate MoonBitStructRenderer method based on SchemaType.
+/// Dispatch to the appropriate MoonBitStructRenderer method based on @core.SchemaType.
 pub fn[R : MoonBitStructRenderer] render_mbt_type(
   renderer : R,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   match schema.schema_type {
@@ -73,9 +93,9 @@ pub fn[R : MoonBitStructRenderer] render_mbt_type(
 /// Named-aware version: renders a name reference if schema has a name in the list.
 pub fn[R : MoonBitStructRenderer] render_mbt_type_named(
   renderer : R,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
-  named_schemas : Array[Schema],
+  named_schemas : Array[@core.Schema],
 ) -> String {
   if !schema.name.is_empty() {
     for ns in named_schemas {

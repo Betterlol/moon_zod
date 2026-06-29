@@ -2,4 +2,5 @@ import {
   "Betterlol/moon_zod/core",
   "Betterlol/moon_zod/exporters",
   "Betterlol/moon_zod/importers",
+  "Betterlol/moon_zod/combinators",
 }

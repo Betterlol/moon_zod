@@ -1,5 +1,5 @@
 ///|
-/// Convert a moon_zod Schema into a MoonBit struct definition.
+/// Convert a moon_zod @core.Schema into a MoonBit struct definition.
 ///
 /// The schema must have a name (set via `.name("MyName")`).
 /// Only `ObjectType` and `EnumType` produce struct/enum definitions;
@@ -7,7 +7,9 @@
 ///
 /// # Example
 /// ```mbt nocheck
-/// let s = object({ "name": string(), "age": number().int() }).name("User")
+/// let s = @core.object({ "name": @core.string(), "age": @core.number().int() }).name(
+///   "User",
+/// )
 ///
 /// let code = schema_to_moonbit_struct(s)
 /// // pub struct User {
@@ -15,7 +17,7 @@
 /// //   age : Int64
 /// // }
 /// ```
-pub fn schema_to_moonbit_struct(schema : Schema) -> String {
+pub fn schema_to_moonbit_struct(schema : @core.Schema) -> String {
   if schema.name.is_empty() {
     return "// schema_to_moonbit_struct: schema has no name\n" +
       "// Use .name(\"MyName\") to name the schema"
@@ -39,9 +41,9 @@ pub fn schema_to_moonbit_struct(schema : Schema) -> String {
 ///
 /// # Example
 /// ```mbt nocheck
-/// let address = object({ "city": string() }).name("Address")
+/// let address = @core.object({ "city": @core.string() }).name("Address")
 ///
-/// let person = object({ "addr": address }).name("Person")
+/// let person = @core.object({ "addr": address }).name("Person")
 ///
 /// let code = schema_to_moonbit_struct_named(person)
 /// // pub struct Address {
@@ -53,11 +55,11 @@ pub fn schema_to_moonbit_struct(schema : Schema) -> String {
 /// // }
 /// ```
 pub fn schema_to_moonbit_struct_named(
-  schema : Schema,
+  schema : @core.Schema,
   include_names? : Array[String]? = None,
 ) -> String {
-  let all_named = collect_named_schemas(schema)
-  let selected_schemas = filter_named_schemas(all_named, include_names)
+  let all_named = @core.collect_named_schemas(schema)
+  let selected_schemas = @core.filter_named_schemas(all_named, include_names)
   generate_struct_definitions(selected_schemas)
 }
 
@@ -75,7 +77,7 @@ pub fn InlineStructRenderer::InlineStructRenderer() -> InlineStructRenderer {
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_string(
   self : InlineStructRenderer,
-  _schema : Schema,
+  _schema : @core.Schema,
   _indent : Int,
 ) -> String {
   "String"
@@ -85,7 +87,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_string(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_number(
   self : InlineStructRenderer,
-  schema : Schema,
+  schema : @core.Schema,
   _indent : Int,
 ) -> String {
   if has_int_rule(schema) {
@@ -99,7 +101,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_number(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_boolean(
   self : InlineStructRenderer,
-  _schema : Schema,
+  _schema : @core.Schema,
   _indent : Int,
 ) -> String {
   "Bool"
@@ -109,7 +111,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_boolean(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_null(
   self : InlineStructRenderer,
-  _schema : Schema,
+  _schema : @core.Schema,
   _indent : Int,
 ) -> String {
   "Unit"
@@ -119,8 +121,8 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_null(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_optional(
   self : InlineStructRenderer,
-  inner : Schema,
-  schema : Schema,
+  inner : @core.Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   render_mbt_type(self, inner, indent) + "?"
@@ -130,9 +132,9 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_optional(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_default(
   self : InlineStructRenderer,
-  inner : Schema,
+  inner : @core.Schema,
   _default_val : Json,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   render_mbt_type(self, inner, indent)
@@ -142,9 +144,9 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_default(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_transform(
   self : InlineStructRenderer,
-  inner : Schema,
-  _closure : TransformClosure,
-  schema : Schema,
+  inner : @core.Schema,
+  _closure : @core.TransformClosure,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   render_mbt_type(self, inner, indent)
@@ -155,7 +157,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_transform
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_enum(
   self : InlineStructRenderer,
   _values : Array[String],
-  schema : Schema,
+  schema : @core.Schema,
   _indent : Int,
 ) -> String {
   "String /* TODO: define enum */"
@@ -165,8 +167,8 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_enum(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_array(
   self : InlineStructRenderer,
-  elem : Schema,
-  schema : Schema,
+  elem : @core.Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   "Array[" + render_mbt_type(self, elem, indent) + "]"
@@ -176,8 +178,8 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_array(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_union(
   self : InlineStructRenderer,
-  schemas : Array[Schema],
-  schema : Schema,
+  schemas : Array[@core.Schema],
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   union_to_moonbit_helper(self, schemas, indent)
@@ -187,8 +189,8 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_union(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_intersection(
   self : InlineStructRenderer,
-  schemas : Array[Schema],
-  schema : Schema,
+  schemas : Array[@core.Schema],
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   intersection_to_moonbit_inline(self, schemas, indent)
@@ -198,9 +200,9 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_intersect
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_object(
   self : InlineStructRenderer,
-  spec : Map[String, Schema],
-  _mode : ObjectMode,
-  schema : Schema,
+  spec : Map[String, @core.Schema],
+  _mode : @core.ObjectMode,
+  schema : @core.Schema,
   _indent : Int,
 ) -> String {
   if !schema.name.is_empty() {
@@ -215,7 +217,7 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_object(
 pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_literal(
   self : InlineStructRenderer,
   value : Json,
-  schema : Schema,
+  schema : @core.Schema,
   _indent : Int,
 ) -> String {
   literal_to_moonbit_type(value)
@@ -225,12 +227,12 @@ pub impl MoonBitStructRenderer for InlineStructRenderer with fn render_literal(
 
 ///|
 pub struct NamedStructRenderer {
-  named_schemas : Array[Schema]
+  named_schemas : Array[@core.Schema]
 }
 
 ///|
 pub fn NamedStructRenderer::NamedStructRenderer(
-  named_schemas~ : Array[Schema],
+  named_schemas~ : Array[@core.Schema],
 ) -> NamedStructRenderer {
   { named_schemas, }
 }
@@ -239,7 +241,7 @@ pub fn NamedStructRenderer::NamedStructRenderer(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_string(
   self : NamedStructRenderer,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -253,7 +255,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_string(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_number(
   self : NamedStructRenderer,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -269,7 +271,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_number(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_boolean(
   self : NamedStructRenderer,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -283,7 +285,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_boolean(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_null(
   self : NamedStructRenderer,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -297,8 +299,8 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_null(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_optional(
   self : NamedStructRenderer,
-  inner : Schema,
-  schema : Schema,
+  inner : @core.Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   render_mbt_type_named(self, inner, indent, self.named_schemas) + "?"
@@ -308,9 +310,9 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_optional(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_default(
   self : NamedStructRenderer,
-  inner : Schema,
+  inner : @core.Schema,
   _default_val : Json,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   render_mbt_type_named(self, inner, indent, self.named_schemas)
@@ -320,9 +322,9 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_default(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_transform(
   self : NamedStructRenderer,
-  inner : Schema,
-  _closure : TransformClosure,
-  schema : Schema,
+  inner : @core.Schema,
+  _closure : @core.TransformClosure,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   render_mbt_type_named(self, inner, indent, self.named_schemas)
@@ -333,7 +335,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_transform(
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_enum(
   self : NamedStructRenderer,
   _values : Array[String],
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -347,8 +349,8 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_enum(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_array(
   self : NamedStructRenderer,
-  elem : Schema,
-  schema : Schema,
+  elem : @core.Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   "Array[" + render_mbt_type_named(self, elem, indent, self.named_schemas) + "]"
@@ -358,8 +360,8 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_array(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_union(
   self : NamedStructRenderer,
-  schemas : Array[Schema],
-  schema : Schema,
+  schemas : Array[@core.Schema],
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   union_to_moonbit_named(self, schemas, indent, self.named_schemas)
@@ -369,8 +371,8 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_union(
 #warnings("-unused_value")
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_intersection(
   self : NamedStructRenderer,
-  schemas : Array[Schema],
-  schema : Schema,
+  schemas : Array[@core.Schema],
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   intersection_to_moonbit_named(self, schemas, indent, self.named_schemas)
@@ -379,9 +381,9 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_intersecti
 ///|
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_object(
   self : NamedStructRenderer,
-  spec : Map[String, Schema],
-  _mode : ObjectMode,
-  schema : Schema,
+  spec : Map[String, @core.Schema],
+  _mode : @core.ObjectMode,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -396,7 +398,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_object(
 pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_literal(
   self : NamedStructRenderer,
   value : Json,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
@@ -411,7 +413,7 @@ pub impl MoonBitStructRenderer for NamedStructRenderer with fn render_literal(
 ///|
 fn[R : MoonBitStructRenderer] object_to_struct_def(
   renderer : R,
-  spec : Map[String, Schema],
+  spec : Map[String, @core.Schema],
   indent : Int,
   struct_name : String,
 ) -> String {
@@ -423,18 +425,22 @@ fn[R : MoonBitStructRenderer] object_to_struct_def(
   let inner_indent = indent + 1
 
   for key, val_schema in spec {
-    let key_is_optional = is_optional_schema(val_schema)
+    let key_is_optional = @core.is_optional_schema(val_schema)
     let inner = if key_is_optional {
-      peel_optional(val_schema)
+      @core.peel_optional(val_schema)
     } else {
       val_schema
     }
 
     let field_type = render_mbt_type(renderer, inner, inner_indent)
     let opt_mark = if key_is_optional { "?" } else { "" }
-    let comment = constraint_comment(val_schema)
+    let comment = @core.constraint_comment(val_schema)
 
-    let line = indent_str(inner_indent) + key + opt_mark + " : " + field_type
+    let line = @core.indent_str(inner_indent) +
+      key +
+      opt_mark +
+      " : " +
+      field_type
 
     if comment.is_empty() {
       result = result + line + "\n"
@@ -443,7 +449,7 @@ fn[R : MoonBitStructRenderer] object_to_struct_def(
     }
   }
 
-  result = result + indent_str(indent) + "}"
+  result = result + @core.indent_str(indent) + "}"
   result = result + " derive(ToJson, FromJson)"
   result
 }
@@ -451,7 +457,7 @@ fn[R : MoonBitStructRenderer] object_to_struct_def(
 ///|
 fn[R : MoonBitStructRenderer] object_to_struct_def_named(
   renderer : R,
-  spec : Map[String, Schema],
+  spec : Map[String, @core.Schema],
   indent : Int,
   struct_name : String,
 ) -> String {
@@ -463,18 +469,22 @@ fn[R : MoonBitStructRenderer] object_to_struct_def_named(
   let inner_indent = indent + 1
 
   for key, val_schema in spec {
-    let key_is_optional = is_optional_schema(val_schema)
+    let key_is_optional = @core.is_optional_schema(val_schema)
     let inner = if key_is_optional {
-      peel_optional(val_schema)
+      @core.peel_optional(val_schema)
     } else {
       val_schema
     }
 
     let field_type = render_mbt_type(renderer, inner, inner_indent)
     let opt_mark = if key_is_optional { "?" } else { "" }
-    let comment = constraint_comment(val_schema)
+    let comment = @core.constraint_comment(val_schema)
 
-    let line = indent_str(inner_indent) + key + opt_mark + " : " + field_type
+    let line = @core.indent_str(inner_indent) +
+      key +
+      opt_mark +
+      " : " +
+      field_type
 
     if comment.is_empty() {
       result = result + line + "\n"
@@ -483,7 +493,7 @@ fn[R : MoonBitStructRenderer] object_to_struct_def_named(
     }
   }
 
-  result = result + indent_str(indent) + "}"
+  result = result + @core.indent_str(indent) + "}"
   result = result + " derive(ToJson, FromJson)"
   result
 }
@@ -491,7 +501,7 @@ fn[R : MoonBitStructRenderer] object_to_struct_def_named(
 ///|
 fn[R : MoonBitStructRenderer] union_to_moonbit_helper(
   renderer : R,
-  schemas : Array[Schema],
+  schemas : Array[@core.Schema],
   indent : Int,
 ) -> String {
   if schemas.length() == 2 {
@@ -514,7 +524,7 @@ fn[R : MoonBitStructRenderer] union_to_moonbit_helper(
 ///|
 fn[R : MoonBitStructRenderer] intersection_to_moonbit_inline(
   renderer : R,
-  schemas : Array[Schema],
+  schemas : Array[@core.Schema],
   indent : Int,
 ) -> String {
   let all_objects = schemas.all(fn(s) {
@@ -524,7 +534,7 @@ fn[R : MoonBitStructRenderer] intersection_to_moonbit_inline(
     }
   })
   if all_objects {
-    let merged : Map[String, Schema] = {}
+    let merged : Map[String, @core.Schema] = {}
     for s in schemas {
       match s.schema_type {
         ObjectType(fields, _) =>
@@ -543,9 +553,9 @@ fn[R : MoonBitStructRenderer] intersection_to_moonbit_inline(
 ///|
 fn[R : MoonBitStructRenderer] union_to_moonbit_named(
   renderer : R,
-  schemas : Array[Schema],
+  schemas : Array[@core.Schema],
   indent : Int,
-  named_schemas : Array[Schema],
+  named_schemas : Array[@core.Schema],
 ) -> String {
   if schemas.length() == 2 {
     let (s0, s1) = (schemas[0], schemas[1])
@@ -568,9 +578,9 @@ fn[R : MoonBitStructRenderer] union_to_moonbit_named(
 #warnings("-unused_value")
 fn[R : MoonBitStructRenderer] intersection_to_moonbit_named(
   renderer : R,
-  schemas : Array[Schema],
+  schemas : Array[@core.Schema],
   indent : Int,
-  named_schemas : Array[Schema],
+  named_schemas : Array[@core.Schema],
 ) -> String {
   let all_objects = schemas.all(fn(s) {
     match s.schema_type {
@@ -579,7 +589,7 @@ fn[R : MoonBitStructRenderer] intersection_to_moonbit_named(
     }
   })
   if all_objects {
-    let merged : Map[String, Schema] = {}
+    let merged : Map[String, @core.Schema] = {}
     for s in schemas {
       match s.schema_type {
         ObjectType(fields, _) =>
@@ -596,9 +606,9 @@ fn[R : MoonBitStructRenderer] intersection_to_moonbit_named(
 }
 
 ///|
-/// Generate a struct definition for an object schema (uses InlineStructRenderer).
+/// Generate a struct definition for an @core.object schema (uses InlineStructRenderer).
 fn object_to_struct_definition(
-  spec : Map[String, Schema],
+  spec : Map[String, @core.Schema],
   indent : Int,
   struct_name : String,
 ) -> String {
@@ -606,11 +616,11 @@ fn object_to_struct_definition(
 }
 
 ///|
-/// Inline object renderer for the named-aware pipeline (uses NamedStructRenderer).
+/// Inline @core.object renderer for the named-aware pipeline (uses NamedStructRenderer).
 fn object_to_inline_moonbit(
-  spec : Map[String, Schema],
+  spec : Map[String, @core.Schema],
   indent : Int,
-  named_schemas : Array[Schema],
+  named_schemas : Array[@core.Schema],
 ) -> String {
   let renderer = NamedStructRenderer(named_schemas~)
   if spec.length() == 0 {
@@ -621,9 +631,9 @@ fn object_to_inline_moonbit(
   let inner_indent = indent + 1
 
   for key, val_schema in spec {
-    let key_is_optional = is_optional_schema(val_schema)
+    let key_is_optional = @core.is_optional_schema(val_schema)
     let inner = if key_is_optional {
-      peel_optional(val_schema)
+      @core.peel_optional(val_schema)
     } else {
       val_schema
     }
@@ -632,9 +642,13 @@ fn object_to_inline_moonbit(
       renderer, inner, inner_indent, named_schemas,
     )
     let opt_mark = if key_is_optional { "?" } else { "" }
-    let comment = constraint_comment(val_schema)
+    let comment = @core.constraint_comment(val_schema)
 
-    let line = indent_str(inner_indent) + key + opt_mark + " : " + field_type
+    let line = @core.indent_str(inner_indent) +
+      key +
+      opt_mark +
+      " : " +
+      field_type
 
     if comment.is_empty() {
       result = result + line + "\n"
@@ -643,7 +657,7 @@ fn object_to_inline_moonbit(
     }
   }
 
-  result = result + indent_str(indent) + "}"
+  result = result + @core.indent_str(indent) + "}"
   result
 }
 
@@ -653,40 +667,43 @@ fn enum_to_moonbit(values : Array[String], enum_name : String) -> String {
   let mut result = "pub enum " + enum_name + " {\n"
   for v in values {
     let variant = moonbit_type_name(v)
-    result = result + indent_str(1) + variant + "\n"
+    result = result + @core.indent_str(1) + variant + "\n"
   }
   result = result + "}"
   result
 }
 
 ///|
-/// Named-aware union renderer (uses NamedStructRenderer).
+/// Named-aware @core.union renderer (uses NamedStructRenderer).
 #warnings("-unused_value")
 fn union_to_inline_moonbit(
-  schemas : Array[Schema],
+  schemas : Array[@core.Schema],
   indent : Int,
-  named_schemas : Array[Schema],
+  named_schemas : Array[@core.Schema],
 ) -> String {
   let renderer = NamedStructRenderer(named_schemas~)
   union_to_moonbit_named(renderer, schemas, indent, named_schemas)
 }
 
 ///|
-/// Render an intersection type (uses InlineStructRenderer).
+/// Render an @core.intersection type (uses InlineStructRenderer).
 #warnings("-unused_value")
-fn intersection_to_moonbit(schemas : Array[Schema], indent : Int) -> String {
+fn intersection_to_moonbit(
+  schemas : Array[@core.Schema],
+  indent : Int,
+) -> String {
   intersection_to_moonbit_inline(InlineStructRenderer(), schemas, indent)
 }
 
 ///|
 
 ///|
-/// Named-aware intersection renderer (uses NamedStructRenderer).
+/// Named-aware @core.intersection renderer (uses NamedStructRenderer).
 #warnings("-unused_value")
 fn intersection_to_inline_moonbit(
-  schemas : Array[Schema],
+  schemas : Array[@core.Schema],
   indent : Int,
-  named_schemas : Array[Schema],
+  named_schemas : Array[@core.Schema],
 ) -> String {
   let renderer = NamedStructRenderer(named_schemas~)
   intersection_to_moonbit_named(renderer, schemas, indent, named_schemas)
@@ -694,12 +711,12 @@ fn intersection_to_inline_moonbit(
 
 ///|
 /// Generate struct definitions for all named schemas, topologically sorted.
-fn generate_struct_definitions(named_schemas : Array[Schema]) -> String {
+fn generate_struct_definitions(named_schemas : Array[@core.Schema]) -> String {
   if named_schemas.is_empty() {
     return "// No named schemas found"
   }
 
-  let sorted_schemas = topological_sort_schemas(named_schemas)
+  let sorted_schemas = @core.topological_sort_schemas(named_schemas)
 
   let mut result = ""
   for schema in sorted_schemas {
@@ -720,8 +737,8 @@ fn generate_struct_definitions(named_schemas : Array[Schema]) -> String {
 /// Generate a single struct/enum definition for a named schema,
 /// using the named schema list for type references.
 fn schema_to_struct_definition_with_names(
-  schema : Schema,
-  named_schemas : Array[Schema],
+  schema : @core.Schema,
+  named_schemas : Array[@core.Schema],
 ) -> String {
   if schema.name.is_empty() {
     return ""
@@ -738,19 +755,19 @@ fn schema_to_struct_definition_with_names(
 }
 
 ///|
-/// Render an object spec as a struct definition, using named references.
+/// Render an @core.object spec as a struct definition, using named references.
 fn struct_definition_with_names(
-  spec : Map[String, Schema],
+  spec : Map[String, @core.Schema],
   struct_name : String,
-  named_schemas : Array[Schema],
+  named_schemas : Array[@core.Schema],
 ) -> String {
   let renderer = NamedStructRenderer(named_schemas~)
   object_to_struct_def_named(renderer, spec, 0, struct_name)
 }
 
 ///|
-/// Check if a number schema has an int() rule by scanning annotations.
-fn has_int_rule(schema : Schema) -> Bool {
+/// Check if a @core.number schema has an int() rule by scanning annotations.
+fn has_int_rule(schema : @core.Schema) -> Bool {
   for rule in schema.rules {
     match rule.annotation {
       Object(m) =>
@@ -766,7 +783,7 @@ fn has_int_rule(schema : Schema) -> Bool {
 
 ///|
 /// Check if a schema is NullType.
-fn is_null_type(schema : Schema) -> Bool {
+fn is_null_type(schema : @core.Schema) -> Bool {
   match schema.schema_type {
     NullType => true
     _ => false
@@ -774,7 +791,7 @@ fn is_null_type(schema : Schema) -> Bool {
 }
 
 ///|
-/// Convert a literal Json value to its MoonBit type representation.
+/// Convert a @core.literal Json value to its MoonBit type representation.
 fn literal_to_moonbit_type(json : Json) -> String {
   match json {
     String(_) => "String"
@@ -787,7 +804,7 @@ fn literal_to_moonbit_type(json : Json) -> String {
 }
 
 ///|
-/// Convert an arbitrary string to a valid MoonBit PascalCase identifier.
+/// Convert an arbitrary @core.string to a valid MoonBit PascalCase identifier.
 fn moonbit_type_name(s : String) -> String {
   let arr = s.to_array()
   let mut result = ""
@@ -851,13 +868,15 @@ fn chr_to_upper(c : Char) -> String {
 ///
 /// # Example
 /// ```mbt nocheck
-/// let s = object({ "name": string(), "age": number().int() }).name("User")
+/// let s = @core.object({ "name": @core.string(), "age": @core.number().int() }).name(
+///   "User",
+/// )
 ///
 /// let code = schema_to_moonbit_struct_full(s)
 /// // pub struct User { name : String; age : Int64 }
 /// // pub fn user_from_json(json : Json) -> Result[User, Array[@moon_zod.ValidationError]] { ... }
 /// ```
-pub fn schema_to_moonbit_struct_full(schema : Schema) -> String {
+pub fn schema_to_moonbit_struct_full(schema : @core.Schema) -> String {
   if schema.name.is_empty() {
     return "// schema_to_moonbit_struct_full: schema has no name\n" +
       "// Use .name(\"MyName\") to name the schema"
@@ -885,17 +904,17 @@ pub fn schema_to_moonbit_struct_full(schema : Schema) -> String {
 /// `from_json()` functions for each, topologically sorted so that
 /// dependencies appear before dependents.
 pub fn schema_to_moonbit_struct_named_full(
-  schema : Schema,
+  schema : @core.Schema,
   include_names? : Array[String]? = None,
 ) -> String {
-  let all_named = collect_named_schemas(schema)
-  let selected_schemas = filter_named_schemas(all_named, include_names)
+  let all_named = @core.collect_named_schemas(schema)
+  let selected_schemas = @core.filter_named_schemas(all_named, include_names)
 
   if selected_schemas.is_empty() {
     return "// No named schemas found"
   }
 
-  let sorted_schemas = topological_sort_schemas(selected_schemas)
+  let sorted_schemas = @core.topological_sort_schemas(selected_schemas)
 
   let mut result = ""
   for s in sorted_schemas {
@@ -915,8 +934,8 @@ pub fn schema_to_moonbit_struct_named_full(
 ///|
 /// Generate struct + from_json block for one schema in named mode.
 fn schema_to_full_block(
-  schema : Schema,
-  named_schemas : Array[Schema],
+  schema : @core.Schema,
+  named_schemas : Array[@core.Schema],
 ) -> String {
   if schema.name.is_empty() {
     return ""
@@ -950,10 +969,10 @@ fn schema_to_full_block(
 /// Generate a complete `fn struct_name_from_json(json) -> Result[Struct, ...]`
 /// function that validates and extracts typed values.
 fn generate_from_json_fn(
-  schema : Schema,
+  schema : @core.Schema,
   struct_name : String,
   _indent : Int,
-  named_schemas : Array[Schema],
+  named_schemas : Array[@core.Schema],
 ) -> String {
   let fn_name = struct_name_to_fn_prefix(struct_name)
 
@@ -974,7 +993,7 @@ fn generate_from_json_fn(
         result = result + field_block
       }
 
-      // Generate struct literal with field names
+      // Generate struct @core.literal with field names
       result = result + "      Ok({\n"
       for key, _ in spec {
         result = result + "        " + key + ": " + key + ",\n"
@@ -993,20 +1012,20 @@ fn generate_from_json_fn(
 
 ///|
 /// Generate the extraction code for a single struct field.
-/// Returns a string containing the `let` binding and match expressions.
+/// Returns a @core.string containing the `let` binding and match expressions.
 fn extract_field(
   key : String,
-  schema : Schema,
+  schema : @core.Schema,
   indent : Int,
   _parent_struct : String,
-  named_schemas : Array[Schema],
+  named_schemas : Array[@core.Schema],
 ) -> String {
-  let key_escaped = escape_mbt_string(key)
-  let key_is_optional = is_optional_schema(schema)
-  let ind = indent_str(indent)
+  let key_escaped = @core.escape_mbt_string(key)
+  let key_is_optional = @core.is_optional_schema(schema)
+  let ind = @core.indent_str(indent)
 
   if key_is_optional {
-    let inner = peel_optional(schema)
+    let inner = @core.peel_optional(schema)
     let renderer = NamedStructRenderer(named_schemas~)
     let inner_type_name = render_mbt_type_named(
       renderer, inner, indent, named_schemas,
@@ -1049,7 +1068,7 @@ fn extract_field(
     ind +
     "  None => return Err([@moon_zod.ValidationError::{ path: \"" +
     key_escaped +
-    "\", message: \"required\", got: null }])\n" +
+    "\", message: \"required\", got: @core.null }])\n" +
     ind +
     "}\n"
   }
@@ -1060,8 +1079,8 @@ fn extract_field(
 /// Returns something like: `match v { String(s) => s; _ => return Err(...) }`
 fn extract_type_expr(
   json_var : String,
-  schema : Schema,
-  named_schemas : Array[Schema],
+  schema : @core.Schema,
+  named_schemas : Array[@core.Schema],
 ) -> String {
   match schema.schema_type {
     StringType =>
@@ -1158,12 +1177,8 @@ fn extract_type_expr(
       extract_type_expr("v", inner, named_schemas) +
       "; Some(result) } }"
     }
-    DefaultType(inner, _) =>
-      // Transparent: extract as normal type (no Option wrapping)
-      extract_type_expr(json_var, inner, named_schemas)
-    TransformType(inner, _) =>
-      // Transparent
-      extract_type_expr(json_var, inner, named_schemas)
+    DefaultType(inner, _) => extract_type_expr(json_var, inner, named_schemas)
+    TransformType(inner, _) => extract_type_expr(json_var, inner, named_schemas)
     ObjectType(_, _) => {
       // Check if this schema has a name and is in named_schemas
       let is_named = !schema.name.is_empty() &&
@@ -1230,7 +1245,7 @@ fn extract_type_expr(
         }
       })
       if all_objects {
-        // Try to delegate to the first named object
+        // Try to delegate to the first named @core.object
         let mut found_fn = false
         let mut fn_call = "json_var /* TODO: intersection extraction */"
         for s in schemas {
@@ -1279,7 +1294,7 @@ fn extract_type_expr(
 
 ///|
 /// Check if a schema name exists in a list of named schemas.
-fn schema_in_list(name : String, named_schemas : Array[Schema]) -> Bool {
+fn schema_in_list(name : String, named_schemas : Array[@core.Schema]) -> Bool {
   for s in named_schemas {
     if s.name == name {
       return true
@@ -1289,7 +1304,7 @@ fn schema_in_list(name : String, named_schemas : Array[Schema]) -> Bool {
 }
 
 ///|
-/// Convert a Json literal value to MoonBit match pattern code.
+/// Convert a Json @core.literal value to MoonBit match pattern code.
 fn json_to_literal_code(json : Json) -> String {
   match json {
     String(s) => "String(\"" + s + "\")"

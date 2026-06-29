@@ -1,39 +1,48 @@
 ///|
-/// Trait for rendering Schema as a Json value (JSON Schema export).
+/// Trait for rendering @core.Schema as a Json value (JSON @core.Schema export).
 ///
-/// Each method corresponds to one SchemaType variant and returns a Json value
-/// representing the JSON Schema constraint.
+/// Each method corresponds to one @core.SchemaType variant and returns a Json value
+/// representing the JSON @core.Schema constraint.
 pub(open) trait JsonSchemaRenderer {
-  fn render_string(Self, schema : Schema) -> Json
-  fn render_number(Self, schema : Schema) -> Json
-  fn render_boolean(Self, schema : Schema) -> Json
-  fn render_null(Self, schema : Schema) -> Json
+  fn render_string(Self, schema : @core.Schema) -> Json
+  fn render_number(Self, schema : @core.Schema) -> Json
+  fn render_boolean(Self, schema : @core.Schema) -> Json
+  fn render_null(Self, schema : @core.Schema) -> Json
   fn render_object(
     Self,
-    spec : Map[String, Schema],
-    mode : ObjectMode,
-    schema : Schema,
+    spec : Map[String, @core.Schema],
+    mode : @core.ObjectMode,
+    schema : @core.Schema,
   ) -> Json
-  fn render_array(Self, elem : Schema, schema : Schema) -> Json
-  fn render_optional(Self, inner : Schema, schema : Schema) -> Json
-  fn render_default(Self, inner : Schema, default_val : Json, schema : Schema) -> Json
-  fn render_enum(Self, values : Array[String], schema : Schema) -> Json
-  fn render_union(Self, schemas : Array[Schema], schema : Schema) -> Json
-  fn render_intersection(Self, schemas : Array[Schema], schema : Schema) -> Json
+  fn render_array(Self, elem : @core.Schema, schema : @core.Schema) -> Json
+  fn render_optional(Self, inner : @core.Schema, schema : @core.Schema) -> Json
+  fn render_default(
+    Self,
+    inner : @core.Schema,
+    default_val : Json,
+    schema : @core.Schema,
+  ) -> Json
+  fn render_enum(Self, values : Array[String], schema : @core.Schema) -> Json
+  fn render_union(Self, schemas : Array[@core.Schema], schema : @core.Schema) -> Json
+  fn render_intersection(
+    Self,
+    schemas : Array[@core.Schema],
+    schema : @core.Schema,
+  ) -> Json
   fn render_transform(
     Self,
-    inner : Schema,
-    closure : TransformClosure,
-    schema : Schema,
+    inner : @core.Schema,
+    closure : @core.TransformClosure,
+    schema : @core.Schema,
   ) -> Json
-  fn render_literal(Self, value : Json, schema : Schema) -> Json
+  fn render_literal(Self, value : Json, schema : @core.Schema) -> Json
 }
 
 ///|
-/// Dispatch to the appropriate JsonSchemaRenderer method based on SchemaType.
+/// Dispatch to the appropriate JsonSchemaRenderer method based on @core.SchemaType.
 pub fn[R : JsonSchemaRenderer] render_json_type(
   renderer : R,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   match schema.schema_type {
     StringType => renderer.render_string(schema)
@@ -58,7 +67,7 @@ pub fn[R : JsonSchemaRenderer] render_json_type(
 /// Named-aware version: emits a `$ref` if schema has a name in the list.
 pub fn[R : JsonSchemaRenderer] render_json_type_ref(
   renderer : R,
-  schema : Schema,
+  schema : @core.Schema,
   named_names : Array[String],
 ) -> Json {
   if !schema.name.is_empty() {

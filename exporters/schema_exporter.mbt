@@ -1,11 +1,11 @@
 ///|
-/// **Schema → moon_zod source code**
+/// **@core.Schema → moon_zod source code**
 ///
-/// Convert Schema objects to moon_zod method chain source code.
+/// Convert @core.Schema objects to moon_zod method chain source code.
 /// Supports inline expansion and named schema references.
 
 ///|
-/// Generate moon_zod source code from a Schema object (inline expansion).
+/// Generate moon_zod source code from a @core.Schema @core.object (inline expansion).
 ///
 /// # Example
 /// ```mbt nocheck
@@ -14,28 +14,28 @@
 /// let code = schema_to_moon_zod_code(schema)
 /// // "@moon_zod.string().min(3).describe(\"username\")"
 /// ```
-pub fn schema_to_moon_zod_code(schema : Schema) -> String {
+pub fn schema_to_moon_zod_code(schema : @core.Schema) -> String {
   let schema_name = if schema.name.is_empty() { "Root" } else { schema.name }
   let code = schema_to_moon_zod_code_inline(schema, None)
   let result = "let " +
-    escape_variable_name(schema_name) +
+    @core.escape_variable_name(schema_name) +
     " = " +
     code +
     ".name(\"" +
-    escape_mbt_string(schema_name) +
+    @core.escape_mbt_string(schema_name) +
     "\")"
   result
 }
 
 ///|
-/// Generate code with optional support for named schema references.
+/// Generate inline code with optional named schema reference substitution.
 ///
 /// If `include_names` is None, renders all schemas inline.
 /// If `include_names` is Some(names), replaces references to named schemas with variable names.
 ///
 /// For use with `schema_to_moon_zod_code_named()` which produces separate definitions.
-pub fn schema_to_moon_zod_code_with_names(
-  schema : Schema,
+pub fn schema_to_moon_zod_code_inline_with_refs(
+  schema : @core.Schema,
   include_names : Array[String]?,
 ) -> String {
   schema_to_moon_zod_code_inline(schema, include_names)
@@ -52,16 +52,16 @@ pub fn schema_to_moon_zod_code_with_names(
 /// //  Profile: @moon_zod.object({ ... }).name(\"Profile\")"
 /// ```
 pub fn schema_to_moon_zod_code_named(
-  schema : Schema,
+  schema : @core.Schema,
   include_names? : Array[String]? = None,
 ) -> String {
   let mut schema = schema
   if schema.name.is_empty() {
     schema = schema.name("Root")
   }
-  let all_named = collect_named_schemas(schema)
-  let selected = filter_named_schemas(all_named, include_names)
-  let sorted = topological_sort_schemas(selected)
+  let all_named = @core.collect_named_schemas(schema)
+  let selected = @core.filter_named_schemas(all_named, include_names)
+  let sorted = @core.topological_sort_schemas(selected)
 
   let defined_names = selected.map(fn(x) { x.name })
   let mut result = ""
@@ -73,11 +73,11 @@ pub fn schema_to_moon_zod_code_named(
         result = result + "\n"
       }
       let line = "let " +
-        escape_variable_name(s.name) +
+        @core.escape_variable_name(s.name) +
         " = " +
         code +
         ".name(\"" +
-        escape_mbt_string(s.name) +
+        @core.escape_mbt_string(s.name) +
         "\")"
       result = result + line
     }
@@ -88,7 +88,7 @@ pub fn schema_to_moon_zod_code_named(
 ///|
 /// Internal: Generate code with optional named schema reference support.
 fn schema_to_moon_zod_code_inline(
-  schema : Schema,
+  schema : @core.Schema,
   include_names : Array[String]?,
 ) -> String {
   let defined_names = match include_names {
@@ -97,8 +97,8 @@ fn schema_to_moon_zod_code_inline(
   }
 
   // If this schema has a name and it's in the defined_names list, use reference
-  if !schema.name.is_empty() && value_in_array(schema.name, defined_names) {
-    return escape_variable_name(schema.name)
+  if !schema.name.is_empty() && @core.value_in_array(schema.name, defined_names) {
+    return @core.escape_variable_name(schema.name)
   }
 
   let base = schema_type_to_code(schema.schema_type, defined_names)
@@ -108,7 +108,7 @@ fn schema_to_moon_zod_code_inline(
   if !schema.description.is_empty() {
     result = result +
       ".describe(\"" +
-      escape_mbt_string(schema.description) +
+      @core.escape_mbt_string(schema.description) +
       "\")"
   }
 
@@ -116,13 +116,13 @@ fn schema_to_moon_zod_code_inline(
   if !schema.required_error.is_empty() {
     result = result +
       ".required_error(\"" +
-      escape_mbt_string(schema.required_error) +
+      @core.escape_mbt_string(schema.required_error) +
       "\")"
   }
   if !schema.invalid_type_error.is_empty() {
     result = result +
       ".invalid_type_error(\"" +
-      escape_mbt_string(schema.invalid_type_error) +
+      @core.escape_mbt_string(schema.invalid_type_error) +
       "\")"
   }
 
@@ -132,7 +132,7 @@ fn schema_to_moon_zod_code_inline(
 ///|
 /// Generate base type constructor code.
 fn schema_type_to_code(
-  schema_type : SchemaType,
+  schema_type : @core.SchemaType,
   defined_names : Array[String],
 ) -> String {
   match schema_type {
@@ -150,12 +150,12 @@ fn schema_type_to_code(
             field_schema,
             Some(defined_names),
           )
-          parts.push("\"" + escape_mbt_string(key) + "\": " + field_code)
+          parts.push("\"" + @core.escape_mbt_string(key) + "\": " + field_code)
         }
         "@moon_zod.object({ " + join_with(parts, ", ") + " })"
       }
 
-      // Apply object mode if not default Strip
+      // Apply @core.object mode if not default Strip
       match mode {
         Strip => base
         Passthrough => base + ".passthrough()"
@@ -176,7 +176,7 @@ fn schema_type_to_code(
     EnumType(values) => {
       let parts : Array[String] = []
       for v in values {
-        parts.push("\"" + escape_mbt_string(v) + "\"")
+        parts.push("\"" + @core.escape_mbt_string(v) + "\"")
       }
       "@moon_zod.enum_values([" + join_with(parts, ", ") + "])"
     }
@@ -205,7 +205,7 @@ fn schema_type_to_code(
 /// Apply rules as method chain.
 /// Note: Only outputs constraint annotations, not rule messages,
 /// since rule.message may be auto-generated defaults.
-fn apply_rules_to_code(base : String, schema : Schema) -> String {
+fn apply_rules_to_code(base : String, schema : @core.Schema) -> String {
   let mut result = base
   let mut has_int_type = false
 
@@ -223,21 +223,21 @@ fn apply_rules_to_code(base : String, schema : Schema) -> String {
         if map.contains("minLength") {
           match map.get("minLength") {
             Some(Number(v, ..)) =>
-              result = result + ".min(" + format_double_simple(v) + ")"
+              result = result + ".min(" + @core.format_double_simple(v) + ")"
             _ => ()
           }
         }
         if map.contains("maxLength") {
           match map.get("maxLength") {
             Some(Number(v, ..)) =>
-              result = result + ".max(" + format_double_simple(v) + ")"
+              result = result + ".max(" + @core.format_double_simple(v) + ")"
             _ => ()
           }
         }
         if map.contains("pattern") {
           match map.get("pattern") {
             Some(String(p)) =>
-              result = result + ".regex(\"" + escape_mbt_string(p) + "\")"
+              result = result + ".regex(\"" + @core.escape_mbt_string(p) + "\")"
             _ => ()
           }
         }
@@ -257,14 +257,14 @@ fn apply_rules_to_code(base : String, schema : Schema) -> String {
         if map.contains("minimum") {
           match map.get("minimum") {
             Some(Number(v, ..)) =>
-              result = result + ".min(" + format_double_simple(v) + ")"
+              result = result + ".min(" + @core.format_double_simple(v) + ")"
             _ => ()
           }
         }
         if map.contains("maximum") {
           match map.get("maximum") {
             Some(Number(v, ..)) =>
-              result = result + ".max(" + format_double_simple(v) + ")"
+              result = result + ".max(" + @core.format_double_simple(v) + ")"
             _ => ()
           }
         }
@@ -274,7 +274,7 @@ fn apply_rules_to_code(base : String, schema : Schema) -> String {
               if v == 0.0 {
                 result = result + ".positive()"
               } else {
-                result = result + ".min(" + format_double_simple(v) + ")"
+                result = result + ".min(" + @core.format_double_simple(v) + ")"
               }
             _ => ()
           }
@@ -285,7 +285,7 @@ fn apply_rules_to_code(base : String, schema : Schema) -> String {
               if v == 0.0 {
                 result = result + ".negative()"
               } else {
-                result = result + ".max(" + format_double_simple(v) + ")"
+                result = result + ".max(" + @core.format_double_simple(v) + ")"
               }
             _ => ()
           }
@@ -293,7 +293,10 @@ fn apply_rules_to_code(base : String, schema : Schema) -> String {
         if map.contains("multipleOf") {
           match map.get("multipleOf") {
             Some(Number(v, ..)) =>
-              result = result + ".multipleOf(" + format_double_simple(v) + ")"
+              result = result +
+                ".multipleOf(" +
+                @core.format_double_simple(v) +
+                ")"
             _ => ()
           }
         }
@@ -302,14 +305,14 @@ fn apply_rules_to_code(base : String, schema : Schema) -> String {
         if map.contains("minItems") {
           match map.get("minItems") {
             Some(Number(v, ..)) =>
-              result = result + ".min(" + format_double_simple(v) + ")"
+              result = result + ".min(" + @core.format_double_simple(v) + ")"
             _ => ()
           }
         }
         if map.contains("maxItems") {
           match map.get("maxItems") {
             Some(Number(v, ..)) =>
-              result = result + ".max(" + format_double_simple(v) + ")"
+              result = result + ".max(" + @core.format_double_simple(v) + ")"
             _ => ()
           }
         }
@@ -326,11 +329,11 @@ fn apply_rules_to_code(base : String, schema : Schema) -> String {
 }
 
 ///|
-/// Convert a Json value to moon_zod literal expression.
+/// Convert a Json value to moon_zod @core.literal expression.
 fn json_to_literal(val : Json) -> String {
   match val {
-    String(s) => "Json::string(\"" + escape_mbt_string(s) + "\")"
-    Number(v, ..) => "Json::number(" + format_double_simple(v) + ")"
+    String(s) => "Json::string(\"" + @core.escape_mbt_string(s) + "\")"
+    Number(v, ..) => "Json::number(" + @core.format_double_simple(v) + ")"
     True => "Json::true()"
     False => "Json::false()"
     Null => "Json::null()"
@@ -342,7 +345,7 @@ fn json_to_literal(val : Json) -> String {
       let parts : Array[String] = []
       for k, v in map {
         let lit = json_to_literal(v)
-        parts.push("\"" + escape_mbt_string(k) + "\": " + lit)
+        parts.push("\"" + @core.escape_mbt_string(k) + "\": " + lit)
       }
       "Json::object({" + join_with(parts, ", ") + "})"
     }
@@ -359,24 +362,4 @@ fn join_with(parts : Array[String], sep : String) -> String {
     result = result + sep + parts[i]
   }
   result
-}
-
-///|
-/// **JSON Schema → moon_zod source code**
-///
-/// Generates MoonBit source code by:
-/// 1. Converting JSON Schema to Schema objects (Layer 1)
-/// 2. Converting Schema objects to code (Layer 2 in exporters/prompt.mbt)
-///
-/// # Example
-/// ```mbt nocheck
-/// let schema = @json.parse("{\"type\":\"string\",\"minLength\":3}").unwrap()
-///
-/// let code = json_schema_to_moon_zod(schema)
-/// // "@moon_zod.string().min(3)"
-/// ```
-pub fn json_schema_to_moon_zod(schema : Json) -> String {
-  let schema_obj = json_schema_to_schema(schema)
-  let named_defs = schema_to_moon_zod_code_named(schema_obj)
-  named_defs
 }

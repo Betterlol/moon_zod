@@ -53,6 +53,7 @@ pub using @core {
   constraint_comment,
   escape_mbt_string,
   escape_ident,
+  escape_variable_name,
   parse_json,
 }
 
@@ -72,8 +73,10 @@ pub using @exporters {
   schema_to_prompt_named,
   schema_to_moon_zod_code,
   schema_to_moon_zod_code_named,
-  json_schema_to_moon_zod,
 }
 
 ///|
 pub using @importers {json_schema_to_schema}
+
+///|
+pub using @combinators {json_schema_to_moon_zod}

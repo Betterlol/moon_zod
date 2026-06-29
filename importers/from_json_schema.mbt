@@ -1,18 +1,18 @@
 ///|
-/// Convert JSON Schema (draft-07) documents to moon_zod Schema objects.
+/// Convert JSON @core.Schema (draft-07) documents to moon_zod @core.Schema objects.
 ///
 /// Two functions:
-/// 1. json_schema_to_schema() - Parse JSON Schema → Schema object (runtime-ready)
-/// 2. json_schema_to_moon_zod() - Parse JSON Schema → moon_zod source code (uses layer 2)
+/// 1. json_schema_to_schema() - Parse JSON @core.Schema → @core.Schema @core.object (runtime-ready)
+/// 2. json_schema_to_moon_zod() - Parse JSON @core.Schema → moon_zod source code (uses layer 2)
 
 ///|
-/// **JSON Schema → Schema object**
+/// **JSON @core.Schema → @core.Schema @core.object**
 ///
-/// Parses a JSON Schema (draft-07) document into a runtime Schema object.
-/// Handles $defs, $ref, enum, type constraints, and all JSON Schema keywords.
-pub fn json_schema_to_schema(schema : Json) -> Schema {
+/// Parses a JSON @core.Schema (draft-07) document into a runtime @core.Schema @core.object.
+/// Handles $defs, $ref, enum, type constraints, and all JSON @core.Schema keywords.
+pub fn json_schema_to_schema(schema : Json) -> @core.Schema {
   let defs_json = extract_defs(schema)
-  let defs_cache : Map[String, Schema] = {}
+  let defs_cache : Map[String, @core.Schema] = {}
   let visiting : Array[String] = []
 
   // First pass: Process all $defs to build cache
@@ -31,15 +31,15 @@ pub fn json_schema_to_schema(schema : Json) -> Schema {
 fn process_json_def(
   name : String,
   defs_json : Map[String, Json],
-  cache : Map[String, Schema],
+  cache : Map[String, @core.Schema],
   visiting : Array[String],
 ) -> Unit {
   if cache.contains(name) {
     return
   }
-  if value_in_array(name, visiting) {
-    // Cycle: use null schema as placeholder
-    cache.set(name, null().name(name))
+  if @core.value_in_array(name, visiting) {
+    // Cycle: use @core.null schema as placeholder
+    cache.set(name, @core.null().name(name))
     return
   }
 
@@ -61,13 +61,13 @@ fn process_json_def(
 }
 
 ///|
-/// Convert JSON Schema document to Schema object.
+/// Convert JSON @core.Schema document to @core.Schema @core.object.
 fn json_to_schema_impl(
   json : Json,
   defs_json : Map[String, Json],
-  defs_cache : Map[String, Schema],
+  defs_cache : Map[String, @core.Schema],
   visiting : Array[String],
-) -> Schema {
+) -> @core.Schema {
   match json {
     Object(m) => {
       // 1. Check $ref
@@ -81,27 +81,27 @@ fn json_to_schema_impl(
               match defs_json.get(ref_name) {
                 Some(_) => {
                   // Check if this would create a cycle
-                  if value_in_array(ref_name, visiting) {
+                  if @core.value_in_array(ref_name, visiting) {
                     // Cycle detected
-                    return null().name(ref_name)
+                    return @core.null().name(ref_name)
                   }
                   // Process the forward ref
                   process_json_def(ref_name, defs_json, defs_cache, visiting)
                   match defs_cache.get(ref_name) {
                     Some(s) => return s
-                    None => return string()
+                    None => return @core.string()
                   }
                 }
-                None => return string()
+                None => return @core.string()
               }
           }
         }
         _ => ()
       }
 
-      // 2. Check const (for literal values)
+      // 2. Check const (for @core.literal values)
       match m.get("const") {
-        Some(val) => return literal(val)
+        Some(val) => return @core.literal(val)
         _ => ()
       }
 
@@ -115,7 +115,7 @@ fn json_to_schema_impl(
               _ => ()
             }
           }
-          return enum_values(strs)
+          return @core.enum_values(strs)
         }
         _ => ()
       }
@@ -126,7 +126,7 @@ fn json_to_schema_impl(
           Some(String("object")) =>
             match m.get("properties") {
               Some(Object(props)) => {
-                let fields : Map[String, Schema] = {}
+                let fields : Map[String, @core.Schema] = {}
                 let required_set = parse_required(m.get("required"))
                 for key, field_json in props {
                   let mut field = json_to_schema_impl(
@@ -137,24 +137,24 @@ fn json_to_schema_impl(
                   }
                   fields.set(key, field)
                 }
-                object(fields)
+                @core.object(fields)
               }
-              _ => object({})
+              _ => @core.object({})
             }
           Some(String("array")) => {
             let elem = match m.get("items") {
               Some(items) =>
                 json_to_schema_impl(items, defs_json, defs_cache, visiting)
-              None => string()
+              None => @core.string()
             }
-            array(elem)
+            @core.array(elem)
           }
-          Some(String("string")) => string()
-          Some(String("number")) => number()
-          Some(String("integer")) => number().int()
-          Some(String("boolean")) => boolean()
-          Some(String("null")) => null()
-          _ => string()
+          Some(String("string")) => @core.string()
+          Some(String("number")) => @core.number()
+          Some(String("integer")) => @core.number().int()
+          Some(String("boolean")) => @core.boolean()
+          Some(String("null")) => @core.null()
+          _ => @core.string()
         }
         return apply_json_schema_constraints(base, m)
       }
@@ -165,7 +165,7 @@ fn json_to_schema_impl(
           let parts = schemas.map(fn(s) {
             json_to_schema_impl(s, defs_json, defs_cache, visiting)
           })
-          return union(parts)
+          return @core.union(parts)
         }
         _ => ()
       }
@@ -174,7 +174,7 @@ fn json_to_schema_impl(
           let parts = schemas.map(fn(s) {
             json_to_schema_impl(s, defs_json, defs_cache, visiting)
           })
-          return intersection(parts)
+          return @core.intersection(parts)
         }
         _ => ()
       }
@@ -183,19 +183,19 @@ fn json_to_schema_impl(
           let parts = schemas.map(fn(s) {
             json_to_schema_impl(s, defs_json, defs_cache, visiting)
           })
-          return union(parts)
+          return @core.union(parts)
         }
         _ => ()
       }
 
-      string()
+      @core.string()
     }
-    _ => string()
+    _ => @core.string()
   }
 }
 
 ///|
-/// Parse the "required" array from JSON Schema object.
+/// Parse the "required" @core.array from JSON @core.Schema @core.object.
 fn parse_required(required_json : Json?) -> Map[String, Bool] {
   let set : Map[String, Bool] = {}
   match required_json {
@@ -212,11 +212,11 @@ fn parse_required(required_json : Json?) -> Map[String, Bool] {
 }
 
 ///|
-/// Apply JSON Schema constraint keywords to a Schema.
+/// Apply JSON @core.Schema constraint keywords to a @core.Schema.
 fn apply_json_schema_constraints(
-  schema : Schema,
+  schema : @core.Schema,
   m : Map[String, Json],
-) -> Schema {
+) -> @core.Schema {
   let mut result = schema
 
   // String/Array length constraints
@@ -296,7 +296,7 @@ fn apply_json_schema_constraints(
 // ─── Utility functions ───
 
 ///|
-/// Extract $defs or definitions from JSON Schema.
+/// Extract $defs or definitions from JSON @core.Schema.
 fn extract_defs(schema : Json) -> Map[String, Json] {
   match schema {
     Object(m) => {
@@ -315,7 +315,7 @@ fn extract_defs(schema : Json) -> Map[String, Json] {
 }
 
 ///|
-/// Parse a $ref string to extract the definition name.
+/// Parse a $ref @core.string to extract the definition name.
 fn parse_ref_name(ref_str : String) -> String {
   let arr = ref_str.to_array()
   let mut last = ""

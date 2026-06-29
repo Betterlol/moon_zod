@@ -1,12 +1,12 @@
 ///|
-/// Convert a moon_zod Schema into a standard JSON Schema object.
+/// Convert a moon_zod @core.Schema into a standard JSON @core.Schema @core.object.
 ///
 /// Uses JsonSchemaRenderer trait with FullJsonRenderer / SkeletonJsonRenderer / NamedJsonRenderer.
 
 // ── Helper functions (shared across renderers) ──
 
 ///|
-fn merge_annotations(base : Json, rules : Array[Rule]) -> Json {
+fn merge_annotations(base : Json, rules : Array[@core.Rule]) -> Json {
   match base {
     Object(map) => {
       for rule in rules {
@@ -34,7 +34,7 @@ fn json_number_schema() -> Json {
   Json::object({ "type": Json::string("number") })
 }
 
-// ── FullJsonRenderer: full JSON Schema with constraint annotations ──
+// ── FullJsonRenderer: full JSON @core.Schema with constraint annotations ──
 
 ///|
 pub struct FullJsonRenderer {}
@@ -48,7 +48,7 @@ pub fn FullJsonRenderer::FullJsonRenderer() -> FullJsonRenderer {
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_string(
   self : FullJsonRenderer,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(json_string_schema(), schema.rules)
 }
@@ -57,7 +57,7 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_string(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_number(
   self : FullJsonRenderer,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(json_number_schema(), schema.rules)
 }
@@ -66,7 +66,7 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_number(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_boolean(
   self : FullJsonRenderer,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(
     Json::object({ "type": Json::string("boolean") }),
@@ -78,7 +78,7 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_boolean(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_null(
   self : FullJsonRenderer,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(
     Json::object({ "type": Json::string("null") }),
@@ -89,15 +89,15 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_null(
 ///|
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_object(
   self : FullJsonRenderer,
-  spec : Map[String, Schema],
-  mode : ObjectMode,
-  schema : Schema,
+  spec : Map[String, @core.Schema],
+  mode : @core.ObjectMode,
+  schema : @core.Schema,
 ) -> Json {
   let props : Map[String, Json] = {}
   let required_arr : Array[String] = []
   for key, val in spec {
     props.set(key, render_json_type(self, val))
-    if !is_optional_schema(val) {
+    if !@core.is_optional_schema(val) {
       required_arr.push(key)
     }
   }
@@ -120,8 +120,8 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_object(
 ///|
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_array(
   self : FullJsonRenderer,
-  elem : Schema,
-  schema : Schema,
+  elem : @core.Schema,
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(
     Json::object({
@@ -136,8 +136,8 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_array(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_optional(
   self : FullJsonRenderer,
-  inner : Schema,
-  schema : Schema,
+  inner : @core.Schema,
+  schema : @core.Schema,
 ) -> Json {
   render_json_type(self, inner)
 }
@@ -146,9 +146,9 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_optional(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_default(
   self : FullJsonRenderer,
-  inner : Schema,
+  inner : @core.Schema,
   default_val : Json,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   let inner_json = render_json_type(self, inner)
   match inner_json {
@@ -164,9 +164,9 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_default(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_transform(
   self : FullJsonRenderer,
-  inner : Schema,
-  _closure : TransformClosure,
-  schema : Schema,
+  inner : @core.Schema,
+  _closure : @core.TransformClosure,
+  schema : @core.Schema,
 ) -> Json {
   render_json_type(self, inner)
 }
@@ -176,7 +176,7 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_transform(
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_enum(
   self : FullJsonRenderer,
   values : Array[String],
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(
     Json::object({
@@ -190,8 +190,8 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_enum(
 ///|
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_union(
   self : FullJsonRenderer,
-  schemas : Array[Schema],
-  schema : Schema,
+  schemas : Array[@core.Schema],
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(
     Json::object({
@@ -204,8 +204,8 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_union(
 ///|
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_intersection(
   self : FullJsonRenderer,
-  schemas : Array[Schema],
-  schema : Schema,
+  schemas : Array[@core.Schema],
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(
     Json::object({
@@ -220,7 +220,7 @@ pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_intersection(
 pub impl JsonSchemaRenderer for FullJsonRenderer with fn render_literal(
   self : FullJsonRenderer,
   value : Json,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(Json::object({ "const": value }), schema.rules)
 }
@@ -239,7 +239,7 @@ pub fn SkeletonJsonRenderer::SkeletonJsonRenderer() -> SkeletonJsonRenderer {
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_string(
   self : SkeletonJsonRenderer,
-  _schema : Schema,
+  _schema : @core.Schema,
 ) -> Json {
   json_string_schema()
 }
@@ -248,7 +248,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_string(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_number(
   self : SkeletonJsonRenderer,
-  _schema : Schema,
+  _schema : @core.Schema,
 ) -> Json {
   json_number_schema()
 }
@@ -257,7 +257,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_number(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_boolean(
   self : SkeletonJsonRenderer,
-  _schema : Schema,
+  _schema : @core.Schema,
 ) -> Json {
   Json::object({ "type": Json::string("boolean") })
 }
@@ -266,7 +266,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_boolean(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_null(
   self : SkeletonJsonRenderer,
-  _schema : Schema,
+  _schema : @core.Schema,
 ) -> Json {
   Json::object({ "type": Json::string("null") })
 }
@@ -275,15 +275,15 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_null(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_object(
   self : SkeletonJsonRenderer,
-  spec : Map[String, Schema],
-  mode : ObjectMode,
-  schema : Schema,
+  spec : Map[String, @core.Schema],
+  mode : @core.ObjectMode,
+  schema : @core.Schema,
 ) -> Json {
   let props : Map[String, Json] = {}
   let required_arr : Array[String] = []
   for key, val in spec {
     props.set(key, render_json_type(self, val))
-    if !is_optional_schema(val) {
+    if !@core.is_optional_schema(val) {
       required_arr.push(key)
     }
   }
@@ -304,8 +304,8 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_object(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_array(
   self : SkeletonJsonRenderer,
-  elem : Schema,
-  schema : Schema,
+  elem : @core.Schema,
+  schema : @core.Schema,
 ) -> Json {
   Json::object({
     "type": Json::string("array"),
@@ -317,8 +317,8 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_array(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_optional(
   self : SkeletonJsonRenderer,
-  inner : Schema,
-  schema : Schema,
+  inner : @core.Schema,
+  schema : @core.Schema,
 ) -> Json {
   render_json_type(self, inner)
 }
@@ -327,9 +327,9 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_optional(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_default(
   self : SkeletonJsonRenderer,
-  inner : Schema,
+  inner : @core.Schema,
   default_val : Json,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   let inner_json = render_json_type(self, inner)
   match inner_json {
@@ -345,9 +345,9 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_default(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_transform(
   self : SkeletonJsonRenderer,
-  inner : Schema,
-  _closure : TransformClosure,
-  schema : Schema,
+  inner : @core.Schema,
+  _closure : @core.TransformClosure,
+  schema : @core.Schema,
 ) -> Json {
   render_json_type(self, inner)
 }
@@ -357,7 +357,7 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_transform(
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_enum(
   self : SkeletonJsonRenderer,
   values : Array[String],
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   Json::object({
     "type": Json::string("string"),
@@ -369,8 +369,8 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_enum(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_union(
   self : SkeletonJsonRenderer,
-  schemas : Array[Schema],
-  schema : Schema,
+  schemas : Array[@core.Schema],
+  schema : @core.Schema,
 ) -> Json {
   Json::object({
     "anyOf": Json::array(schemas.map(fn(s) { render_json_type(self, s) })),
@@ -381,8 +381,8 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_union(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_intersection(
   self : SkeletonJsonRenderer,
-  schemas : Array[Schema],
-  schema : Schema,
+  schemas : Array[@core.Schema],
+  schema : @core.Schema,
 ) -> Json {
   Json::object({
     "allOf": Json::array(schemas.map(fn(s) { render_json_type(self, s) })),
@@ -394,12 +394,12 @@ pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_intersection
 pub impl JsonSchemaRenderer for SkeletonJsonRenderer with fn render_literal(
   self : SkeletonJsonRenderer,
   value : Json,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   Json::object({ "const": value })
 }
 
-// ── NamedJsonRenderer: JSON Schema with $defs/$ref support ──
+// ── NamedJsonRenderer: JSON @core.Schema with $defs/$ref support ──
 
 ///|
 pub struct NamedJsonRenderer {
@@ -419,7 +419,7 @@ pub fn NamedJsonRenderer::NamedJsonRenderer(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_string(
   self : NamedJsonRenderer,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(json_string_schema(), schema.rules)
 }
@@ -428,7 +428,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_string(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_number(
   self : NamedJsonRenderer,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(json_number_schema(), schema.rules)
 }
@@ -437,7 +437,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_number(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_boolean(
   self : NamedJsonRenderer,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(
     Json::object({ "type": Json::string("boolean") }),
@@ -449,7 +449,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_boolean(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_null(
   self : NamedJsonRenderer,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(
     Json::object({ "type": Json::string("null") }),
@@ -460,15 +460,15 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_null(
 ///|
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_object(
   self : NamedJsonRenderer,
-  spec : Map[String, Schema],
-  mode : ObjectMode,
-  schema : Schema,
+  spec : Map[String, @core.Schema],
+  mode : @core.ObjectMode,
+  schema : @core.Schema,
 ) -> Json {
   let props : Map[String, Json] = {}
   let required_arr : Array[String] = []
   for key, val in spec {
     props.set(key, render_json_type_ref(self, val, self.named_names))
-    if !is_optional_schema(val) {
+    if !@core.is_optional_schema(val) {
       required_arr.push(key)
     }
   }
@@ -491,8 +491,8 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_object(
 ///|
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_array(
   self : NamedJsonRenderer,
-  elem : Schema,
-  schema : Schema,
+  elem : @core.Schema,
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(
     Json::object({
@@ -507,8 +507,8 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_array(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_optional(
   self : NamedJsonRenderer,
-  inner : Schema,
-  schema : Schema,
+  inner : @core.Schema,
+  schema : @core.Schema,
 ) -> Json {
   render_json_type_ref(self, inner, self.named_names)
 }
@@ -517,9 +517,9 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_optional(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_default(
   self : NamedJsonRenderer,
-  inner : Schema,
+  inner : @core.Schema,
   default_val : Json,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   let inner_json = render_json_type_ref(self, inner, self.named_names)
   match inner_json {
@@ -535,9 +535,9 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_default(
 #warnings("-unused_value")
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_transform(
   self : NamedJsonRenderer,
-  inner : Schema,
-  _closure : TransformClosure,
-  schema : Schema,
+  inner : @core.Schema,
+  _closure : @core.TransformClosure,
+  schema : @core.Schema,
 ) -> Json {
   render_json_type_ref(self, inner, self.named_names)
 }
@@ -547,7 +547,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_transform(
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_enum(
   self : NamedJsonRenderer,
   values : Array[String],
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(
     Json::object({
@@ -561,8 +561,8 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_enum(
 ///|
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_union(
   self : NamedJsonRenderer,
-  schemas : Array[Schema],
-  schema : Schema,
+  schemas : Array[@core.Schema],
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(
     Json::object({
@@ -577,8 +577,8 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_union(
 ///|
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_intersection(
   self : NamedJsonRenderer,
-  schemas : Array[Schema],
-  schema : Schema,
+  schemas : Array[@core.Schema],
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(
     Json::object({
@@ -595,7 +595,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_intersection(
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_literal(
   self : NamedJsonRenderer,
   value : Json,
-  schema : Schema,
+  schema : @core.Schema,
 ) -> Json {
   merge_annotations(Json::object({ "const": value }), schema.rules)
 }
@@ -603,29 +603,29 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_literal(
 // ── Public API ──
 
 ///|
-/// Convert a moon_zod Schema into a standard JSON Schema object with full
+/// Convert a moon_zod @core.Schema into a standard JSON @core.Schema @core.object with full
 /// constraint annotations (minLength, maximum, pattern, format, etc.).
-pub fn to_json_schema(schema : Schema) -> Json {
+pub fn to_json_schema(schema : @core.Schema) -> Json {
   render_json_type(FullJsonRenderer(), schema)
 }
 
 ///|
-/// Convert a moon_zod Schema into a lightweight JSON Schema skeleton.
+/// Convert a moon_zod @core.Schema into a lightweight JSON @core.Schema skeleton.
 /// Only structural type information is exported.
-pub fn to_json_schema_skeleton(schema : Schema) -> Json {
+pub fn to_json_schema_skeleton(schema : @core.Schema) -> Json {
   render_json_type(SkeletonJsonRenderer(), schema)
 }
 
 ///|
-/// Export a JSON Schema with named sub-schemas in a `$defs` section.
+/// Export a JSON @core.Schema with named sub-schemas in a `$defs` section.
 pub fn to_json_schema_named(
-  schema : Schema,
+  schema : @core.Schema,
   include_names? : Array[String]? = None,
 ) -> Json {
-  let all_named = collect_named_schemas(schema)
-  let selected_schemas = filter_named_schemas(all_named, include_names)
+  let all_named = @core.collect_named_schemas(schema)
+  let selected_schemas = @core.filter_named_schemas(all_named, include_names)
   let named_names : Array[String] = selected_schemas.map(fn(s) { s.name })
-  let sorted_schemas = topological_sort_schemas(selected_schemas)
+  let sorted_schemas = @core.topological_sort_schemas(selected_schemas)
 
   let renderer = NamedJsonRenderer(named_names~)
 
