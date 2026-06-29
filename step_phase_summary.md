@@ -785,9 +785,11 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 
 **目标**: 将 `from_json_schema.mbt` 中的混杂逻辑拆分为两层（JSON Schema → Schema → 代码），重构 `schema_to_moon_zod_code` 使其支持命名导出/description/object mode/错误消息，同时完成正式的子包模块化。
 
+### Phase A: 代码生成重构 + 项目模块化
+
 | 新增文件 | 用途 |
 |---------|------|
-| `exporters/schema_exporter.mbt` | Schema → moon_zod 源码生成器（`schema_to_moon_zod_code`, `_named`, `_with_names`, `_inline`） |
+| `exporters/schema_exporter.mbt` | Schema → moon_zod 源码生成器（`schema_to_moon_zod_code`, `_named`, `_inline`） |
 | `importers/from_json_schema.mbt` | JSON Schema → Schema 运行时对象（`json_schema_to_schema`，与原代码生成解耦） |
 | `core/moon.pkg` / `exporters/moon.pkg` / `importers/moon.pkg` / `tests/moon.pkg` | 四个正式子包声明 |
 | 各子包 `reexporter.mbt` | 按包隔离的导出重声明 |
@@ -810,16 +812,54 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 | `from_json_schema.mbt` → `importers/from_json_schema.mbt` | JSON Schema 导入器（移除旧的 586 行单体文件） |
 | `test_*.mbt` → `tests/test_*.mbt` | 测试文件（13 文件） |
 
+### Phase B: 架构精炼 — combinators 子包 + reexporter 去重
+
+针对 Phase A 遗留的两大问题（`exporters` ← `importers` 依赖颠破、4 份重复 `reexporter.mbt`）进行整改：
+
+| 新增文件 | 用途 |
+|---------|------|
+| `combinators/moon.pkg` | 组合层包声明，依赖 exporters + importers |
+| `combinators/schema_combinators.mbt` | `json_schema_to_moon_zod` 端到端组合函数 |
+| `combinators/reexporter.mbt` | re-export exporters + importers（无 `@core` 重导出）|
+
+| 删除文件 | 原因 |
+|---------|------|
+| `exporters/reexporter.mbt` | 空壳（仅含 `pub using @core`），子包内改为 `@core.` 前缀引用 |
+| `importers/reexporter.mbt` | 同上 |
+
+| 修改文件 | 变更 |
+|---------|------|
+| `exporters/moon.pkg` | 移除 `importers` 依赖 — 消除架构违规 |
+| `moon.pkg` (root) | 新增 `combinators` 依赖；添加 `escape_variable_name` |
+| `tests/moon.pkg` | 新增 `combinators` 依赖 |
+| `tests/reexporter.mbt` | `json_schema_to_moon_zod` 从 `@exporters` 移到 `@combinators`；添加 `escape_variable_name` |
+| `exporters/*.mbt` (6 文件) | 所有核心引用加 `@core.` 前缀（`Schema` → `@core.Schema`） |
+| `importers/from_json_schema.mbt` | `null()` → `@core.null()` |
+| `reexporter.mbt` | `json_schema_to_moon_zod` 从 `@exporters` 移到 `@combinators`；添加 `escape_variable_name` |
+
+**API 重命名**:
+- `schema_to_moon_zod_code_with_names` → `schema_to_moon_zod_code_inline_with_refs`
+
+**最终依赖图**:
+```
+core ← importers
+core ← exporters
+exporters + importers ← combinators  (组合层)
+core + exporters + importers + combinators ← root
+core + exporters + importers + combinators ← tests
+```
+
 **关键决策**:
-- **子包隔离**：core 无任何外部依赖；exporters 依赖 core；tests 依赖 core + exporters + importers。每个子包独立 `moon.pkg` + `reexporter.mbt`。
+- **子包隔离**：core 无外部依赖；exporters 仅依赖 core（不依赖 importers）；importers 仅依赖 core。组合层单独由 `combinators` 包负责。
+- **`@core.` 前缀**：子包源码不再依靠 `pub using @core` 重导出，直接通过 `@core.Schema` 等限定名引用。仅有根 `reexporter.mbt` 作为单一 public API 入口。
+- **`tests/` 保留 reexporter**：测试代码密集使用核心类型，保留 `tests/reexporter.mbt` 作为便利。
 - **两层分离**：`json_schema_to_schema` 返回 Schema 对象（可做解析后处理），`schema_to_moon_zod_code_named` 负责代码生成。组合函数 `json_schema_to_moon_zod` = 两层串联。
-- **变量名首字母小写**：`escape_variable_name` 确保 `let mySchema = ...` 符合 MoonBit 命名约定。
 - **循环引用**：用 `null().name(name)` 占位 + `visiting` 数组跟踪当前遍历路径。
 
 **Bug 修复**:
-- `schema_to_moon_zod_code` 条件反转：`{ schema.name } else { "Root" }` → `{ "Root" } else { schema.name }`（此前 unnamed schema 生成空 `.name("")`、named schema 被覆盖为 "Root"）
+- `schema_to_moon_zod_code` 条件反转：`{ schema.name } else { "Root" }` → `{ "Root" } else { schema.name }`
 
-**产出**: 414/414 测试全部通过 0 警告。项目从平铺结构正式进化为 4 个子包模块化结构。
+**产出**: 414/414 测试全部通过 0 警告。项目从平铺结构进化为 5 子包模块化结构，架构依赖清晰无违规。
 
 ## 项目当前状态
 
@@ -828,7 +868,7 @@ moon run cmd/validate -- '<sample.json>' '<data.jsonl>'
 | 测试数量 | 414 |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
-| 子包数量 | 4（`core`, `exporters`, `importers`, `tests`） |
+| 子包数量 | 5（`core`, `exporters`, `importers`, `combinators`, `tests`） |
 | CLI 工具 | 4 个（`cmd/main` 基准, `cmd/wasm` 跨语言, `cmd/json2schema` 代码生成, `cmd/validate` 校验） |
 | 展示示例 | 5 个（`llm_agent`, `educational_agent`, `real_llm_agent`, `json2schema`, `schema2json`） |
 

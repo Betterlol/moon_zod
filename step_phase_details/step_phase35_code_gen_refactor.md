@@ -14,6 +14,7 @@
   - `ee9058b` — 模块拆分与代码生成重构
   - `a3722f1` — `schema_to_moon_zod` code generation fix
   - `da934d2` — 完成彻底重构，消除所有 warning
+  - `b145e38` — Phase B: combinators 子包 + reexporter 去重 + API 重命名
 
 ## 3. 架构变更
 
@@ -177,8 +178,64 @@ tests 目录：`test_array.mbt`, `test_boolean_null.mbt`, `test_combinators.mbt`
 
 ### 已修复
 - ~~`schema_to_moon_zod_code` 条件写反：`if schema.name.is_empty() { schema.name } else { "Root" }` → `{ "Root" } else { schema.name }`~~ (commit 之后修复)
+- ~~`exporters` ← `importers` 依赖违规~~（`combinators/` 子包消除）
+- ~~4 份重复 `pub using @core` 的 `reexporter.mbt`~~（删除 `exporters/` 和 `importers/` 的，改用 `@core.` 前缀）
+- ~~缺少 `escape_variable_name` 在根 reexporter 中~~（已添加）
+- ~~`schema_to_moon_zod_code_with_names` 命名模糊~~（重命名为 `_inline_with_refs`）
 
 ### 仍存在的潜在问题
 - 测试从 `assert_eq` 退化为 `.contains()`，无法捕捉多余的 `.name()` 调用等异常
 - 循环引用产生 `null()` 占位，输出代码可能运行时失败（不如 `TODO` 注释诚实）
 - `schema_to_moon_zod_code` 返回值格式变更（从纯表达式变为赋值语句），非向后兼容
+- `tests/reexporter.mbt` 仍保留 `pub using @core`，与根 reexporter 重复（有意为之，测试密集使用）
+
+## 8. Phase B — 架构精炼 (b145e38)
+
+### 8.1 动机
+Phase A 建立子包结构后引入了一个架构违规（exporters 依赖 importers）和 reexporter 代码重复。Phase B 专门解决这两个问题。
+
+### 8.2 核心变更
+
+#### 架构：新建 `combinators/` 子包
+```diff
+- 旧: exporters ← importers (违规)
++ 新: combinators ← exporters + importers (正确的组合层)
+```
+`json_schema_to_moon_zod`（端到端组合函数）从 `exporters/schema_exporter.mbt` 移入 `combinators/schema_combinators.mbt`。`exporters/moon.pkg` 移除对 `importers` 的依赖。
+
+#### Reexporter 去重
+- 删除 `exporters/reexporter.mbt` 和 `importers/reexporter.mbt`
+- 子包源码中所有核心引用改为 `@core.` 前缀：`Schema` → `@core.Schema`，`string()` → `@core.string()`，`collect_named_schemas()` → `@core.collect_named_schemas()` 等
+- `null()` 工厂调用改为 `@core.null()`（importers 中 3 处）
+- `combinators/reexporter.mbt` 仅含 `pub using @exporters` + `pub using @importers`，无 `@core` 重导出
+- `tests/reexporter.mbt` 保留（测试密集使用核心类型）
+- 根 `reexporter.mbt` 作为唯一全量 public API 入口，新增 `escape_variable_name`
+
+#### API 重命名
+`schema_to_moon_zod_code_with_names` → `schema_to_moon_zod_code_inline_with_refs`
+
+### 8.3 文件变更
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 新增 | `combinators/moon.pkg` | 依赖 exporters + importers |
+| 新增 | `combinators/schema_combinators.mbt` | `json_schema_to_moon_zod` |
+| 新增 | `combinators/reexporter.mbt` | 精简导出 |
+| 删除 | `exporters/reexporter.mbt` | 空壳移除 |
+| 删除 | `importers/reexporter.mbt` | 空壳移除 |
+| 修改 | 6 个 exporters 源文件 | `@core.` 前缀化 |
+| 修改 | `importers/from_json_schema.mbt` | `null()` → `@core.null()` |
+| 修改 | `exporters/moon.pkg` | 移除 importers 依赖 |
+| 修改 | `moon.pkg` (root) | 添加 combinators |
+| 修改 | `reexporter.mbt` (root) | combinators + escape_variable_name |
+| 修改 | `tests/moon.pkg` | 添加 combinators |
+| 修改 | `tests/reexporter.mbt` | combinators + escape_variable_name + inline_with_refs |
+
+### 8.4 最终依赖图
+```
+core (moonbitlang/core + moon_zod core)
+├── importers  (json_schema_to_schema)
+├── exporters  (code generation)
+├── combinators (composition, depends on exporters + importers)
+└── root (public API, depends on all of the above)
+tests (depends on all packages)
+```
