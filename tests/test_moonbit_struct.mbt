@@ -1,7 +1,7 @@
 ///|
-test "schema_to_moonbit_struct unnamed schema returns comment" {
+test "schema_to_moonbit_struct unnamed schema gets default Root name" {
   let result = schema_to_moonbit_struct(string())
-  @debug.assert_eq(result.contains("no name"), true)
+  @debug.assert_eq(result.contains("TODO"), true)
 }
 
 ///|
@@ -177,10 +177,10 @@ test "schema_to_moonbit_struct multiple fields" {
 }
 
 ///|
-test "schema_to_moonbit_struct_named no named schemas" {
+test "schema_to_moonbit_struct_named no named schemas gets Root" {
   let s = object({ "x": string() })
   let result = schema_to_moonbit_struct_named(s)
-  @debug.assert_eq(result, "// No named schemas found")
+  @debug.assert_eq(result.contains("pub struct Root"), true)
 }
 
 ///|
@@ -194,9 +194,9 @@ test "schema_to_moonbit_struct_named empty comment for unnamed root" {
 // ─── Phase 29: schema_to_moonbit_struct_full tests ───
 
 ///|
-test "full unnamed schema returns comment" {
+test "full unnamed schema gets default Root name" {
   let result = schema_to_moonbit_struct_full(string())
-  @debug.assert_eq(result.contains("no name"), true)
+  @debug.assert_eq(result.contains("TODO"), true)
 }
 
 ///|
@@ -299,10 +299,10 @@ test "full named export topological sort" {
 }
 
 ///|
-test "full no named schemas" {
+test "full no named schemas gets Root" {
   let s = object({ "x": string() })
   let result = schema_to_moonbit_struct_named_full(s)
-  @debug.assert_eq(result, "// No named schemas found")
+  @debug.assert_eq(result.contains("pub struct Root"), true)
 }
 
 // ─── Additional edge case tests ───

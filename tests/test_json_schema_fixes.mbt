@@ -74,9 +74,7 @@ test "exclusive_maximum_integer rejects values >= 10" {
 ///|
 /// Test enum with string values
 test "enum_with_strings works correctly" {
-  let json_schema = parse_json(
-    "{\"enum\": [\"red\", \"green\", \"blue\"]}",
-  )
+  let json_schema = parse_json("{\"enum\": [\"red\", \"green\", \"blue\"]}")
   let schema = json_schema_to_schema(json_schema)
 
   // Should accept valid enum value
@@ -94,9 +92,7 @@ test "enum_with_strings works correctly" {
 ///|
 /// Test enum non-string value handling (numbers)
 test "enum_with_numbers_converts_to_strings" {
-  let json_schema = parse_json(
-    "{\"enum\": [1, 2, 3]}",
-  )
+  let json_schema = parse_json("{\"enum\": [1, 2, 3]}")
   let schema = json_schema_to_schema(json_schema)
 
   // The enum should accept the values (converted to strings internally)
@@ -110,10 +106,9 @@ test "enum_with_numbers_converts_to_strings" {
 ///|
 /// Test json_schema_named with object schema
 test "json_schema_named_object_type" {
-  let schema = object({
-    "name": string().min(2),
-    "age": number().int().min(0),
-  }).name("Person")
+  let schema = object({ "name": string().min(2), "age": number().int().min(0) }).name(
+    "Person",
+  )
   let json_result = to_json_schema_named(schema)
 
   match json_result {
@@ -121,13 +116,12 @@ test "json_schema_named_object_type" {
       // Should have a $ref at root since it's named
       match m.get("$ref") {
         Some(_) => ()
-        None => {
+        None =>
           // Or it could have type directly
           match m.get("type") {
             Some(String("object")) => ()
             _ => fail("json_schema_named: missing $ref or type field")
           }
-        }
       }
 
       // Should have $defs
@@ -149,18 +143,16 @@ test "json_schema_roundtrip_string" {
 
   // Should contain type field
   match exported {
-    Object(m) => {
+    Object(m) =>
       match m.get("type") {
-        Some(String(t)) => {
+        Some(String(t)) =>
           if t == "string" {
             ()
           } else {
             fail("wrong type in roundtrip")
           }
-        }
         _ => fail("missing or invalid type in roundtrip")
       }
-    }
     _ => fail("exported schema is not an object")
   }
 }
@@ -193,9 +185,7 @@ test "exclusive_maximum_float validates correctly" {
 ///|
 /// Test number enum rejects values not in list
 test "enum_with_numbers_rejects_invalid" {
-  let json_schema = parse_json(
-    "{\"enum\": [1, 2, 3]}",
-  )
+  let json_schema = parse_json("{\"enum\": [1, 2, 3]}")
   let schema = json_schema_to_schema(json_schema)
 
   // Should accept 2 (in enum)
@@ -218,9 +208,7 @@ test "enum_with_numbers_rejects_invalid" {
 ///|
 /// Test mixed string+number enum: only strings are kept
 test "enum_mixed_string_number" {
-  let json_schema = parse_json(
-    "{\"enum\": [\"a\", \"b\", 1, 2]}",
-  )
+  let json_schema = parse_json("{\"enum\": [\"a\", \"b\", 1, 2]}")
   let schema = json_schema_to_schema(json_schema)
 
   // Should accept string "a" (in enum)
@@ -243,9 +231,7 @@ test "enum_mixed_string_number" {
 ///|
 /// Test boolean enum falls back to string (known limitation)
 test "enum_boolean_falls_back_to_string" {
-  let json_schema = parse_json(
-    "{\"enum\": [true, false]}",
-  )
+  let json_schema = parse_json("{\"enum\": [true, false]}")
   let schema = json_schema_to_schema(json_schema)
 
   // Current limitation: boolean enum falls back to string(),
@@ -263,9 +249,7 @@ test "enum_boolean_falls_back_to_string" {
 ///|
 /// Test null enum falls back to string (known limitation)
 test "enum_null_falls_back_to_string" {
-  let json_schema = parse_json(
-    "{\"enum\": [null]}",
-  )
+  let json_schema = parse_json("{\"enum\": [null]}")
   let schema = json_schema_to_schema(json_schema)
 
   // Current limitation: null enum falls back to string()
@@ -278,4 +262,3 @@ test "enum_null_falls_back_to_string" {
     fail("null enum fallback: should reject null")
   }
 }
-

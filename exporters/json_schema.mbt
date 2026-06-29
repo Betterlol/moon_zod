@@ -606,6 +606,10 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_literal(
 /// Convert a moon_zod @core.Schema into a standard JSON @core.Schema @core.object with full
 /// constraint annotations (minLength, maximum, pattern, format, etc.).
 pub fn to_json_schema(schema : @core.Schema) -> Json {
+  let mut schema = schema
+  if schema.name.is_empty() {
+    schema = schema.name("Root")
+  }
   render_json_type(FullJsonRenderer(), schema)
 }
 
@@ -613,6 +617,10 @@ pub fn to_json_schema(schema : @core.Schema) -> Json {
 /// Convert a moon_zod @core.Schema into a lightweight JSON @core.Schema skeleton.
 /// Only structural type information is exported.
 pub fn to_json_schema_skeleton(schema : @core.Schema) -> Json {
+  let mut schema = schema
+  if schema.name.is_empty() {
+    schema = schema.name("Root")
+  }
   render_json_type(SkeletonJsonRenderer(), schema)
 }
 
@@ -622,6 +630,10 @@ pub fn to_json_schema_named(
   schema : @core.Schema,
   include_names? : Array[String]? = None,
 ) -> Json {
+  let mut schema = schema
+  if schema.name.is_empty() {
+    schema = schema.name("Root")
+  }
   let all_named = @core.collect_named_schemas(schema)
   let selected_schemas = @core.filter_named_schemas(all_named, include_names)
   let named_names : Array[String] = selected_schemas.map(fn(s) { s.name })

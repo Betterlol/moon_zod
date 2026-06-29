@@ -18,9 +18,9 @@
 /// // }
 /// ```
 pub fn schema_to_moonbit_struct(schema : @core.Schema) -> String {
+  let mut schema = schema
   if schema.name.is_empty() {
-    return "// schema_to_moonbit_struct: schema has no name\n" +
-      "// Use .name(\"MyName\") to name the schema"
+    schema = schema.name("Root")
   }
   match schema.schema_type {
     ObjectType(spec, _) => object_to_struct_definition(spec, 0, schema.name)
@@ -58,6 +58,10 @@ pub fn schema_to_moonbit_struct_named(
   schema : @core.Schema,
   include_names? : Array[String]? = None,
 ) -> String {
+  let mut schema = schema
+  if schema.name.is_empty() {
+    schema = schema.name("Root")
+  }
   let all_named = @core.collect_named_schemas(schema)
   let selected_schemas = @core.filter_named_schemas(all_named, include_names)
   generate_struct_definitions(selected_schemas)
@@ -877,9 +881,9 @@ fn chr_to_upper(c : Char) -> String {
 /// // pub fn user_from_json(json : Json) -> Result[User, Array[@moon_zod.ValidationError]] { ... }
 /// ```
 pub fn schema_to_moonbit_struct_full(schema : @core.Schema) -> String {
+  let mut schema = schema
   if schema.name.is_empty() {
-    return "// schema_to_moonbit_struct_full: schema has no name\n" +
-      "// Use .name(\"MyName\") to name the schema"
+    schema = schema.name("Root")
   }
   match schema.schema_type {
     ObjectType(spec, _) => {
@@ -907,6 +911,10 @@ pub fn schema_to_moonbit_struct_named_full(
   schema : @core.Schema,
   include_names? : Array[String]? = None,
 ) -> String {
+  let mut schema = schema
+  if schema.name.is_empty() {
+    schema = schema.name("Root")
+  }
   let all_named = @core.collect_named_schemas(schema)
   let selected_schemas = @core.filter_named_schemas(all_named, include_names)
 

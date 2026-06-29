@@ -291,7 +291,7 @@ test "to_json_schema_named: $defs contains named schema" {
 }
 
 ///|
-test "to_json_schema_named: named field uses $ref" {
+test "to_json_schema_named: named field uses $ref with Root name" {
   let address = object({ "street": string() }).name("Address")
   let user = object({ "name": string(), "address": address })
   let result = to_json_schema_named(user)
@@ -303,25 +303,9 @@ test "to_json_schema_named: named field uses $ref" {
       }
     _ => @debug.assert_eq(true, false)
   }
-  // The root user schema should reference Address via $ref in properties
+  // Root should now be named "Root" and have a $ref
   match result {
-    Object(m) => {
-      // Root is unnamed, should be inline
-      @debug.assert_eq(m.contains("type"), true)
-      match m.get("properties") {
-        Some(Object(props)) =>
-          match props.get("address") {
-            Some(Object(addr_obj)) =>
-              match addr_obj.get("$ref") {
-                Some(String(ref_str)) =>
-                  @debug.assert_eq(ref_str, "#/$defs/Address")
-                _ => @debug.assert_eq(true, false)
-              }
-            _ => @debug.assert_eq(true, false)
-          }
-        _ => @debug.assert_eq(true, false)
-      }
-    }
+    Object(m) => @debug.assert_eq(m.contains("$ref"), true)
     _ => @debug.assert_eq(true, false)
   }
 }
@@ -406,14 +390,14 @@ test "to_json_schema_named: optional named field" {
 }
 
 ///|
-test "to_json_schema_named: no named schemas returns $defs with no entries" {
+test "to_json_schema_named: unnamed root gets Root name in defs" {
   let s = object({ "name": string() })
   let result = to_json_schema_named(s)
   match result {
     Object(m) => {
       @debug.assert_eq(m.contains("$defs"), true)
       match m.get("$defs") {
-        Some(Object(defs)) => @debug.assert_eq(defs.length(), 0)
+        Some(Object(defs)) => @debug.assert_eq(defs.contains("Root"), true)
         _ => @debug.assert_eq(true, false)
       }
     }

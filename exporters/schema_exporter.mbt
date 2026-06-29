@@ -15,7 +15,11 @@
 /// // "@moon_zod.string().min(3).describe(\"username\")"
 /// ```
 pub fn schema_to_moon_zod_code(schema : @core.Schema) -> String {
-  let schema_name = if schema.name.is_empty() { "Root" } else { schema.name }
+  let mut schema = schema
+  if schema.name.is_empty() {
+    schema = schema.name("Root")
+  }
+  let schema_name = schema.name
   let code = schema_to_moon_zod_code_inline(schema, None)
   let result = "let " +
     @core.escape_variable_name(schema_name) +

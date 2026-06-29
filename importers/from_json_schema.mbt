@@ -118,12 +118,8 @@ fn json_to_schema_impl(
                 has_non_numbers = true
                 strs.push(s)
               }
-              Number(n, ..) => {
-                all_numbers.push(n)
-              }
-              _ => {
-                has_non_numbers = true
-              }
+              Number(n, ..) => all_numbers.push(n)
+              _ => has_non_numbers = true
             }
           }
 
