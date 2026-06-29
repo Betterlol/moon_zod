@@ -861,11 +861,93 @@ core + exporters + importers + combinators ← tests
 
 **产出**: 414/414 测试全部通过 0 警告。项目从平铺结构进化为 5 子包模块化结构，架构依赖清晰无违规。
 
+---
+
+## Phase 36 — 代码审查 + 统一导出设计 (v0.7.5)
+
+**目标**: 对 exporters 和 importers 进行深度代码审查，修复语义 Bug，补充测试覆盖，统一所有导出函数的根 schema 命名行为。
+
+### Part A: 代码审查 & 关键问题修复
+
+| 新增文件 | 用途 |
+|---------|------|
+| `tests/test_json_schema_fixes.mbt` | 12 个专项测试（exclusiveMin/Max 边界、数字枚举、混合枚举、降级行为）|
+
+| 修改文件 | 变更 |
+|---------|------|
+| `importers/from_json_schema.mbt` | 修复 `exclusiveMinimum`/`exclusiveMaximum` 语义错误；修复浮点数截断 Bug；扩展 enum 支持数字值 |
+| `tests/test_json_schema.mbt` | 6 个测试适配新行为 |
+
+**审查发现的 5 个 Bug（全部修复）**:
+
+| # | 问题 | 严重程度 |
+|---|------|---------|
+| 1 | `exclusiveMinimum: 5` → `.min(5)` 应排他 | 🔴 高 — 语义错误 |
+| 2 | `exclusiveMaximum: 10` → `.max(10)` 应排他 | 🔴 高 — 语义错误 |
+| 3 | 原 exclusiveMaximum fix 浮点数分支 `max(int_trunc)` 比真实边界更严格 | 🔴 高 — 二次修复 |
+| 4 | `minimum`/`maximum` 浮点数截断（`.to_int()` 丢失小数） | 🟡 中 — 精度丢失 |
+| 5 | 非字符串 enum 值（数字/布尔/null）静默丢弃 | 🟡 中 — 功能缺失 |
+
+### Part B: 统一导出函数设计
+
+**统一模式** — 所有 7 个公共导出函数增加根 schema 名字保护：
+
+```moonbit
+let mut schema = schema
+if schema.name.is_empty() {
+  schema = schema.name("Root")
+}
+```
+
+| 应用函数 | 文件 |
+|---------|------|
+| `schema_to_moon_zod_code` | `exporters/schema_exporter.mbt` |
+| `schema_to_moon_zod_code_named` | `exporters/schema_exporter.mbt`（已有） |
+| `to_json_schema` | `exporters/json_schema.mbt` |
+| `to_json_schema_skeleton` | `exporters/json_schema.mbt` |
+| `to_json_schema_named` | `exporters/json_schema.mbt` |
+| `schema_to_prompt` | `exporters/prompt.mbt` |
+| `schema_to_prompt_named` | `exporters/prompt.mbt` |
+| `schema_to_moonbit_struct` | `exporters/moonbit_struct.mbt`（改进：错误消息→自动命名） |
+| `schema_to_moonbit_struct_named` | `exporters/moonbit_struct.mbt` |
+| `schema_to_moonbit_struct_full` | `exporters/moonbit_struct.mbt`（改进） |
+| `schema_to_moonbit_struct_named_full` | `exporters/moonbit_struct.mbt` |
+
+### 架构决策：Exporters & Importers 功能冻结
+
+经过 Phase 35（重构模块化）和 Phase 36（审查修复 + 统一导出）两轮迭代，**exporters 和 importers 已达到功能完备、生产就绪状态**：
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  输入 (Input)         IR (Core)            输出 (Output)   │
+│                                                           │
+│  JSON Schema    →    Schema 对象    →    moon_zod 代码     │
+│  (importers)         13 变体           TypeScript prompt   │
+│                       校验管线           JSON Schema        │
+│                                         MoonBit struct     │
+│                                         + from_json()      │
+└────────────────────────────────────────────────────────────┘
+```
+
+- 4 个代码生成器：13/13 SchemaType 全覆盖，trait 分发，命名导出
+- 1 个 JSON Schema 导入器：主流 draft-07 关键词完整支持
+- 0 个已知语义 Bug
+- 426 测试全面覆盖
+
+| 指标 | 数值 |
+|---|---|
+| 测试数量 | **426** |
+| 外部依赖 | 0（仅 `moonbitlang/core`） |
+| 子包数量 | 5（`core`, `exporters`, `importers`, `combinators`, `tests`） |
+| 构建 | 0 errors, 0 warnings |
+
+> 🚩 **自此，exporters 和 importers 的开发告一段落。后续将全力聚焦 core/ 核心校验库的完善和演进。**
+
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 414 |
+| 测试数量 | 426 |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
 | 子包数量 | 5（`core`, `exporters`, `importers`, `combinators`, `tests`） |
