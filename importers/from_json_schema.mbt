@@ -109,13 +109,55 @@ fn json_to_schema_impl(
       match m.get("enum") {
         Some(Array(values)) => {
           let strs : Array[String] = []
+          let all_numbers : Array[Double] = []
+          let mut has_non_numbers = false
+
           for v in values {
             match v {
-              String(s) => strs.push(s)
-              _ => ()
+              String(s) => {
+                has_non_numbers = true
+                strs.push(s)
+              }
+              Number(n, ..) => {
+                all_numbers.push(n)
+              }
+              _ => {
+                has_non_numbers = true
+              }
             }
           }
-          return @core.enum_values(strs)
+
+          // If all values are numbers, create a number schema with enum validation
+          if !has_non_numbers && all_numbers.length() > 0 {
+            let num_schema = @core.number()
+            let mut result_schema = num_schema
+            // Add rule to validate the number is in the allowed list
+            result_schema = @core.append_rule(
+              result_schema,
+              fn(json) {
+                match json {
+                  Number(n, ..) => {
+                    for allowed in all_numbers {
+                      if n == allowed {
+                        return true
+                      }
+                    }
+                    false
+                  }
+                  _ => false
+                }
+              },
+              "Value must be one of the allowed numbers",
+            )
+            return result_schema
+          }
+
+          // Otherwise, use string enum for any string values
+          if strs.length() > 0 {
+            return @core.enum_values(strs)
+          } else {
+            return @core.string()
+          }
         }
         _ => ()
       }
@@ -256,7 +298,22 @@ fn apply_json_schema_constraints(
       if v == 0.0 {
         result = result.positive()
       } else {
-        result = result.min(v.to_int())
+        let int_val = v.to_int()
+        let is_integer = v == int_val.to_double()
+        let bound = if is_integer { int_val + 1 } else { int_val }
+        result = result.min(bound)
+        if !is_integer {
+          result = @core.append_rule(
+            result,
+            fn(json) {
+              match json {
+                Number(n, ..) => n > v
+                _ => false
+              }
+            },
+            "Value must be greater than \{v}",
+          )
+        }
       }
     _ => ()
   }
@@ -265,7 +322,22 @@ fn apply_json_schema_constraints(
       if v == 0.0 {
         result = result.negative()
       } else {
-        result = result.max(v.to_int())
+        let int_val = v.to_int()
+        let is_integer = v == int_val.to_double()
+        let bound = if is_integer { int_val - 1 } else { int_val }
+        result = result.max(bound)
+        if !is_integer {
+          result = @core.append_rule(
+            result,
+            fn(json) {
+              match json {
+                Number(n, ..) => n < v
+                _ => false
+              }
+            },
+            "Value must be less than \{v}",
+          )
+        }
       }
     _ => ()
   }
