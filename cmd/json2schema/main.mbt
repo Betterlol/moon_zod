@@ -10,83 +10,111 @@
 ///   moon run cmd/json2schema -- --help
 fn main {
   let args = @env.args()
-  if args.length() < 2 || args[1] == "--help" {
-    println("Usage: moon run cmd/json2schema -- '<json-string>'")
-    println(
-      "       moon run cmd/json2schema -- --from-json-schema '<json-schema>'",
-    )
-    println("       sh cmd/json2schema/cli.sh --file <path>")
-    println("")
-    println("Generate a moon_zod schema from a JSON payload or JSON Schema.")
-    println("")
-    println("Modes:")
-    println("  (default)           Infer schema from a JSON data instance")
-    println(
-      "  --from-json-schema  Convert a JSON Schema document to moon_zod code",
-    )
-    println("")
-    println("Examples:")
-    println("  moon run cmd/json2schema -- '{\"name\": \"Alice\"}'")
-    println(
-      "  moon run cmd/json2schema -- --from-json-schema '{\"type\":\"string\"}'",
-    )
-    println("  moon run cmd/json2schema -- --help")
-    println("")
-    println("File input:")
-    println("  sh cmd/json2schema/cli.sh --file data.json")
-    let shell_example = "  moon run cmd/json2schema -- \"$(cat data.json)\""
-    println(shell_example)
+
+  if args.length() < 2 || has_flag(args, "--help") || has_flag(args, "-h") {
+    print_help()
     return
   }
 
-  if args[1] == "--from-json-schema" {
-    if args.length() < 3 {
-      println("Error: missing JSON Schema argument")
-      println(
-        "Usage: moon run cmd/json2schema -- --from-json-schema '<json-schema>'",
-      )
-      return
-    }
-    let raw = args[2]
-    let json = @json.parse(raw) catch {
-      _ => {
-        println("Error: invalid JSON Schema")
-        println("raw: \{raw}")
+  let verbose = has_flag(args, "--verbose") || has_flag(args, "-v")
+  let from_json_schema = has_flag(args, "--from-json-schema")
+
+  if from_json_schema {
+    match last_value_arg(args) {
+      None => {
+        println("Error: missing JSON Schema argument")
         println(
           "Usage: moon run cmd/json2schema -- --from-json-schema '<json-schema>'",
         )
         return
       }
+      Some(raw) => {
+        let json = @json.parse(raw) catch {
+          _ => {
+            println("Error: invalid JSON Schema")
+            println("Use --help for usage information.")
+            return
+          }
+        }
+        let code = @moon_zod.json_schema_to_moon_zod(json)
+        print_result(json, code, verbose, "Input JSON Schema")
+        return
+      }
     }
-    println("── Input JSON Schema ──")
-    println(@debug.to_string(json))
-    println("")
-    println("── Generated moon_zod Schema (copy-paste ready) ──")
-    println(@moon_zod.json_schema_to_moon_zod(json))
-    println("")
-    println("── End ──")
-    return
   }
 
-  let raw = args[1]
-  let json = @json.parse(raw) catch {
-    _ => {
-      println("Error: invalid JSON string")
-      println(
-        "Note: wrap the JSON in single quotes to prevent shell interpretation.",
-      )
-      println("  moon run cmd/json2schema -- '{\"key\": \"value\"}'")
-      println("Use --help for usage information.")
+  match last_value_arg(args) {
+    None => {
+      println("Error: missing JSON argument")
       return
     }
+    Some(raw) => {
+      let json = @json.parse(raw) catch {
+        _ => {
+          println("Error: invalid JSON")
+          println(
+            "Note: wrap JSON in single quotes to prevent shell interpretation.",
+          )
+          println("Use --help for usage information.")
+          return
+        }
+      }
+      let schema = @moon_zod.json_infer_schema(json)
+      let code = @moon_zod.schema_to_moon_zod_code(schema)
+      print_result(json, code, verbose, "Input JSON")
+    }
   }
+}
 
-  println("── Input JSON ──")
-  println(@debug.to_string(json))
+///|
+fn print_help() -> Unit {
+  println("Usage:")
+  println("  moon run cmd/json2schema -- '<json>'")
+  println("  moon run cmd/json2schema -- --from-json-schema '<json-schema>'")
+  println("  moon run cmd/json2schema -- --verbose '<json>'")
+  println("  sh cmd/json2schema/cli.sh --file <path>")
+  println("  sh cmd/json2schema/cli.sh --from-json-schema --file <path>")
   println("")
-  println("── Generated moon_zod Schema ──")
-  let schema = @moon_zod.json_infer_schema(json)
-  println(@moon_zod.schema_to_moon_zod_code(schema))
-  println("")
-  println("── End ──")
+  println("Default output is copy-paste ready moon_zod code.")
+  println("Use --verbose to also print the parsed input.")
+}
+
+///|
+fn has_flag(args : Array[String], flag : String) -> Bool {
+  for arg in args {
+    if arg == flag {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn last_value_arg(args : Array[String]) -> String? {
+  let mut result : String? = None
+  for i = 1; i < args.length(); i = i + 1 {
+    let arg = args[i]
+    if arg.has_prefix("-") {
+      ()
+    } else {
+      result = Some(arg)
+    }
+  }
+  result
+}
+
+///|
+fn print_result(
+  json : Json,
+  code : String,
+  verbose : Bool,
+  input_label : String,
+) -> Unit {
+  if verbose {
+    println("── " + input_label + " ──")
+    println(@debug.to_string(json))
+    println("")
+    println("── Generated moon_zod Schema ──")
+  }
+  println(code)
 }
