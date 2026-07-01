@@ -913,6 +913,27 @@ if schema.name.is_empty() {
 | `schema_to_moonbit_struct_full` | `exporters/moonbit_struct.mbt`（改进） |
 | `schema_to_moonbit_struct_named_full` | `exporters/moonbit_struct.mbt` |
 
+### Part C: CLI 工具易用性整理
+
+**目标**: 让 `cmd/json2schema` 和 `cmd/validate` 更适合真实命令行使用，默认输出更可脚本消费，错误处理更稳定，并同步更新示例文档。
+
+| 文件 | 变更 |
+|---|---|
+| `cmd/json2schema/main.mbt` | 默认只输出 copy-paste ready moon_zod 代码；新增 `--verbose` / `-v` 打印解析输入；参数解析提取为小 helper |
+| `cmd/json2schema/cli.sh` | 简化文件输入；修复 `--from-json-schema` 非文件模式参数重复转发 |
+| `cmd/validate/main.mbt` | 移除 `try!` abort 路径；所有 JSON parse 使用 `catch` 输出稳定 `ERROR`；`validate*` 返回 `Bool` 预留 exit code 接入点；help 不再承诺当前不可实现的 exit code |
+| `cmd/validate/cli.sh` | 新增 `--schema-file` / `--sample-file` 明确文件模式；保留旧 `--file schema --file data` 兼容写法 |
+| `examples/json2schema/README.md` | 更新默认纯代码输出、`--verbose`、JSON Schema 文件输入示例 |
+| `examples/validate_cli/README.md` | 更新 JSON Schema 文件模式、sample 推断模式、内联模式示例 |
+| `branch_doc/step_phase36_Phase_C_cli_polish.md` | 新增 Phase C 详细记录 |
+
+**关键决策**:
+- `json2schema` 默认输出从演示格式切换为纯代码，方便管道和复制；演示信息移入 `--verbose`。
+- `validate --schema` 明确表示内联 JSON Schema；文件读取统一交给 `cli.sh`，符合 MoonBit core 无文件 I/O 的现实。
+- 当前 MoonBit `core/env` 没有进程退出码 API，因此不再在 help 中承诺 exit code；内部返回 `Bool` 方便未来补齐。
+
+**产出**: `moon check` 通过；`moon test` 426/426 通过；手动 smoke tests 覆盖两个 CLI 的内联与文件输入路径。
+
 ### 架构决策：Exporters & Importers 功能冻结
 
 经过 Phase 35（重构模块化）和 Phase 36（审查修复 + 统一导出）两轮迭代，**exporters 和 importers 已达到功能完备、生产就绪状态**：
