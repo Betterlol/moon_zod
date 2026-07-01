@@ -6,18 +6,17 @@ Generate `@moon_zod` schema code instantly from any JSON payload — no need to 
 moon run cmd/json2schema -- '{"hello": "world"}'
 ```
 
-Output:
+Output (copy-paste ready moon_zod code):
 
-```
-── Input JSON ──
-Object({hello: String(world)})
-
-── Generated moon_zod Schema (copy-paste ready) ──
+```moonbit
 @moon_zod.object({
   "hello": @moon_zod.string(),
 })
+```
 
-── End ──
+For verbose output with debug information:
+```bash
+moon run cmd/json2schema -- --verbose '{"hello": "world"}'
 ```
 
 The generator recursively infers types (`string`, `number`, `boolean`, `null`, `array`, `object`) and safely escapes special characters in object keys. Empty arrays produce a `/* TODO: specify exact type */` comment to alert you when type inference lacked data.
@@ -28,6 +27,7 @@ The generator recursively infers types (`string`, `number`, `boolean`, `null`, `
 
 Generate `@moon_zod` schema code from a standard **JSON Schema (draft-07)** definition — the inverse of `to_json_schema()`.
 
+**Inline mode** (JSON Schema as command argument):
 ```bash
 moon run cmd/json2schema -- --from-json-schema '{
   "type": "object",
@@ -37,6 +37,11 @@ moon run cmd/json2schema -- --from-json-schema '{
   },
   "required": ["name", "age"]
 }'
+```
+
+**File mode** (read JSON Schema from file):
+```bash
+moon run cmd/json2schema -- --from-json-schema --schema-file schema.json
 ```
 
 Output:
@@ -50,11 +55,12 @@ Output:
 
 **Features**:
 - Converts all JSON Schema types (string, number, integer, boolean, null, array, object)
-- Extracts constraints: `minLength`, `maxLength`, `minimum`, `maximum`, `multipleOf`, `pattern`, `format` (email, uri, date-time, ipv4, ipv6, uuid)
+- Extracts constraints: `minLength`, `maxLength`, `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `multipleOf`, `pattern`, `format` (email, uri, date-time, ipv4, ipv6, uuid)
 - Handles `$defs` and `$ref` references — generates separate named schema declarations
-- Supports `enum` and `oneOf` / `anyOf` / `allOf`
+- Supports `enum`, `oneOf`, `anyOf`, `allOf`
 - Fields not in `required` auto-wrapped with `.optional()`
 - Outputs **copy-paste-ready MoonBit source code**
+- Full support for Phase 36 semantics: `exclusiveMinimum`/`exclusiveMaximum` generate `.positive()`/`.negative()` where applicable
 
 ---
 
@@ -112,6 +118,9 @@ moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}\n{"a
 # FAIL: line 3
 #   [name] Required (got: Null)
 # Results: 2 passed, 1 failed
+
+# File mode (JSON Schema as schema source)
+moon run cmd/validate -- --schema-file schema.json --sample-file data.json
 ```
 
 **Error output format**: `[field_path] message (got: value)`

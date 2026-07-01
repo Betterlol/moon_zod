@@ -76,6 +76,10 @@ moon_zod/
 │   ├── constraint_extractor.mbt  # Extract constraint info from rules
 │   └── moon_zod_wbtest.mbt   # White-box tests (path stack invariants)
 │
+├── combinators/              # Schema combinator utilities
+│   ├── schema_combinators.mbt # Schema composition helpers
+│   └── reexporter.mbt        # Re-exports
+│
 ├── exporters/                # Code/schema export tools
 │   ├── prompt.mbt            # schema_to_prompt() / schema_to_prompt_named()
 │   ├── prompt_renderer.mbt   # Trait-based prompt rendering
@@ -90,7 +94,7 @@ moon_zod/
 │   ├── from_json_schema.mbt  # json_schema_to_moon_zod() — reverse JSON Schema → moon_zod code generation
 │   └── reexporter.mbt        # Module re-exports
 │
-├── tests/                    # Test suite (407 tests)
+├── tests/                    # Test suite (426 tests)
 │   ├── test_string.mbt       # string() validator tests
 │   ├── test_number.mbt       # number() validator tests
 │   ├── test_boolean_null.mbt # boolean/null tests
@@ -98,7 +102,8 @@ moon_zod/
 │   ├── test_array.mbt        # array() tests
 │   ├── test_combinators.mbt  # union/literal/optional/default tests
 │   ├── test_transform_refine.mbt # transform/refine tests
-│   ├── test_json_schema.mbt  # JSON Schema export tests
+│   ├── test_json_schema.mbt  # JSON Schema export + $defs/$ref tests
+│   ├── test_json_schema_fixes.mbt # exclusiveMin/Max semantics + enum edge cases
 │   ├── test_moonbit_struct.mbt # MoonBit struct generation tests
 │   ├── test_prompt.mbt       # Prompt generation tests
 │   ├── test_prompt_named.mbt # Named schema export tests
@@ -115,11 +120,17 @@ moon_zod/
 │   └── validate/             # JSON schema validator (infer-then-validate)
 │
 └── examples/                 # LLM agent demonstrations
-    ├── llm_agent/            # Basic LLM tool calling example
-    ├── educational_agent/    # Multi-round self-correction demo
-    ├── real_llm_agent/       # Real LLM integration (with API fallback to mock)
+    ├── json2schema/          # JSON → moon_zod schema code generation
+    ├── mock/                 # Mock agent demonstrations
+    │   ├── llm_agent/        # Basic LLM tool calling example
+    │   └── educational_agent/ # Multi-round self-correction demo
     ├── multiple_schemas/     # Handling multiple schemas
-    └── schema2prompt/        # Schema → prompt generation showcase
+    ├── real_llm_agent/       # Real LLM integration (with API fallback to mock)
+    ├── resources/            # Sample data files (JSON, JSON Schema)
+    ├── schema2json/          # Schema → JSON Schema export demo
+    ├── schema2prompt/        # Schema → prompt generation showcase
+    ├── shared_schemas/       # Shared schema definitions (library package)
+    └── validate_cli/         # CLI validation demo
 ```
 
 ---
@@ -128,22 +139,28 @@ moon_zod/
 
 ```bash
 # Testing & Building
-moon test                # Run all tests (407 total, 0 warnings)
+moon test                # Run all tests (426 total, 0 warnings)
 moon build               # Build the library
+moon check               # Type check (0 errors, 0 warnings)
 moon info && moon fmt    # Update interface + format
 
 # CLI Tools
 moon run cmd/main                                      # Run performance benchmarks
 moon run cmd/json2schema -- '{"hello":"world"}'      # JSON → moon_zod schema code
 moon run cmd/json2schema -- --from-json-schema '<{...}>'  # JSON Schema → moon_zod code
+moon run cmd/json2schema -- --from-json-schema '<{...}>' --verbose  # with debug output
 moon run cmd/gen-struct -- '{"name":"Alice"}'        # JSON → MoonBit struct + from_json()
 moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # Validate JSON
 
 # Examples
-moon run examples/llm_agent                          # Basic LLM tool calling demo
+moon run examples/mock/llm_agent                     # Basic LLM tool calling demo
+moon run examples/mock/educational_agent             # Multi-round self-correction demo
 moon run examples/real_llm_agent -- product prompt   # Real LLM with mock fallback
 moon run examples/real_llm_agent -- product validate # Validate with real API
-moon run examples/multiple_schemas                    # Multiple schema handling
+moon run examples/multiple_schemas                   # Multiple schema handling
+moon run examples/schema2json -- product schema      # Schema → JSON Schema export
+moon run examples/schema2prompt                      # Schema → prompt generation showcase
+moon run examples/json2schema                        # JSON → moon_zod schema code gen
 ```
 
 ---
@@ -153,7 +170,7 @@ moon run examples/multiple_schemas                    # Multiple schema handling
 - **Primitive schemas**: `string()`, `number()`, `boolean()`, `null()`
 - **Compound schemas**: `object(Map)`, `array(Schema)`, `union(Array[Schema])`, `intersection(Array[Schema])`, `enum_values(Array[String])`, `literal(Json)`
 - **String validators** (20+): `.min(n)`, `.max(n)`, `.nonempty()`, `.email()` (full RFC validation), `.url()` (full structure), `.regex(pattern)` (substring match), `.startsWith()`, `.endsWith()`, `.includes()`, `.uuid()`, `.cuid()`, `.ulid()`, `.datetime()`, `.ip()`/`.ipv4()`/`.ipv6()`, `.length(n)`
-- **Number validators** (9+): `.int()`, `.positive()`, `.negative()`, `.multipleOf()`, `.finite()`, `.safe()`, `.min()`, `.max()`, `.length()`
+- **Number validators** (8+): `.int()`, `.positive()`, `.negative()`, `.multipleOf()`, `.finite()`, `.safe()`, `.min()`, `.max()`
 - **Object modes**: `.strip()` (default, removes unknown fields), `.passthrough()` (keeps unknown fields), `.strict()` (rejects unknown fields)
 - **Schema composition**: `.pick(keys)`, `.omit(keys)`, `.partial()` to derive object sub-schemas
 - **Optional/Default handling**: `.optional()` and `.default(value)` with correct rule chaining through wrappers
@@ -187,17 +204,17 @@ moon run examples/multiple_schemas                    # Multiple schema handling
 ### Factory Functions
 
 | Function | Description |
-|---|---|---|
+|---|---|
 | `string(required_error?, invalid_type_error?)` | Validates JSON strings |
 | `number(required_error?, invalid_type_error?)` | Validates JSON numbers |
 | `boolean(required_error?, invalid_type_error?)` | Validates JSON booleans |
 | `null(required_error?, invalid_type_error?)` | Validates JSON null |
 | `array(Schema, required_error?, invalid_type_error?)` | Validates arrays, recursively checking elements |
 | `object(Map[String, Schema], required_error?, invalid_type_error?)` | Validates objects. **Default: Strip mode** |
-| `enum_values(Array[String], required_error?, invalid_type_error?)` | Fixed set of allowed string values |
-| `literal(Json, required_error?, invalid_type_error?)` | **NEW**: Constant value validation — only accepts exact JSON match (string, number, boolean, null, array, or object) |
+| `enum_values(Array[String], required_error?, invalid_type_error?)` | Fixed set of allowed string values (use `literal()` + `union()` for mixed types) |
+| `literal(Json, required_error?, invalid_type_error?)` | **Phase 32**: Constant value validation — only accepts exact JSON match (string, number, boolean, null, array, or object) |
 | `union(Array[Schema], required_error?, invalid_type_error?)` | Union type — passes if any schema matches |
-| `intersection(Array[Schema], required_error?, invalid_type_error?)` | Intersection — passes if all schemas match; object fields are merged |
+| `intersection(Array[Schema], required_error?, invalid_type_error?)` | **Phase 18**: Intersection — passes if all schemas match; object fields are merged |
 
 ### Schema Methods
 
@@ -206,6 +223,7 @@ moon run examples/multiple_schemas                    # Multiple schema handling
 | `.parse(Json, path?)` | All | Validate, returns `Ok(Json)` or `Err(Array[ValidationError])` |
 | `.min(n[, msg])` | string / number / array | Minimum length / value |
 | `.max(n[, msg])` | string / number / array | Maximum length / value |
+| `.length(n[, msg])` | string / array | Exact length |
 | `.nonempty([msg])` | string | String must not be empty |
 | `.email([msg])` | string | Full email validation (quoted local, IP literal, +tag, TLD≥2, single @) |
 | `.url([msg])` | string | Full URL structure: `scheme://host[:port][/path][?query][#fragment]` |
@@ -224,7 +242,6 @@ moon run examples/multiple_schemas                    # Multiple schema handling
 | `.positive([msg])` | number | Must be > 0 |
 | `.negative([msg])` | number | Must be < 0 |
 | `.multipleOf(n[, msg])` | number | Must be multiple of `n` |
-| `.length(n[, msg])` | string / array | Must have exact length `n` |
 | `.finite([msg])` | number | Must be finite (not NaN, not ±Infinity) |
 | `.safe([msg])` | number | Must be a safe integer (not NaN, not ±Infinity, no fractional part) |
 | `.optional()` | Any | Null or missing values skip validation |
@@ -232,29 +249,36 @@ moon run examples/multiple_schemas                    # Multiple schema handling
 | `.strict()` | object | Reject undefined fields |
 | `.passthrough()` | object | Keep undefined fields as-is |
 | `.strip()` | object | Silently remove undefined fields (default) |
-| `.describe(text)` | Any | Attach description rendered by `schema_to_prompt()` for LLM prompts |
-| `.message(text)` | Any | Override the last rule's error message |
-| `.intersect(other)` | Any | Intersection: input must match both schemas; object fields are merged |
-| `.pick(keys)` | object | Select only specified fields |
-| `.omit(keys)` | object | Remove specified fields |
-| `.partial()` | object | Make all fields optional |
+| `.describe(text)` | Any | **Phase 17**: Attach description rendered by `schema_to_prompt()` for LLM prompts |
+| `.message(text)` | Any | **Phase 19**: Override the last rule's error message |
+| `.name(text)` | Any | **Phase 25**: Assign a name for schema exports and code generation |
+| `.intersect(other)` | Any | **Phase 18**: Intersection: input must match both schemas; object fields are merged |
+| `.pick(keys)` | object | **Phase 21**: Select only specified fields |
+| `.omit(keys)` | object | **Phase 21**: Remove specified fields |
+| `.partial()` | object | **Phase 21**: Make all fields optional |
 | `.refine(check, msg)` | Any | Custom validation predicate |
-| `.transform(fn)` | Any | Validate then transform output via `(Json) -> Result[Json, String]` |
+| `.transform(fn)` | Any | **Phase 13**: Validate then transform output via `(Json) -> Result[Json, String]` |
 
 ### Standalone Functions
 
 | Function | Description |
 |---|---|
-| `schema_to_prompt(Schema)` | Generate TypeScript-interface prompt string for LLM (with constraint comments) — inline expansion |
-| `schema_to_prompt_named(Schema, include_names?)` | Generate modular TypeScript interfaces from named schemas with topological sorting and type name references — for complex, nested LLM tool schemas |
-| `to_json_schema(Schema)` | Export standard JSON Schema object with full constraint annotations |
-| `to_json_schema_skeleton(Schema)` | Export lightweight JSON Schema skeleton (structure only, no constraints) |
-| `to_json_schema_named(Schema, include_names?)` | Export named schemas as separate JSON Schema definitions with `$defs` and `$ref` |
-| `json_schema_to_moon_zod(Json)` | **NEW**: Reverse-generate moon_zod schema source code from a JSON Schema object; supports `$defs`, `$ref`, constraints, format validation |
-| `schema_to_moonbit_struct(Schema)` | Generate MoonBit struct definition (type name, fields, constraints) from ObjectType/EnumType |
-| `schema_to_moonbit_struct_full(Schema)` | Generate struct definition + `from_json()` function for type-safe JSON → struct conversion |
-| `schema_to_moonbit_struct_named(Schema, include_names?)` | Same as `schema_to_moonbit_struct()` but extracts and topologically sorts all nested named schemas |
-| `schema_to_moonbit_struct_named_full(Schema, include_names?)` | Same as `schema_to_moonbit_struct_full()` but extracts all nested named schemas |
+| `schema_to_prompt(Schema)` | **Phase 16**: Generate TypeScript-interface prompt string for LLM (with constraint comments) — inline expansion |
+| `schema_to_prompt_named(Schema, include_names?)` | **Phase 25, 34**: Generate modular TypeScript interfaces from named schemas with topological sorting and type name references |
+| `to_json_schema(Schema)` | **Phase 15**: Export standard JSON Schema object with full constraint annotations |
+| `to_json_schema_skeleton(Schema)` | **Phase 15**: Export lightweight JSON Schema skeleton (structure only, no constraints) |
+| `to_json_schema_named(Schema, include_names?)` | **Phase 26, 34**: Export named schemas as separate JSON Schema definitions with `$defs` and `$ref` |
+| `json_schema_to_moon_zod(Json)` | **Phase 27, 36**: Reverse-generate moon_zod schema source code from a JSON Schema object; supports `$defs`, `$ref`, constraints, format validation |
+| `schema_to_moonbit_struct(Schema)` | **Phase 28**: Generate MoonBit struct definition (type name, fields, constraints) from ObjectType/EnumType |
+| `schema_to_moonbit_struct_full(Schema)` | **Phase 29**: Generate struct definition + `from_json()` function for type-safe JSON → struct conversion |
+| `schema_to_moonbit_struct_named(Schema, include_names?)` | **Phase 31**: Same as `schema_to_moonbit_struct()` but extracts and topologically sorts all nested named schemas |
+| `schema_to_moonbit_struct_named_full(Schema, include_names?)` | **Phase 31**: Same as `schema_to_moonbit_struct_full()` but extracts all nested named schemas |
+| `schema_to_moon_zod_code(Schema)` | Generate moon_zod schema source code from a Schema |
+| `schema_to_moon_zod_code_named(Schema, include_names?)` | Generate moon_zod schema source code with named `$defs` and `$ref` references |
+| `json_schema_to_schema(Json)` | Reverse-parse a JSON Schema object into a moon_zod Schema |
+| `json_infer_schema(Json)` | Infer a moon_zod Schema from a sample JSON value |
+| `append_rule(Schema, (Json) -> Bool, String)` | Append a raw validation rule to a schema |
+| `append_rule_with_annotation(Schema, (Json) -> Bool, String, Json)` | Append a validation rule with an annotation payload |
 | `format_path(Array[String])` | Join path stack to dot-notation string |
 | `ValidationError::to_string()` | Format error as `[path] message (got: value)` |
 
@@ -288,18 +312,17 @@ Generate `@moon_zod` schema code instantly from any JSON payload — no need to 
 moon run cmd/json2schema -- '{"hello": "world"}'
 ```
 
-Output:
+Output (copy-paste ready moon_zod code):
 
-```
-── Input JSON ──
-Object({hello: String(world)})
-
-── Generated moon_zod Schema (copy-paste ready) ──
+```moonbit
 @moon_zod.object({
   "hello": @moon_zod.string(),
 })
+```
 
-── End ──
+For verbose output with debug information:
+```bash
+moon run cmd/json2schema -- --verbose '{"hello": "world"}'
 ```
 
 The generator recursively infers types (`string`, `number`, `boolean`, `null`, `array`, `object`) and safely escapes special characters in object keys. Empty arrays produce a `/* TODO: specify exact type */` comment to alert you when type inference lacked data.
@@ -310,6 +333,7 @@ The generator recursively infers types (`string`, `number`, `boolean`, `null`, `
 
 Generate `@moon_zod` schema code from a standard **JSON Schema (draft-07)** definition — the inverse of `to_json_schema()`.
 
+**Inline mode** (JSON Schema as command argument):
 ```bash
 moon run cmd/json2schema -- --from-json-schema '{
   "type": "object",
@@ -321,9 +345,14 @@ moon run cmd/json2schema -- --from-json-schema '{
 }'
 ```
 
+**File mode** (read JSON Schema from file):
+```bash
+moon run cmd/json2schema -- --from-json-schema --schema-file schema.json
+```
+
 Output:
 
-```moonbit nocheck
+```moonbit
 @moon_zod.object({
   "name": @moon_zod.string().min(2),
   "age": @moon_zod.number().int().min(0).max(150),
@@ -332,11 +361,12 @@ Output:
 
 **Features**:
 - Converts all JSON Schema types (string, number, integer, boolean, null, array, object)
-- Extracts constraints: `minLength`, `maxLength`, `minimum`, `maximum`, `multipleOf`, `pattern`, `format` (email, uri, date-time, ipv4, ipv6, uuid)
+- Extracts constraints: `minLength`, `maxLength`, `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `multipleOf`, `pattern`, `format` (email, uri, date-time, ipv4, ipv6, uuid)
 - Handles `$defs` and `$ref` references — generates separate named schema declarations
-- Supports `enum` and `oneOf` / `anyOf` / `allOf`
+- Supports `enum`, `oneOf`, `anyOf`, `allOf`
 - Fields not in `required` auto-wrapped with `.optional()`
 - Outputs **copy-paste-ready MoonBit source code**
+- Full support for Phase 36 semantics: `exclusiveMinimum`/`exclusiveMaximum` generate `.positive()`/`.negative()` where applicable
 
 ---
 
@@ -350,7 +380,7 @@ moon run cmd/gen-struct -- '{"name":"Alice","age":30}'
 
 Output:
 
-```moonbit nocheck
+```moonbit
 pub struct InferredSchema {
   name : String
   age : Int64
@@ -394,6 +424,9 @@ moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}\n{"a
 # FAIL: line 3
 #   [name] Required (got: Null)
 # Results: 2 passed, 1 failed
+
+# File mode (JSON Schema as schema source)
+moon run cmd/validate -- --schema-file schema.json --sample-file data.json
 ```
 
 **Error output format**: `[field_path] message (got: value)`
@@ -574,31 +607,11 @@ Then **LLM sees only the definitions it needs**, reducing token count and improv
 **Example usage:**
 ```mbt nocheck
 // Define named schemas
-
-///|
-let user_schema = @moon_zod.object(
-  {
-    ...
-  },
-).name("User")
-
-///|
-let order_schema = @moon_zod.object(
-  {
-    ...
-  },
-).name("Order")
-
-///|
-let product_schema = @moon_zod.object(
-  {
-    ...
-  },
-).name("Product")
+let user_schema = @moon_zod.object({ ... }).name("User")
+let order_schema = @moon_zod.object({ ... }).name("Order")
+let product_schema = @moon_zod.object({ ... }).name("Product")
 
 // Auto-extract + generate modular prompt
-
-///|
 let prompt = @moon_zod.schema_to_prompt_named(user_schema)
 // Output:
 // export interface User { ... }

@@ -76,6 +76,10 @@ moon_zod/
 │   ├── constraint_extractor.mbt  # 从规则提取约束信息
 │   └── moon_zod_wbtest.mbt   # 白盒测试（路径栈不变量）
 │
+├── combinators/              # Schema 组合工具
+│   ├── schema_combinators.mbt # Schema 组合辅助函数
+│   └── reexporter.mbt        # 重新导出
+│
 ├── exporters/                # 代码/Schema 导出工具
 │   ├── prompt.mbt            # schema_to_prompt() / schema_to_prompt_named()
 │   ├── prompt_renderer.mbt   # 基于 Trait 的提示渲染
@@ -90,7 +94,7 @@ moon_zod/
 │   ├── from_json_schema.mbt  # json_schema_to_moon_zod() — 反向 JSON Schema → moon_zod 代码生成
 │   └── reexporter.mbt        # 模块重新导出
 │
-├── tests/                    # 测试套件（407 个测试）
+├── tests/                    # 测试套件（426 个测试）
 │   ├── test_string.mbt       # string() 验证器测试
 │   ├── test_number.mbt       # number() 验证器测试
 │   ├── test_boolean_null.mbt # boolean/null 测试
@@ -98,7 +102,8 @@ moon_zod/
 │   ├── test_array.mbt        # array() 测试
 │   ├── test_combinators.mbt  # union/literal/optional/default 测试
 │   ├── test_transform_refine.mbt # transform/refine 测试
-│   ├── test_json_schema.mbt  # JSON Schema 导出测试
+│   ├── test_json_schema.mbt  # JSON Schema 导出 + $defs/$ref 测试
+│   ├── test_json_schema_fixes.mbt # exclusiveMin/Max 语义 + enum 边界情况
 │   ├── test_moonbit_struct.mbt # MoonBit 结构生成测试
 │   ├── test_prompt.mbt       # 提示生成测试
 │   ├── test_prompt_named.mbt # 命名 Schema 导出测试
@@ -115,11 +120,17 @@ moon_zod/
 │   └── validate/             # JSON Schema 验证器（推断然后验证）
 │
 └── examples/                 # LLM 代理演示
-    ├── llm_agent/            # 基础 LLM 工具调用示例
-    ├── educational_agent/    # 多轮自纠正演示
-    ├── real_llm_agent/       # 真实 LLM 集成（带 API 回退到 mock）
+    ├── json2schema/          # JSON → moon_zod schema 代码生成
+    ├── mock/                 # Mock 代理演示
+    │   ├── llm_agent/        # 基础 LLM 工具调用示例
+    │   └── educational_agent/ # 多轮自纠正演示
     ├── multiple_schemas/     # 处理多个 Schema
-    └── schema2prompt/        # Schema → 提示生成展示
+    ├── real_llm_agent/       # 真实 LLM 集成（带 API 回退到 mock）
+    ├── resources/            # 样本数据文件（JSON、JSON Schema）
+    ├── schema2json/          # Schema → JSON Schema 导出演示
+    ├── schema2prompt/        # Schema → 提示生成展示
+    ├── shared_schemas/       # 共享 Schema 定义（库包）
+    └── validate_cli/         # CLI 验证演示
 ```
 
 ---
@@ -128,22 +139,28 @@ moon_zod/
 
 ```bash
 # 测试与构建
-moon test                # 运行所有测试（共 407 个，0 个警告）
+moon test                # 运行所有测试（共 426 个，0 个警告）
 moon build               # 构建库
+moon check               # 类型检查（0 错误，0 警告）
 moon info && moon fmt    # 更新接口 + 格式化
 
 # CLI 工具
 moon run cmd/main                                      # 运行性能基准测试
 moon run cmd/json2schema -- '{"hello":"world"}'      # JSON → moon_zod Schema 代码
 moon run cmd/json2schema -- --from-json-schema '<{...}>'  # JSON Schema → moon_zod 代码
+moon run cmd/json2schema -- --from-json-schema '<{...}>' --verbose  # 带调试输出版本
 moon run cmd/gen-struct -- '{"name":"Alice"}'        # JSON → MoonBit 结构 + from_json()
 moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # 验证 JSON
 
 # 示例
-moon run examples/llm_agent                          # 基础 LLM 工具调用演示
+moon run examples/mock/llm_agent                     # 基础 LLM 工具调用演示
+moon run examples/mock/educational_agent             # 多轮自纠正演示
 moon run examples/real_llm_agent -- product prompt   # 真实 LLM（带 mock 回退）
 moon run examples/real_llm_agent -- product validate # 用真实 API 验证
-moon run examples/multiple_schemas                    # 处理多个 Schema
+moon run examples/multiple_schemas                   # 处理多个 Schema
+moon run examples/schema2json -- product schema      # Schema → JSON Schema 导出
+moon run examples/schema2prompt                      # Schema → 提示生成展示
+moon run examples/json2schema                        # JSON → moon_zod schema 代码生成
 ```
 
 ---
@@ -153,7 +170,7 @@ moon run examples/multiple_schemas                    # 处理多个 Schema
 - **基础类型 Schema**：`string()`、`number()`、`boolean()`、`null()`
 - **复合 Schema**：`object(Map)`、`array(Schema)`、`union(Array[Schema])`、`intersection(Array[Schema])`、`enum_values(Array[String])`、`literal(Json)`
 - **字符串验证器**（20+）：`.min(n)`、`.max(n)`、`.nonempty()`、`.email()`（完整 RFC 验证）、`.url()`（完整结构）、`.regex(pattern)`（子字符串匹配）、`.startsWith()`、`.endsWith()`、`.includes()`、`.uuid()`、`.cuid()`、`.ulid()`、`.datetime()`、`.ip()`/`.ipv4()`/`.ipv6()`、`.length(n)`
-- **数字验证器**（9+）：`.int()`、`.positive()`、`.negative()`、`.multipleOf()`、`.finite()`、`.safe()`、`.min()`、`.max()`、`.length()`
+- **数字验证器**（8+）：`.int()`、`.positive()`、`.negative()`、`.multipleOf()`、`.finite()`、`.safe()`、`.min()`、`.max()`
 - **对象模式**：`.strip()`（默认，移除未知字段）、`.passthrough()`（保留未知字段）、`.strict()`（拒绝未知字段）
 - **Schema 组合**：`.pick(keys)`、`.omit(keys)`、`.partial()` 派生对象子 Schema
 - **可选/默认值处理**：`.optional()` 和 `.default(value)`，通过包装器正确链接规则
@@ -187,17 +204,17 @@ moon run examples/multiple_schemas                    # 处理多个 Schema
 ### 工厂函数
 
 | 函数 | 描述 |
-|---|---|---|
+|---|---|
 | `string(required_error?, invalid_type_error?)` | 校验 JSON 字符串 |
 | `number(required_error?, invalid_type_error?)` | 校验 JSON 数字 |
 | `boolean(required_error?, invalid_type_error?)` | 校验 JSON 布尔值 |
 | `null(required_error?, invalid_type_error?)` | 校验 JSON null |
 | `array(Schema, required_error?, invalid_type_error?)` | 校验数组，递归检查元素 |
 | `object(Map[String, Schema], required_error?, invalid_type_error?)` | 校验对象。**默认：Strip 模式** |
-| `enum_values(Array[String], required_error?, invalid_type_error?)` | 固定的允许字符串值集合 |
-| `literal(Json, required_error?, invalid_type_error?)` | **新增**：常量值校验 — 仅接受精确的 JSON 匹配（字符串、数字、布尔值、null、数组或对象） |
+| `enum_values(Array[String], required_error?, invalid_type_error?)` | 固定的允许字符串值集合（混合类型请使用 `literal()` + `union()`） |
+| `literal(Json, required_error?, invalid_type_error?)` | **Phase 32**: 常量值校验 — 仅接受精确的 JSON 匹配（字符串、数字、布尔值、null、数组或对象） |
 | `union(Array[Schema], required_error?, invalid_type_error?)` | 联合类型 — 如果任何 schema 匹配则通过 |
-| `intersection(Array[Schema], required_error?, invalid_type_error?)` | 交集 — 如果所有 schema 都匹配则通过；对象字段被合并 |
+| `intersection(Array[Schema], required_error?, invalid_type_error?)` | **Phase 18**: 交集 — 如果所有 schema 都匹配则通过；对象字段被合并 |
 
 ### Schema 方法
 
@@ -206,6 +223,7 @@ moon run examples/multiple_schemas                    # 处理多个 Schema
 | `.parse(Json, path?)` | 全部 | 校验，返回 `Ok(Json)` 或 `Err(Array[ValidationError])` |
 | `.min(n[, msg])` | string / number / array | 最小长度 / 值 |
 | `.max(n[, msg])` | string / number / array | 最大长度 / 值 |
+| `.length(n[, msg])` | string / array | 精确长度 |
 | `.nonempty([msg])` | string | 字符串不能为空 |
 | `.email([msg])` | string | 完整邮箱校验（引号本地部分、IP 字面量、+tag、TLD≥2、单个 @） |
 | `.url([msg])` | string | 完整 URL 结构：`scheme://host[:port][/path][?query][#fragment]` |
@@ -224,7 +242,6 @@ moon run examples/multiple_schemas                    # 处理多个 Schema
 | `.positive([msg])` | number | 必须 > 0 |
 | `.negative([msg])` | number | 必须 < 0 |
 | `.multipleOf(n[, msg])` | number | 必须是 `n` 的倍数 |
-| `.length(n[, msg])` | string / array | 必须恰好有 `n` 的长度 |
 | `.finite([msg])` | number | 必须是有限数（不是 NaN，不是 ±Infinity） |
 | `.safe([msg])` | number | 必须是安全整数（不是 NaN，不是 ±Infinity，无小数部分） |
 | `.optional()` | 任意 | null 或缺失值跳过校验 |
@@ -232,29 +249,36 @@ moon run examples/multiple_schemas                    # 处理多个 Schema
 | `.strict()` | object | 拒绝未定义的字段 |
 | `.passthrough()` | object | 保持未定义的字段不变 |
 | `.strip()` | object | 无声地移除未定义的字段（默认） |
-| `.describe(text)` | 任意 | 附加描述，由 `schema_to_prompt()` 为 LLM 提示渲染 |
-| `.message(text)` | 任意 | 覆盖最后一条规则的错误消息 |
-| `.intersect(other)` | 任意 | 交集：输入必须匹配两个 schema；对象字段被合并 |
-| `.pick(keys)` | object | 仅选择指定字段 |
-| `.omit(keys)` | object | 移除指定字段 |
-| `.partial()` | object | 使所有字段可选 |
+| `.describe(text)` | 任意 | **Phase 17**: 附加描述，由 `schema_to_prompt()` 为 LLM 提示渲染 |
+| `.message(text)` | 任意 | **Phase 19**: 覆盖最后一条规则的错误消息 |
+| `.name(text)` | 任意 | **Phase 25**: 为 schema 导出和代码生成分配名称 |
+| `.intersect(other)` | 任意 | **Phase 18**: 交集：输入必须匹配两个 schema；对象字段被合并 |
+| `.pick(keys)` | object | **Phase 21**: 仅选择指定字段 |
+| `.omit(keys)` | object | **Phase 21**: 移除指定字段 |
+| `.partial()` | object | **Phase 21**: 使所有字段可选 |
 | `.refine(check, msg)` | 任意 | 自定义校验谓词 |
-| `.transform(fn)` | 任意 | 校验然后通过 `(Json) -> Result[Json, String]` 转换输出 |
+| `.transform(fn)` | 任意 | **Phase 13**: 校验然后通过 `(Json) -> Result[Json, String]` 转换输出 |
 
 ### 独立函数
 
 | 函数 | 描述 |
 |---|---|
-| `schema_to_prompt(Schema)` | 为 LLM 生成 TypeScript 接口提示字符串（含约束注释） — 内联展开 |
-| `schema_to_prompt_named(Schema, include_names?)` | 从命名 schema 生成模块化 TypeScript 接口，含拓扑排序和类型名称引用 — 用于复杂、嵌套的 LLM 工具 schema |
-| `to_json_schema(Schema)` | 导出标准 JSON Schema 对象，含完整约束注解 |
-| `to_json_schema_skeleton(Schema)` | 导出轻量级 JSON Schema 骨架（仅结构，无约束） |
-| `to_json_schema_named(Schema, include_names?)` | 导出命名 schema 为独立的 JSON Schema 定义，含 `$defs` 和 `$ref` 引用 |
-| `json_schema_to_moon_zod(Json)` | **新增**：反向生成 moon_zod Schema 源代码；完整支持 `$defs`、`$ref`、约束、格式验证 |
-| `schema_to_moonbit_struct(Schema)` | 从 ObjectType/EnumType 生成 MoonBit 结构体定义（类型名、字段、约束） |
-| `schema_to_moonbit_struct_full(Schema)` | 生成结构体定义 + `from_json()` 函数用于类型安全的 JSON → 结构体转换 |
-| `schema_to_moonbit_struct_named(Schema, include_names?)` | 同 `schema_to_moonbit_struct()`，但提取并拓扑排序所有嵌套命名 schema |
-| `schema_to_moonbit_struct_named_full(Schema, include_names?)` | 同 `schema_to_moonbit_struct_full()`，但提取所有嵌套命名 schema |
+| `schema_to_prompt(Schema)` | **Phase 16**: 为 LLM 生成 TypeScript 接口提示字符串（含约束注释）— 内联展开 |
+| `schema_to_prompt_named(Schema, include_names?)` | **Phase 25, 34**: 从命名 schema 生成模块化 TypeScript 接口，含拓扑排序和类型名称引用 |
+| `to_json_schema(Schema)` | **Phase 15**: 导出标准 JSON Schema 对象，含完整约束注解 |
+| `to_json_schema_skeleton(Schema)` | **Phase 15**: 导出轻量级 JSON Schema 骨架（仅结构，无约束） |
+| `to_json_schema_named(Schema, include_names?)` | **Phase 26, 34**: 导出命名 schema 为独立的 JSON Schema 定义，含 `$defs` 和 `$ref` |
+| `json_schema_to_moon_zod(Json)` | **Phase 27, 36**: 反向生成 moon_zod Schema 源代码；支持 `$defs`、`$ref`、约束、格式验证 |
+| `schema_to_moonbit_struct(Schema)` | **Phase 28**: 从 ObjectType/EnumType 生成 MoonBit 结构体定义（类型名、字段、约束） |
+| `schema_to_moonbit_struct_full(Schema)` | **Phase 29**: 生成结构体定义 + `from_json()` 函数用于类型安全的 JSON → 结构体转换 |
+| `schema_to_moonbit_struct_named(Schema, include_names?)` | **Phase 31**: 同 `schema_to_moonbit_struct()`，但提取并拓扑排序所有嵌套命名 schema |
+| `schema_to_moonbit_struct_named_full(Schema, include_names?)` | **Phase 31**: 同 `schema_to_moonbit_struct_full()`，但提取所有嵌套命名 schema |
+| `schema_to_moon_zod_code(Schema)` | 从 Schema 生成 moon_zod schema 源代码 |
+| `schema_to_moon_zod_code_named(Schema, include_names?)` | 生成带命名 `$defs` 和 `$ref` 引用的 moon_zod schema 源代码 |
+| `json_schema_to_schema(Json)` | 反向解析 JSON Schema 对象为 moon_zod Schema |
+| `json_infer_schema(Json)` | 从样本 JSON 值推断 moon_zod Schema |
+| `append_rule(Schema, (Json) -> Bool, String)` | 向 schema 追加原始验证规则 |
+| `append_rule_with_annotation(Schema, (Json) -> Bool, String, Json)` | 追加带注解负载的验证规则 |
 | `format_path(Array[String])` | 将路径栈连接为点号记号字符串 |
 | `ValidationError::to_string()` | 将错误格式化为 `[path] message (got: value)` |
 
@@ -286,18 +310,17 @@ pub enum ObjectMode {
 moon run cmd/json2schema -- '{"hello": "world"}'
 ```
 
-输出：
+输出（可直接复制粘贴的 moon_zod 代码）：
 
-```
-── Input JSON ──
-Object({hello: String(world)})
-
-── Generated moon_zod Schema (copy-paste ready) ──
+```moonbit
 @moon_zod.object({
   "hello": @moon_zod.string(),
 })
+```
 
-── End ──
+如需带调试信息的详细输出：
+```bash
+moon run cmd/json2schema -- --verbose '{"hello": "world"}'
 ```
 
 该生成器递归推断类型（`string`、`number`、`boolean`、`null`、`array`、`object`），并安全转义对象键中的特殊字符。空数组会生成 `/* TODO: specify exact type */` 注释，以便在类型推断缺乏数据时提醒你。
@@ -308,6 +331,7 @@ Object({hello: String(world)})
 
 从标准 **JSON Schema (draft-07)** 定义生成 `@moon_zod` schema 代码 — `to_json_schema()` 的逆操作。
 
+**内联模式**（JSON Schema 作为命令行参数）：
 ```bash
 moon run cmd/json2schema -- --from-json-schema '{
   "type": "object",
@@ -319,9 +343,14 @@ moon run cmd/json2schema -- --from-json-schema '{
 }'
 ```
 
+**文件模式**（从文件读取 JSON Schema）：
+```bash
+moon run cmd/json2schema -- --from-json-schema --schema-file schema.json
+```
+
 输出：
 
-```moonbit nocheck
+```moonbit
 @moon_zod.object({
   "name": @moon_zod.string().min(2),
   "age": @moon_zod.number().int().min(0).max(150),
@@ -330,11 +359,12 @@ moon run cmd/json2schema -- --from-json-schema '{
 
 **特性**：
 - 转换所有 JSON Schema 类型（string、number、integer、boolean、null、array、object）
-- 提取约束：`minLength`、`maxLength`、`minimum`、`maximum`、`multipleOf`、`pattern`、`format`（email、uri、date-time、ipv4、ipv6、uuid）
+- 提取约束：`minLength`、`maxLength`、`minimum`、`maximum`、`exclusiveMinimum`、`exclusiveMaximum`、`multipleOf`、`pattern`、`format`（email、uri、date-time、ipv4、ipv6、uuid）
 - 处理 `$defs` 和 `$ref` 引用 — 生成单独的命名 schema 声明
-- 支持 `enum` 和 `oneOf` / `anyOf` / `allOf`
+- 支持 `enum`、`oneOf`、`anyOf`、`allOf`
 - 不在 `required` 中的字段自动用 `.optional()` 包装
 - 输出 **可直接复制粘贴的 MoonBit 源代码**
+- 完整支持 Phase 36 语义：`exclusiveMinimum`/`exclusiveMaximum` 在适用时生成 `.positive()`/`.negative()`
 
 ---
 
@@ -348,7 +378,7 @@ moon run cmd/gen-struct -- '{"name":"Alice","age":30}'
 
 输出：
 
-```moonbit nocheck
+```moonbit
 pub struct InferredSchema {
   name : String
   age : Int64
@@ -392,6 +422,9 @@ moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}\n{"a
 # FAIL: line 3
 #   [name] Required (got: Null)
 # Results: 2 passed, 1 failed
+
+# 文件模式（JSON Schema 作为 schema 源）
+moon run cmd/validate -- --schema-file schema.json --sample-file data.json
 ```
 
 **错误输出格式**：`[field_path] message (got: value)`
@@ -570,31 +603,11 @@ Product → uses type name `Product`
 **使用示例：**
 ```mbt nocheck
 // Define named schemas
-
-///|
-let user_schema = @moon_zod.object(
-  {
-    ...
-  },
-).name("User")
-
-///|
-let order_schema = @moon_zod.object(
-  {
-    ...
-  },
-).name("Order")
-
-///|
-let product_schema = @moon_zod.object(
-  {
-    ...
-  },
-).name("Product")
+let user_schema = @moon_zod.object({ ... }).name("User")
+let order_schema = @moon_zod.object({ ... }).name("Order")
+let product_schema = @moon_zod.object({ ... }).name("Product")
 
 // Auto-extract + generate modular prompt
-
-///|
 let prompt = @moon_zod.schema_to_prompt_named(user_schema)
 // Output:
 // export interface User { ... }

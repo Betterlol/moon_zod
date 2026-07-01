@@ -1,5 +1,126 @@
 # Release History
 
+## v0.7.5 (2026-07-02)
+
+**Code Review + Unified Export Design + CLI Polish (Phase 36)**
+
+### Part A: Critical Bug Fixes
+- Fixed `exclusiveMinimum`/`exclusiveMaximum` semantics (was incorrectly inclusive, now correctly exclusive)
+- Fixed floating-point truncation in `minimum`/`maximum` constraints (`.to_int()` was losing precision)
+- Extended `enum_values()` to support non-string values (numbers, booleans, null) via `union()` + `literal()` pattern
+- 12 specialized tests for edge cases (`test_json_schema_fixes.mbt`)
+
+### Part B: Unified Export Design
+- All 7+ export functions (`schema_to_prompt`, `to_json_schema`, `schema_to_moonbit_struct`, etc.) now apply root schema name protection
+- Unnamed schemas automatically default to `"Root"` name for export consistency
+- Improved error messages in struct generation
+
+### Part C: CLI Tool Improvements
+- `cmd/json2schema`: default output is now pure copy-paste-ready moon_zod code
+- `cmd/json2schema`: new `--verbose` / `-v` flag for debug output with input parsing info
+- `cmd/validate`: improved error handling, exit code readiness (internal `Bool` returns for future integration)
+- Better file mode support: `--schema-file`, `--sample-file`, `--from-json-schema` flags
+
+**Exporters & Importers Functionality Freeze**: Phase 35-36 complete all code generation and import/export pipelines. Marking core libraries as production-ready.
+
+- **426 tests** (all passing, 0 warnings)
+- 0 external dependencies
+
+---
+
+## v0.7.4 (2026-06-29)
+
+**Project Modularization + Code Generation Rewrite (Phase 35)**
+
+### Phase A: Subpackage Refactoring
+- Reorganized into 5 formal subpackages:
+  - `core/` — Core validation (17 files, zero external deps)
+  - `exporters/` — Code generation (6 files: prompt, json_schema, moonbit_struct, renderers)
+  - `importers/` — JSON Schema reverse import
+  - `combinators/` — Composition layer
+  - `tests/` — Test suite (426 tests)
+- Eliminated architecture violations: exporters no longer depends on importers
+- Added `@core.` prefix for explicit intra-package references
+- Unified reexporter pattern
+
+### Phase B: Schema Exporter Rewrite
+- `schema_to_moon_zod_code()` now outputs `let x = ... .name(...)` format
+- Full support for `.describe()`, `.required_error()`, `.invalid_type_error()`, `.strict()`, `.passthrough()`
+- Named export with `schema_to_moon_zod_code_named()` and include_names filtering
+- Two-layer separation: `json_schema_to_schema` (runtime Schema objects) + code generation
+
+### Phase C: Constraint Extractor + Trait Renderer Pattern
+- New `constraint_extractor.mbt` module for unified constraint handling
+- Trait-based renderers eliminate 40 scattered `SchemaType` match statements → 4 core matches + 3 traits
+- 90% reduction in SchemaType pattern matching across 6 modules
+- All 13 SchemaType variants fully supported in exporters/importers
+
+**414 tests** (all passing, 0 warnings)
+
+---
+
+## v0.7.3 (2026-06-28)
+
+**Selective Named Export + Filter Logic Extraction (Phase 34)**
+
+- New `include_names?: Array[String]?` parameter on all named export functions
+  - `schema_to_prompt_named(schema, include_names?)`
+  - `to_json_schema_named(schema, include_names?)`
+  - `schema_to_moonbit_struct_named(schema, include_names?)`
+  - `schema_to_moonbit_struct_named_full(schema, include_names?)`
+- `filter_named_schemas()` extracted to `shared_utils.mbt` (4 duplicate code paths eliminated)
+- Supports: `None` (export all), `Some([])` (export none), `Some([...])` (selective export)
+
+**396 tests** (all passing, 0 warnings)
+
+---
+
+## v0.7.2 (2026-06-27)
+
+**Trait-Based Renderer Pattern + Schema Composition Fixes (Phase 33)**
+
+### Phase A: Quick Fixes
+- Fixed Union/Intersection/Literal in named schema exports
+- Fixed `.name()` propagation in combinators
+- 4 new tests for complex named exports
+
+### Phase B: Constraint Extractor
+- Unified constraint extraction logic across 3 renderer modules
+- Eliminated ~150 lines of duplicate code
+- New `ConstraintInfo` struct and `extract_constraints()` function
+
+### Phase C: Trait Renderer Architecture
+- New trait-based pattern: `StringRenderer`, `JsonSchemaRenderer`, `MoonBitStructRenderer`
+- Shared utilities: `shared_utils.mbt` with `unwrap_schema()`, `peel_optional()`, `indent_str()`
+- Rewrite of prompt, json_schema, moonbit_struct modules to use trait dispatch
+- Result: 40 scattered match statements → 4 core matches + 3 traits (~90% reduction)
+- New variant support requires only ~7 changes instead of ~15
+
+**385 tests** (all passing, 0 warnings)
+
+---
+
+## v0.7.1 (2026-06-26)
+
+**literal() Constant Validation + union.mbt Refactoring (Phase 32)**
+
+- `literal(Json)` factory — validate exact constant values (string, number, boolean, null, array, object)
+- Support for all JSON types via `union()` + `literal()` composition
+- Refactored `union.mbt` (217 lines → 42 lines) into separate modules:
+  - `optional.mbt` — optional() factory
+  - `default.mbt` — default() factory
+  - `enum.mbt` — enum_values() factory
+  - `literal.mbt` — literal() factory
+  - `union.mbt` — union() factory (core logic only)
+- One-factory-per-file convention for clarity
+- JSON Schema export: `literal()` → `{"const": value}`
+- Prompt generation: renders literal values with proper JSON syntax
+- MoonBit struct generation: `json_to_literal_code()` for code output
+
+**381 tests** (all passing, 0 warnings)
+
+---
+
 ## v0.7.0 (2026-06-26)
 
 **JSON Schema ↔ MoonBit Code Generation + MoonBit Struct Generation + Validate CLI**

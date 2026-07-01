@@ -66,6 +66,10 @@ moon_zod/
 │   ├── constraint_extractor.mbt  # Extract constraint info from rules
 │   └── moon_zod_wbtest.mbt   # White-box tests (path stack invariants)
 │
+├── combinators/              # Schema combinator utilities
+│   ├── schema_combinators.mbt # Schema composition helpers
+│   └── reexporter.mbt        # Re-exports
+│
 ├── exporters/                # Code/schema export tools
 │   ├── prompt.mbt            # schema_to_prompt() / schema_to_prompt_named()
 │   ├── prompt_renderer.mbt   # Trait-based prompt rendering
@@ -80,7 +84,7 @@ moon_zod/
 │   ├── from_json_schema.mbt  # json_schema_to_moon_zod() — reverse JSON Schema → moon_zod code generation
 │   └── reexporter.mbt        # Module re-exports
 │
-├── tests/                    # Test suite (407 tests)
+├── tests/                    # Test suite (426 tests)
 │   ├── test_string.mbt       # string() validator tests
 │   ├── test_number.mbt       # number() validator tests
 │   ├── test_boolean_null.mbt # boolean/null tests
@@ -88,7 +92,8 @@ moon_zod/
 │   ├── test_array.mbt        # array() tests
 │   ├── test_combinators.mbt  # union/literal/optional/default tests
 │   ├── test_transform_refine.mbt # transform/refine tests
-│   ├── test_json_schema.mbt  # JSON Schema export tests
+│   ├── test_json_schema.mbt  # JSON Schema export + $defs/$ref tests
+│   ├── test_json_schema_fixes.mbt # exclusiveMin/Max semantics + enum edge cases
 │   ├── test_moonbit_struct.mbt # MoonBit struct generation tests
 │   ├── test_prompt.mbt       # Prompt generation tests
 │   ├── test_prompt_named.mbt # Named schema export tests
@@ -105,11 +110,17 @@ moon_zod/
 │   └── validate/             # JSON schema validator (infer-then-validate)
 │
 └── examples/                 # LLM agent demonstrations
-    ├── llm_agent/            # Basic LLM tool calling example
-    ├── educational_agent/    # Multi-round self-correction demo
-    ├── real_llm_agent/       # Real LLM integration (with API fallback to mock)
+    ├── json2schema/          # JSON → moon_zod schema code generation
+    ├── mock/                 # Mock agent demonstrations
+    │   ├── llm_agent/        # Basic LLM tool calling example
+    │   └── educational_agent/ # Multi-round self-correction demo
     ├── multiple_schemas/     # Handling multiple schemas
-    └── schema2prompt/        # Schema → prompt generation showcase
+    ├── real_llm_agent/       # Real LLM integration (with API fallback to mock)
+    ├── resources/            # Sample data files (JSON, JSON Schema)
+    ├── schema2json/          # Schema → JSON Schema export demo
+    ├── schema2prompt/        # Schema → prompt generation showcase
+    ├── shared_schemas/       # Shared schema definitions (library package)
+    └── validate_cli/         # CLI validation demo
 ```
 
 ---
@@ -118,22 +129,28 @@ moon_zod/
 
 ```bash
 # Testing & Building
-moon test                # Run all tests (407 total, 0 warnings)
+moon test                # Run all tests (426 total, 0 warnings)
 moon build               # Build the library
+moon check               # Type check (0 errors, 0 warnings)
 moon info && moon fmt    # Update interface + format
 
 # CLI Tools
 moon run cmd/main                                      # Run performance benchmarks
 moon run cmd/json2schema -- '{"hello":"world"}'      # JSON → moon_zod schema code
 moon run cmd/json2schema -- --from-json-schema '<{...}>'  # JSON Schema → moon_zod code
+moon run cmd/json2schema -- --from-json-schema '<{...}>' --verbose  # with debug output
 moon run cmd/gen-struct -- '{"name":"Alice"}'        # JSON → MoonBit struct + from_json()
 moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # Validate JSON
 
 # Examples
-moon run examples/llm_agent                          # Basic LLM tool calling demo
+moon run examples/mock/llm_agent                     # Basic LLM tool calling demo
+moon run examples/mock/educational_agent             # Multi-round self-correction demo
 moon run examples/real_llm_agent -- product prompt   # Real LLM with mock fallback
 moon run examples/real_llm_agent -- product validate # Validate with real API
-moon run examples/multiple_schemas                    # Multiple schema handling
+moon run examples/multiple_schemas                   # Multiple schema handling
+moon run examples/schema2json -- product schema      # Schema → JSON Schema export
+moon run examples/schema2prompt                      # Schema → prompt generation showcase
+moon run examples/json2schema                        # JSON → moon_zod schema code gen
 ```
 
 ---
@@ -143,7 +160,7 @@ moon run examples/multiple_schemas                    # Multiple schema handling
 - **Primitive schemas**: `string()`, `number()`, `boolean()`, `null()`
 - **Compound schemas**: `object(Map)`, `array(Schema)`, `union(Array[Schema])`, `intersection(Array[Schema])`, `enum_values(Array[String])`, `literal(Json)`
 - **String validators** (20+): `.min(n)`, `.max(n)`, `.nonempty()`, `.email()` (full RFC validation), `.url()` (full structure), `.regex(pattern)` (substring match), `.startsWith()`, `.endsWith()`, `.includes()`, `.uuid()`, `.cuid()`, `.ulid()`, `.datetime()`, `.ip()`/`.ipv4()`/`.ipv6()`, `.length(n)`
-- **Number validators** (9+): `.int()`, `.positive()`, `.negative()`, `.multipleOf()`, `.finite()`, `.safe()`, `.min()`, `.max()`, `.length()`
+- **Number validators** (8+): `.int()`, `.positive()`, `.negative()`, `.multipleOf()`, `.finite()`, `.safe()`, `.min()`, `.max()`
 - **Object modes**: `.strip()` (default, removes unknown fields), `.passthrough()` (keeps unknown fields), `.strict()` (rejects unknown fields)
 - **Schema composition**: `.pick(keys)`, `.omit(keys)`, `.partial()` to derive object sub-schemas
 - **Optional/Default handling**: `.optional()` and `.default(value)` with correct rule chaining through wrappers

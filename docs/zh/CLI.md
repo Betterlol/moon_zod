@@ -6,18 +6,17 @@
 moon run cmd/json2schema -- '{"hello": "world"}'
 ```
 
-输出：
+输出（可直接复制粘贴的 moon_zod 代码）：
 
-```
-── Input JSON ──
-Object({hello: String(world)})
-
-── Generated moon_zod Schema (copy-paste ready) ──
+```moonbit
 @moon_zod.object({
   "hello": @moon_zod.string(),
 })
+```
 
-── End ──
+如需带调试信息的详细输出：
+```bash
+moon run cmd/json2schema -- --verbose '{"hello": "world"}'
 ```
 
 该生成器递归推断类型（`string`、`number`、`boolean`、`null`、`array`、`object`），并安全转义对象键中的特殊字符。空数组会生成 `/* TODO: specify exact type */` 注释，以便在类型推断缺乏数据时提醒你。
@@ -28,6 +27,7 @@ Object({hello: String(world)})
 
 从标准 **JSON Schema (draft-07)** 定义生成 `@moon_zod` schema 代码 — `to_json_schema()` 的逆操作。
 
+**内联模式**（JSON Schema 作为命令行参数）：
 ```bash
 moon run cmd/json2schema -- --from-json-schema '{
   "type": "object",
@@ -37,6 +37,11 @@ moon run cmd/json2schema -- --from-json-schema '{
   },
   "required": ["name", "age"]
 }'
+```
+
+**文件模式**（从文件读取 JSON Schema）：
+```bash
+moon run cmd/json2schema -- --from-json-schema --schema-file schema.json
 ```
 
 输出：
@@ -50,11 +55,12 @@ moon run cmd/json2schema -- --from-json-schema '{
 
 **特性**：
 - 转换所有 JSON Schema 类型（string、number、integer、boolean、null、array、object）
-- 提取约束：`minLength`、`maxLength`、`minimum`、`maximum`、`multipleOf`、`pattern`、`format`（email、uri、date-time、ipv4、ipv6、uuid）
+- 提取约束：`minLength`、`maxLength`、`minimum`、`maximum`、`exclusiveMinimum`、`exclusiveMaximum`、`multipleOf`、`pattern`、`format`（email、uri、date-time、ipv4、ipv6、uuid）
 - 处理 `$defs` 和 `$ref` 引用 — 生成单独的命名 schema 声明
-- 支持 `enum` 和 `oneOf` / `anyOf` / `allOf`
+- 支持 `enum`、`oneOf`、`anyOf`、`allOf`
 - 不在 `required` 中的字段自动用 `.optional()` 包装
 - 输出 **可直接复制粘贴的 MoonBit 源代码**
+- 完整支持 Phase 36 语义：`exclusiveMinimum`/`exclusiveMaximum` 在适用时生成 `.positive()`/`.negative()`
 
 ---
 
@@ -112,6 +118,9 @@ moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}\n{"a
 # FAIL: line 3
 #   [name] Required (got: Null)
 # Results: 2 passed, 1 failed
+
+# 文件模式（JSON Schema 作为 schema 源）
+moon run cmd/validate -- --schema-file schema.json --sample-file data.json
 ```
 
 **错误输出格式**：`[field_path] message (got: value)`

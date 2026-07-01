@@ -66,6 +66,10 @@ moon_zod/
 │   ├── constraint_extractor.mbt  # 从规则提取约束信息
 │   └── moon_zod_wbtest.mbt   # 白盒测试（路径栈不变量）
 │
+├── combinators/              # Schema 组合工具
+│   ├── schema_combinators.mbt # Schema 组合辅助函数
+│   └── reexporter.mbt        # 重新导出
+│
 ├── exporters/                # 代码/Schema 导出工具
 │   ├── prompt.mbt            # schema_to_prompt() / schema_to_prompt_named()
 │   ├── prompt_renderer.mbt   # 基于 Trait 的提示渲染
@@ -80,7 +84,7 @@ moon_zod/
 │   ├── from_json_schema.mbt  # json_schema_to_moon_zod() — 反向 JSON Schema → moon_zod 代码生成
 │   └── reexporter.mbt        # 模块重新导出
 │
-├── tests/                    # 测试套件（407 个测试）
+├── tests/                    # 测试套件（426 个测试）
 │   ├── test_string.mbt       # string() 验证器测试
 │   ├── test_number.mbt       # number() 验证器测试
 │   ├── test_boolean_null.mbt # boolean/null 测试
@@ -88,7 +92,8 @@ moon_zod/
 │   ├── test_array.mbt        # array() 测试
 │   ├── test_combinators.mbt  # union/literal/optional/default 测试
 │   ├── test_transform_refine.mbt # transform/refine 测试
-│   ├── test_json_schema.mbt  # JSON Schema 导出测试
+│   ├── test_json_schema.mbt  # JSON Schema 导出 + $defs/$ref 测试
+│   ├── test_json_schema_fixes.mbt # exclusiveMin/Max 语义 + enum 边界情况
 │   ├── test_moonbit_struct.mbt # MoonBit 结构生成测试
 │   ├── test_prompt.mbt       # 提示生成测试
 │   ├── test_prompt_named.mbt # 命名 Schema 导出测试
@@ -105,11 +110,17 @@ moon_zod/
 │   └── validate/             # JSON Schema 验证器（推断然后验证）
 │
 └── examples/                 # LLM 代理演示
-    ├── llm_agent/            # 基础 LLM 工具调用示例
-    ├── educational_agent/    # 多轮自纠正演示
-    ├── real_llm_agent/       # 真实 LLM 集成（带 API 回退到 mock）
+    ├── json2schema/          # JSON → moon_zod schema 代码生成
+    ├── mock/                 # Mock 代理演示
+    │   ├── llm_agent/        # 基础 LLM 工具调用示例
+    │   └── educational_agent/ # 多轮自纠正演示
     ├── multiple_schemas/     # 处理多个 Schema
-    └── schema2prompt/        # Schema → 提示生成展示
+    ├── real_llm_agent/       # 真实 LLM 集成（带 API 回退到 mock）
+    ├── resources/            # 样本数据文件（JSON、JSON Schema）
+    ├── schema2json/          # Schema → JSON Schema 导出演示
+    ├── schema2prompt/        # Schema → 提示生成展示
+    ├── shared_schemas/       # 共享 Schema 定义（库包）
+    └── validate_cli/         # CLI 验证演示
 ```
 
 ---
@@ -118,22 +129,28 @@ moon_zod/
 
 ```bash
 # 测试与构建
-moon test                # 运行所有测试（共 407 个，0 个警告）
+moon test                # 运行所有测试（共 426 个，0 个警告）
 moon build               # 构建库
+moon check               # 类型检查（0 错误，0 警告）
 moon info && moon fmt    # 更新接口 + 格式化
 
 # CLI 工具
 moon run cmd/main                                      # 运行性能基准测试
 moon run cmd/json2schema -- '{"hello":"world"}'      # JSON → moon_zod Schema 代码
 moon run cmd/json2schema -- --from-json-schema '<{...}>'  # JSON Schema → moon_zod 代码
+moon run cmd/json2schema -- --from-json-schema '<{...}>' --verbose  # 带调试输出版本
 moon run cmd/gen-struct -- '{"name":"Alice"}'        # JSON → MoonBit 结构 + from_json()
 moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # 验证 JSON
 
 # 示例
-moon run examples/llm_agent                          # 基础 LLM 工具调用演示
+moon run examples/mock/llm_agent                     # 基础 LLM 工具调用演示
+moon run examples/mock/educational_agent             # 多轮自纠正演示
 moon run examples/real_llm_agent -- product prompt   # 真实 LLM（带 mock 回退）
 moon run examples/real_llm_agent -- product validate # 用真实 API 验证
-moon run examples/multiple_schemas                    # 处理多个 Schema
+moon run examples/multiple_schemas                   # 处理多个 Schema
+moon run examples/schema2json -- product schema      # Schema → JSON Schema 导出
+moon run examples/schema2prompt                      # Schema → 提示生成展示
+moon run examples/json2schema                        # JSON → moon_zod schema 代码生成
 ```
 
 ---
@@ -143,7 +160,7 @@ moon run examples/multiple_schemas                    # 处理多个 Schema
 - **基础类型 Schema**：`string()`、`number()`、`boolean()`、`null()`
 - **复合 Schema**：`object(Map)`、`array(Schema)`、`union(Array[Schema])`、`intersection(Array[Schema])`、`enum_values(Array[String])`、`literal(Json)`
 - **字符串验证器**（20+）：`.min(n)`、`.max(n)`、`.nonempty()`、`.email()`（完整 RFC 验证）、`.url()`（完整结构）、`.regex(pattern)`（子字符串匹配）、`.startsWith()`、`.endsWith()`、`.includes()`、`.uuid()`、`.cuid()`、`.ulid()`、`.datetime()`、`.ip()`/`.ipv4()`/`.ipv6()`、`.length(n)`
-- **数字验证器**（9+）：`.int()`、`.positive()`、`.negative()`、`.multipleOf()`、`.finite()`、`.safe()`、`.min()`、`.max()`、`.length()`
+- **数字验证器**（8+）：`.int()`、`.positive()`、`.negative()`、`.multipleOf()`、`.finite()`、`.safe()`、`.min()`、`.max()`
 - **对象模式**：`.strip()`（默认，移除未知字段）、`.passthrough()`（保留未知字段）、`.strict()`（拒绝未知字段）
 - **Schema 组合**：`.pick(keys)`、`.omit(keys)`、`.partial()` 派生对象子 Schema
 - **可选/默认值处理**：`.optional()` 和 `.default(value)`，通过包装器正确链接规则

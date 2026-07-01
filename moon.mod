@@ -11,7 +11,7 @@
 
 name = "Betterlol/moon_zod"
 
-version = "0.7.0"
+version = "0.7.5"
 
 readme = "README.mbt.md"
 
