@@ -391,6 +391,10 @@ if schema.name.is_empty() {
 | **`.brand( brand_name )`** | 名义类型标记（branded type），用于类型安全 ID 等场景 | 中 — 常见设计模式 |
 | **完整正则实现** | 通过 WASM（regex crate 编译）或 JS FFI（RegExp）提供真正的正则能力 | 高 — 最大已知功能缺口 |
 
+> `.lt()` / `.gt()` / `.lte()` / `.gte()` 可通过 `refine()` 间接实现，Zod 未提供，而 Pydantic 提供了，建议不做，以 Zod 为准。
+> `regex()` 暂时不做，因为 MoonBit 没有内建 regex 引擎。
+> 独立化 `datetime()` 好像也不是很有必要，不过也许对细化相关的导出有帮助？（如prompt导出等）暂时不做，需要进一步调研。 
+
 **任务**:
 - [ ] `string.mbt`: 新增 `.trim()`, `.toLowerCase()`, `.toUpperCase()` 方法
 - [ ] `array.mbt`: 新增 `.nonempty()` 方法
