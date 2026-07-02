@@ -377,6 +377,32 @@ if schema.name.is_empty() {
 
 ---
 
+#### ☐ 核心校验器增强
+
+**目标**: 补齐 core 包中常见的校验能力缺口，提升与 Zod 的 feature parity。
+
+| 功能 | 描述 | 价值 |
+|------|------|------|
+| **`.string().trim()` / `.toLowerCase()` / `.toUpperCase()`** | 字符串转换方法，在解析时直接修改值 | 高 — 常见数据清洗需求 |
+| **`.array().nonempty([msg])`** | 数组非空校验（当前需 `array().min(1)`） | 高 — 语义明确，与 `.string().nonempty()` 对称 |
+| **`.lt()/.gt()/.lte()/.gte()`** | 数字严格比较（当前 min=max 使用 ≥/≤，缺少 < 和 >） | 中 — 补充 min/max 的语义缺口 |
+| **`bigint()` 工厂** | BigInt 类型校验，JSON 数字解析为 Double 会丢失大精度 | 中 — 金融/ID 场景关键 |
+| **`date()` / `datetime()` 工厂** | 独立的日期类型（当前仅有 string 格式校验） | 中 — 时间数据处理的基础能力 |
+| **`.brand( brand_name )`** | 名义类型标记（branded type），用于类型安全 ID 等场景 | 中 — 常见设计模式 |
+| **完整正则实现** | 通过 WASM（regex crate 编译）或 JS FFI（RegExp）提供真正的正则能力 | 高 — 最大已知功能缺口 |
+
+**任务**:
+- [ ] `string.mbt`: 新增 `.trim()`, `.toLowerCase()`, `.toUpperCase()` 方法
+- [ ] `array.mbt`: 新增 `.nonempty()` 方法
+- [ ] `number.mbt`: 新增 `.lt()`, `.gt()`, `.lte()`, `.gte()` 方法
+- [ ] `number.mbt` 或新文件: 新增 `bigint()` 工厂
+- [ ] 新文件: `date.mbt` — `date()` / `datetime()` 工厂
+- [ ] `schema.mbt`: 新增 `.brand()` 方法（`BrandType(String)` 变体或 rule 方式）
+- [ ] 调研 WASM regex 集成方案，替换当前 substring match 的 `regex()` 实现
+- [ ] 所有新增功能覆盖 test、prompt 导出、JSON Schema 导出、struct 代码生成
+
+---
+
 #### ☐ 多语言代码生成框架
 
 **任务**:
@@ -407,15 +433,6 @@ if schema.name.is_empty() {
 - [ ] `generate_i18n_strings()` 提取翻译键
 - [ ] `schema_to_markdown_doc()` 生成多语言 API 文档
 - [ ] 编写多语言错误消息测试
-
----
-
-#### ◐ 可并行推进（不阻塞核心功能）
-
-- [ ] 多平台 CI：扩展 GitHub Actions 到 macOS/Windows
-- [ ] wasm-gc target：验证兼容性并优化启动开销
-- ⏳ derive 宏：需等待 MoonBit 宏系统成熟
-> 然而，MoonBit 当前缺乏稳定的宏系统，只支持内置的几个 derive (Debug/Show/Eq/FromJson/ToJson)，无法实现自定义 derive。需要等待未来 MoonBit 引入稳定的宏系统后才能开发此功能。
 
 ---
 
