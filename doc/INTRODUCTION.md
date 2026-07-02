@@ -1,6 +1,15 @@
-# moon_zod 核心概念：Type、Rule、Schema
+# moon_zod 简介
 
-## 三者的关系
+---
+
+## 目录
+
+- [moon_zod 核心概念：Type、Rule、Schema](#moon_zod-核心概念typeruleschema)
+- [moon_zod 校验逻辑](#moon_zod-检验逻辑)
+
+## moon_zod 核心概念：Type、Rule、Schema
+
+### 三者的关系
 
 ```
 Schema {
@@ -21,7 +30,7 @@ Schema {
 
 ---
 
-## 三类函数
+### 三类函数
 
 1. *Schema* **工厂函数**：`string()`, `number()`, `object({...})` 等。
 > `pub fn string() -> Schema { ... }` 直接调用
@@ -33,7 +42,7 @@ Schema {
 > 改变 schema_type，清空 rules，包装内层 Schema。
 > 目前实现中是通过 `OptionalType(inner)`、`DefaultType(inner, v)`、`TransformType(inner, f)` 来包装。
 
-## Type 和 Rule 的本质区别
+### Type 和 Rule 的本质区别
 
 | | Type (SchemaType) | Rule |
 |---|---|---|
@@ -66,9 +75,9 @@ parse_inner → schema_type = StringType
 
 ---
 
-## SchemaType 的三种角色
+### SchemaType 的三种角色
 
-### 1. 原始类型（校验 Json 变体）
+#### 1. 原始类型（校验 Json 变体）
 
 ```moonbit
 StringType   → 输入必须是 Json::String(_)
@@ -77,7 +86,7 @@ BooleanType  → 输入必须是 Json::True | False
 NullType     → 输入必须是 Json::Null
 ```
 
-### 2. 容器类型（递归调度子 Schema）
+#### 2. 容器类型（递归调度子 Schema）
 
 ```moonbit
 ObjectType(fields, mode) → 递归校验每个字段
@@ -88,7 +97,7 @@ IntersectionType(schemas)→ 所有分支都通过
 LiteralType(expected)    → 精确值匹配
 ```
 
-### 3. 装饰器类型（改变校验流程）
+#### 3. 装饰器类型（改变校验流程）
 
 ```moonbit
 OptionalType(inner)  → null 直接通过，非 null 委托 inner
@@ -100,7 +109,7 @@ TransformType(inner, f) → 校验后通过 f 变换输出值
 
 ---
 
-## 链式调用的三种行为
+### 链式调用的三种行为
 
 ```moonbit
 string()           // SchemaType = StringType,   rules = []
@@ -128,7 +137,7 @@ string()           // SchemaType = StringType,   rules = []
 
 ---
 
-## `append_rule` 的穿透机制
+### `append_rule` 的穿透机制
 
 这就是为什么 `string().optional().min(3)` 能正确工作：
 
@@ -150,7 +159,38 @@ fn append_rule_with_annotation(schema, check, message, annotation):
 
 ---
 
-## 校验流程全景
+### 常见误区
+
+#### "`.optional()` 会丢掉之前的 rules？"
+
+不会。它清空的是外层 OptionalType 的 `rules` 数组，但内层 Schema 的 `rules` 保留。后续 `.min(3)` 通过 `append_rule` 穿透进去加到内层。
+
+#### "`.default(12)` 在 string 上会导致运行时类型错误？"
+
+运行时不会。如果输入为 null，`default(12)` 直接返回 `12`，不经历 StringType 校验。这是 Zod 相同的行为——默认值是替代 null 的回退值，不校验类型。
+
+如果想确保默认值也是合法 string：`string().default("hello")`。
+
+#### "装饰器类型的 rules 为什么要是空的？"
+
+装饰器的 Schema（OptionalType/DefaultType/TransformType）的 `rules: []` 是因为它们只负责调度流程，不负责校验。校验在内层进行。如果装饰器有自己的 rules，`append_rule` 会穿透进去加，所以装饰器的 rules 永远保持为空。
+
+#### "SchemaType 和 Rule 的边界在哪？"
+
+| 应该用 SchemaType | 应该用 Rule |
+|---|---|
+| 需要改变校验流程 | 只需额外检查 |
+| 需要修改输入值 | 只通过/不通过 |
+| 需要递归调度子 Schema | 只对当前值做判断 |
+| 需要多 Schema 组合 | 单 Schema 约束 |
+
+如果拿捏不准，一条经验法则：**如果可以用 `refine` 实现，就用 Rule；如果需要修改输入或改变流程，就用 SchemaType。**
+
+---
+
+## moon_zod 检验逻辑
+
+### 校验流程全景
 
 ```
 parse_inner(schema, json, path_stack)
@@ -192,9 +232,9 @@ parse_inner(schema, json, path_stack)
 
 ---
 
-## `Schema::parse` 流程与 path_stack 设计
+### `Schema::parse` 流程与 path_stack 设计
 
-### 入口
+#### 入口
 
 ```moonbit
 pub fn Schema::parse(
@@ -204,7 +244,28 @@ pub fn Schema::parse(
 ) -> Result[Json, Array[ValidationError]]
 ```
 
-### path_stack：零分配成功路径
+#### `format_path`：错误路径的字符串化
+
+```moonbit
+///|
+pub fn format_path(stack : Array[String]) -> String {
+  let mut result = ""
+  let mut first = true
+  for part in stack {
+    if first {
+      result = result + part
+    } else if part.has_prefix("[") {
+      result = result + part
+    } else {
+      result = result + "." + part
+    }
+    first = false
+  }
+  result
+}
+```
+
+#### path_stack：零分配成功路径
 
 `parse` 内部维护一个 `Array[String]` 作为**可变路径栈**。错误路径段在递归入栈时 push，返回时 pop。`format_path` 仅在真正产生 `ValidationError` 时才被调用，拼接字符串。
 
@@ -212,21 +273,72 @@ pub fn Schema::parse(
 
 **错误路径**：一次 `format_path` 调用，拼接出 `"users[0].name"` 格式的错误路径。
 
-### 设计动机
+#### 设计动机
 
-Phase 5 之前的实现是在每次 parse 的深层递归中直接拼接路径字符串：
+Phase 5 之前，`parse` 函数通过 `path : String` 参数在递归调用中传递路径，每一层递归都**提前拼接出新字符串**：
 
 ```moonbit
-// 旧方式：每次递归都拼接字符串
-sub_path(sub_path("", "users"), "[0]") + ".name"
-// → "users[0].name"
+// 旧方式：path 作为不可变 String 传递，每层递归都分配新字符串
+
+// 入口：parse(schema, json, path = "")
+
+// object.mbt 中：
+for key, val_schema in spec {
+  let new_path = sub_path(path, key)  // ← 每次都分配新 String
+  let result = parse_inner(val_schema, json_value, new_path)
+}
+
+// array.mbt 中：
+for i = 0; i < arr.length(); i = i + 1 {
+  let new_path = sub_index(path, i)   // ← 每次都分配新 String
+  let result = parse_inner(elem, arr[i], new_path)
+}
+
+// 底层原始类型（StringType / NumberType / ...）中：
+// path 已经被拼好了，直接拿来用：
+Err([ValidationError::{ path: path, message: "Expected string", got: json }])
 ```
 
-即使校验成功（99% 的输入是合法的），字符串也被拼接了。在大批量校验（如 100k 条日志）中，这些不必要的分配显著拖慢性能。
+**问题**：String 在 MoonBit 中是不可变类型，`sub_path(a, b)` 必须分配一块新内存来拼接结果。对于 `{"users": [{"name": "Alice", "age": 30}]}` 这样的校验，即使全部通过，路径字符串仍然在每层递归中被分配：
 
-**path_stack 方案**：只在确定有错误时才 format_path，成功路径零成本。
+```
+path="" → sub_path("", "users") → "users"              ← 分配
+       → sub_index("users", 0) → "users[0]"            ← 分配
+       → sub_path("users[0]", "name") → "users[0].name" ← 分配
+       → sub_path("users[0]", "age")  → "users[0].age"  ← 分配
+```
 
-### 执行示例
+4 次堆分配，全部浪费（因为校验成功了，路径只在错误消息中使用）。
+
+更糟糕的是，`union` 或 `intersection` 等组合子会尝试多个分支，如果第一个分支失败了，已拼接的路径字符串也白白浪费了：
+
+```
+union([schema_a, schema_b, schema_c])
+  → parse_inner(schema_a, json, path)  ← 分支 A：分配了路径但失败了
+  → parse_inner(schema_b, json, path)  ← 分支 B：又要分配路径
+  → parse_inner(schema_c, json, path)  ← 分支 C：继续分配
+```
+
+**path_stack 方案**：使用共享可变 `Array[String]` 作为路径栈。递归时 `push` 入栈，返回前 `pop` 出栈。只在真正产生 `ValidationError` 时才调用 `format_path` 拼接字符串：
+
+```moonbit
+// 新方式：push/pop 操作数组，零分配
+path_stack.push("users")
+path_stack.push("[0]")
+path_stack.push("name")
+
+// 只有产生错误时才调用：
+let path = format_path(path_stack)  // "users[0].name"
+
+// 返回前 pop 恢复
+let _ = path_stack.pop()
+let _ = path_stack.pop()
+let _ = path_stack.pop()
+```
+
+**关于 `sub_path` / `sub_index` 的现状**：这两个函数仍然保留在代码中（`core/schema.mbt`），但已不在 `parse` 的热路径上使用。它们目前被 `exporters/` 和 `importers/` 中的非性能关键代码使用，用于在生成代码时构建字符串路径。`parse` 核心路径已完全改用 `path_stack`。
+
+#### 执行示例
 
 校验 `object({"users": array(object({"name": string()}))})` 对 `{"users": [{"name": 42}]}`：
 
@@ -248,7 +360,7 @@ path_stack        操作                        format_path 调用？
 
 对于**成功路径**（如 `{"users": [{"name": "Alice"}]}`），全程无 `format_path` 调用。
 
-### 代码中的 path_stack 操作模式
+#### 代码中的 path_stack 操作模式
 
 ```moonbit
 // 入栈：
@@ -281,7 +393,7 @@ for i = 0; i < arr.length(); i = i + 1 {
 }
 ```
 
-### 为什么不用不可变路径？
+#### 为什么不用不可变路径？
 
 MoonBit 的 `Array` 是引用类型，同一个 path_stack 引用被传递给整个 parse 调用树，所有递归分支共享。如果用不可变的 `List` 或 `String` 传递，每次 push 都要复制，`format_path` 的成本会叠加。
 
@@ -294,29 +406,3 @@ MoonBit 的 `Array` 是引用类型，同一个 path_stack 引用被传递给整
 
 ---
 
-## 常见误区
-
-### "`.optional()` 会丢掉之前的 rules？"
-
-不会。它清空的是外层 OptionalType 的 `rules` 数组，但内层 Schema 的 `rules` 保留。后续 `.min(3)` 通过 `append_rule` 穿透进去加到内层。
-
-### "`.default(12)` 在 string 上会导致运行时类型错误？"
-
-运行时不会。如果输入为 null，`default(12)` 直接返回 `12`，不经历 StringType 校验。这是 Zod 相同的行为——默认值是替代 null 的回退值，不校验类型。
-
-如果想确保默认值也是合法 string：`string().default("hello")`。
-
-### "装饰器类型的 rules 为什么要是空的？"
-
-装饰器的 Schema（OptionalType/DefaultType/TransformType）的 `rules: []` 是因为它们只负责调度流程，不负责校验。校验在内层进行。如果装饰器有自己的 rules，`append_rule` 会穿透进去加，所以装饰器的 rules 永远保持为空。
-
-### "SchemaType 和 Rule 的边界在哪？"
-
-| 应该用 SchemaType | 应该用 Rule |
-|---|---|
-| 需要改变校验流程 | 只需额外检查 |
-| 需要修改输入值 | 只通过/不通过 |
-| 需要递归调度子 Schema | 只对当前值做判断 |
-| 需要多 Schema 组合 | 单 Schema 约束 |
-
-如果拿捏不准，一条经验法则：**如果可以用 `refine` 实现，就用 Rule；如果需要修改输入或改变流程，就用 SchemaType。**
