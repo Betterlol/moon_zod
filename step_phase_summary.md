@@ -385,29 +385,20 @@ if schema.name.is_empty() {
 |------|------|------|
 | **`.string().trim()` / `.toLowerCase()` / `.toUpperCase()`** | 字符串转换方法，在解析时直接修改值 | 高 — 常见数据清洗需求 |
 | **`.array().nonempty([msg])`** | 数组非空校验（当前需 `array().min(1)`） | 高 — 语义明确，与 `.string().nonempty()` 对称 |
-| **`.lt()/.gt()/.lte()/.gte()`** | 数字严格比较（当前 min=max 使用 ≥/≤，缺少 < 和 >） | 中 — 补充 min/max 的语义缺口 |
 | **`bigint()` 工厂** | BigInt 类型校验，JSON 数字解析为 Double 会丢失大精度 | 中 — 金融/ID 场景关键 |
-| **`date()` / `datetime()` 工厂** | 独立的日期类型（当前仅有 string 格式校验） | 中 — 时间数据处理的基础能力 |
 | **`.brand( brand_name )`** | 名义类型标记（branded type），用于类型安全 ID 等场景 | 中 — 常见设计模式 |
-| **完整正则实现** | 通过 WASM（regex crate 编译）或 JS FFI（RegExp）提供真正的正则能力 | 高 — 最大已知功能缺口 |
-
-> `.lt()` / `.gt()` / `.lte()` / `.gte()` 可通过 `refine()` 间接实现，Zod 未提供，而 Pydantic 提供了，建议不做，以 Zod 为准。
-> `regex()` 暂时不做，因为 MoonBit 没有内建 regex 引擎。
-> 独立化 `datetime()` 好像也不是很有必要，不过也许对细化相关的导出有帮助？（如prompt导出等）暂时不做，需要进一步调研。 
 
 **任务**:
 - [ ] `string.mbt`: 新增 `.trim()`, `.toLowerCase()`, `.toUpperCase()` 方法
 - [ ] `array.mbt`: 新增 `.nonempty()` 方法
-- [ ] `number.mbt`: 新增 `.lt()`, `.gt()`, `.lte()`, `.gte()` 方法
 - [ ] `number.mbt` 或新文件: 新增 `bigint()` 工厂
-- [ ] 新文件: `date.mbt` — `date()` / `datetime()` 工厂
 - [ ] `schema.mbt`: 新增 `.brand()` 方法（`BrandType(String)` 变体或 rule 方式）
-- [ ] 调研 WASM regex 集成方案，替换当前 substring match 的 `regex()` 实现
 - [ ] 所有新增功能覆盖 test、prompt 导出、JSON Schema 导出、struct 代码生成
 
 ---
 
 #### ☐ 多语言代码生成框架
+> 优先级较低
 
 **任务**:
 - [ ] 创建 `code_gen.mbt` 模块
@@ -420,6 +411,7 @@ if schema.name.is_empty() {
 ---
 
 #### ☐ 性能基准与优化
+> 优先级中等
 
 **任务**:
 - [ ] 创建 100-500 个命名 Schema 的基准测试
@@ -431,6 +423,7 @@ if schema.name.is_empty() {
 ---
 
 #### ☐ Schema 国际化与文档生成
+> 优先级较低
 
 **任务**:
 - [ ] `.i18n_key()` 方法为规则附加 i18n 标记
@@ -515,6 +508,7 @@ if schema.name.is_empty() {
 ---
 
 #### ☐ 枚举类型的 `exclude()` 和 `extract()` 方法
+> 优先级中等
 
 **问题**: 当前无法在枚举类型中排除某些值，也无法提取某些值的子集，导致在复杂业务规则中无法灵活组合枚举类型。
 
@@ -533,6 +527,7 @@ if schema.name.is_empty() {
 > ```
 
 #### ☐ Schema 递归类型支持
+> 优先级较低
 
 **问题**: 当前无法定义自引用 Schema（树、链表等递归数据结构）。
 
@@ -563,6 +558,7 @@ if schema.name.is_empty() {
 ---
 
 #### ☐ Prompt 压缩与 Token 优化
+> 优先级较低
 
 **问题**: `schema_to_prompt()` 在大 schema 下生成冗余约束说明，占用 LLM context window。
 
@@ -578,6 +574,7 @@ if schema.name.is_empty() {
 ---
 
 #### ☐ 流式与批量校验
+> 优先级较低
 
 **问题**: 每次 `schema.parse(item)` 重新创建 path_stack，无法复用校验上下文。
 
@@ -592,6 +589,7 @@ if schema.name.is_empty() {
 ---
 
 #### ◐ Schema 服务端 / 注册中心
+> 优先级较低
 
 **问题**: Schema 定义分散在代码中，无法共享、发现、版本管理。
 
@@ -616,6 +614,32 @@ if schema.name.is_empty() {
 
 - 定期检查是否有 "代码坏味道" 出现（重复代码、过长函数、复杂条件分支等），及时重构保持代码质量；定期检查代码质量，保持核心库的简洁和可维护性，可拓展性。
 > 如果某个很简单且必要的功能需要引入复杂的实现或大量代码，可能是设计上的坏味道，需要重构以保持核心库的简洁和可维护性。
+
+---
+
+## Phase 37 — Core API Enhancements (2db4cf6)
+
+**目标**: 新增常用 Schema API：string Transform、array nonempty、bigint 工厂、brand 元数据标记。
+
+**新增文件**:
+- `core/bigint.mbt` — `bigint()` 工厂函数（`number().int()` 语义别名）
+
+**修改文件**:
+- `core/schema.mbt` — `Schema` 新增 `brand` 字段 + `.brand()` 方法，通过 `message()` / `append_rule_with_annotation()` 等包装器透传 `brand`
+- `core/string.mbt` — 新增 `.trim()`, `.to_lower()`, `.to_upper()`；重写 `.nonempty()` 支持 string + array
+- `core/transform.mbt` — 修改 `parse_transform` 对外层规则：链式规则作用于 transformed value 而非 inner schema；新增 `brand` 透传
+- `core/{array,boolean,default,enum,intersection,literal,null,number,object,optional,union}.mbt` — 构造处补 `brand` 字段
+- `tests/reexporter.mbt` — 重新导出 `bigint`
+- `tests/test_string.mbt` — +72 行：trim/to_lower/to_upper/nonempty 测试
+- `tests/test_array.mbt` — +20 行：array nonempty 测试
+- `tests/test_combinators.mbt` — +48 行：brand + bigint 测试
+
+**关键决策**:
+- `.trim()/.to_lower()/.to_upper()` 基于 `.transform()` 实现，后续规则校验 transform 后值
+- `bigint()` 定位为语义别名而非独立类型（暂不接受 string 编码大整数）
+- `.brand()` 仅元数据标记，当前不主动导出到 prompt / JSON Schema
+
+**产出**: 444/444 测试全部通过（0 failed）；`moon info && moon fmt` 通过。
 
 ---
 
