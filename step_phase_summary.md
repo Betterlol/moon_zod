@@ -274,11 +274,39 @@ if schema.name.is_empty() {
 
 > 🚩 **自此，exporters 和 importers 的开发告一段落。后续将全力聚焦 core/ 核心校验库的完善和演进。**
 
+---
+
+## Phase 37 — Core API Enhancements (2db4cf6)
+
+**目标**: 新增常用 Schema API：string Transform、array nonempty、bigint 工厂、brand 元数据标记。
+
+**新增文件**:
+- `core/bigint.mbt` — `bigint()` 工厂函数（`number().int()` 语义别名）
+
+**修改文件**:
+- `core/schema.mbt` — `Schema` 新增 `brand` 字段 + `.brand()` 方法，通过 `message()` / `append_rule_with_annotation()` 等包装器透传 `brand`
+- `core/string.mbt` — 新增 `.trim()`, `.to_lower()`, `.to_upper()`；重写 `.nonempty()` 支持 string + array
+- `core/transform.mbt` — 修改 `parse_transform` 对外层规则：链式规则作用于 transformed value 而非 inner schema；新增 `brand` 透传
+- `core/{array,boolean,default,enum,intersection,literal,null,number,object,optional,union}.mbt` — 构造处补 `brand` 字段
+- `tests/reexporter.mbt` — 重新导出 `bigint`
+- `tests/test_string.mbt` — +72 行：trim/to_lower/to_upper/nonempty 测试
+- `tests/test_array.mbt` — +20 行：array nonempty 测试
+- `tests/test_combinators.mbt` — +48 行：brand + bigint 测试
+
+**关键决策**:
+- `.trim()/.to_lower()/.to_upper()` 基于 `.transform()` 实现，后续规则校验 transform 后值
+- `bigint()` 定位为语义别名而非独立类型（暂不接受 string 编码大整数）
+- `.brand()` 仅元数据标记，当前不主动导出到 prompt / JSON Schema
+
+**产出**: 444/444 测试全部通过（0 failed）；`moon info && moon fmt` 通过。
+
+---
+
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | 426 |
+| 测试数量 | **444** (▲+18) |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
 | 子包数量 | 5（`core`, `exporters`, `importers`, `combinators`, `tests`） |
@@ -377,23 +405,59 @@ if schema.name.is_empty() {
 
 ---
 
-#### ☐ 核心校验器增强
+#### ☑ 核心校验器增强 — Phase 37 已交付
 
-**目标**: 补齐 core 包中常见的校验能力缺口，提升与 Zod 的 feature parity。
+**完成状态**:
 
-| 功能 | 描述 | 价值 |
-|------|------|------|
-| **`.string().trim()` / `.toLowerCase()` / `.toUpperCase()`** | 字符串转换方法，在解析时直接修改值 | 高 — 常见数据清洗需求 |
-| **`.array().nonempty([msg])`** | 数组非空校验（当前需 `array().min(1)`） | 高 — 语义明确，与 `.string().nonempty()` 对称 |
-| **`bigint()` 工厂** | BigInt 类型校验，JSON 数字解析为 Double 会丢失大精度 | 中 — 金融/ID 场景关键 |
-| **`.brand( brand_name )`** | 名义类型标记（branded type），用于类型安全 ID 等场景 | 中 — 常见设计模式 |
+| 功能 | 状态 |
+|------|------|
+| **`.string().trim()` / `.to_lower()` / `.to_upper()`** | ✅ 已实现 |
+| **`.array().nonempty([msg])`** | ✅ 已实现 |
+| **`bigint()` 工厂** | ✅ 已实现 |
+| **`.brand(brand_name)`** | ✅ 已实现 |
 
-**任务**:
-- [ ] `string.mbt`: 新增 `.trim()`, `.toLowerCase()`, `.toUpperCase()` 方法
-- [ ] `array.mbt`: 新增 `.nonempty()` 方法
-- [ ] `number.mbt` 或新文件: 新增 `bigint()` 工厂
-- [ ] `schema.mbt`: 新增 `.brand()` 方法（`BrandType(String)` 变体或 rule 方式）
-- [ ] 所有新增功能覆盖 test、prompt 导出、JSON Schema 导出、struct 代码生成
+**任务完成情况**:
+- [x] `string.mbt`: 新增 `.trim()`, `.to_lower()`, `.to_upper()` 方法
+- [x] `array.mbt`: 新增 `.nonempty()` 方法（实际在 `string.mbt` 中扩展，统一 `Schema::nonempty`）
+- [x] 新建 `bigint.mbt`: 新增 `bigint()` 工厂
+- [x] `schema.mbt`: 新增 `.brand()` 方法 + `brand` 字段，所有包装器透传
+- [x] test 覆盖完成
+- [ ] ~~所有新增功能覆盖 prompt 导出、JSON Schema 导出、struct 代码生成~~ — **搁置**：exporters 功能冻结
+
+<!--
+### 当前实现不足之处（后续改进方向）
+
+#### string().trim() / .to_lower() / .to_upper()
+- 内部基于 `.transform()` 实现，链式规则在 transform 后执行
+- 但 JS/Zod 里 trim/lower/upper 是"净化（sanitize）"语义，验证器应作用于净化后值，当前行为对齐 Zod
+- ✅ 行为正确，无已知缺陷
+
+#### array().nonempty()
+- 在 `Schema::nonempty` 中通过运行时 type dispatch 同时支持 string 和 array
+- MoonBit 不支持方法重载，这是唯一可行方案
+- ⚠️ 潜在问题：`inner_type()` 穿透 TransformType/OptionalType/DefaultType 后判断 StringType/ArrayType
+  - 若用户在 `.transform().nonempty()` 链上调用，inner_type 取到的是 inner schema 的类型而非 TransformType
+  - 当前 `transform()` 返回 `TransformType` 且 schema_type 不变，这一行为对 nonempty 实际无害（规则不依赖 inner_type 结果）
+  - 但如果未来 nonempty 需要根据 inner_type 做不同逻辑（如现在区分 StringType vs ArrayType 的默认消息），transform 穿透可能导致意外
+  
+#### bigint()
+- 当前实现为 `number().int()` 的语义别名，只接受 JSON number（且必须为整数）
+- 局限性：
+  - ❌ 不接受 JSON string 编码的大整数（如 `"9007199254740993"`）
+  - ❌ MoonBit Double 精度限制（53 bits），超出 `Number.MAX_SAFE_INTEGER` 的值在 JSON parse 阶段已失真
+  - ❌ 无法校验超出 Double 范围的整数字符串
+- 真正的大整数需要：MoonBit BigInt 类型支持 + JSON parse 阶段保留精度（自定义 number parser）— 当前语言层面不支持
+- 可作为临时方案：在 JSON.parse 之前用字符串预处理拦截大数字
+
+#### .brand()
+- 当前仅存储 `brand: String` 字段，不主动输出到任何 exporter
+- 局限性：
+  - ❌ prompt 导出不渲染 brand
+  - ❌ JSON Schema 导出不渲染 brand（JSON Schema 无 brand 标准字段）
+  - ❌ struct 代码生成忽略 brand
+  - 若需 exporter 渲染 brand，需在三个 renderer trait 的 render_method 中处理（或作为约束注释追加）
+  - 建议：brand 本质是"名义类型标记"，prompt 导出的最佳位置是类型名注释，如 `// Brand: UserId`
+-->
 
 ---
 
@@ -613,34 +677,4 @@ if schema.name.is_empty() {
 #### 常驻任务
 
 - 定期检查是否有 "代码坏味道" 出现（重复代码、过长函数、复杂条件分支等），及时重构保持代码质量；定期检查代码质量，保持核心库的简洁和可维护性，可拓展性。
-> 如果某个很简单且必要的功能需要引入复杂的实现或大量代码，可能是设计上的坏味道，需要重构以保持核心库的简洁和可维护性。
-
----
-
-## Phase 37 — Core API Enhancements (2db4cf6)
-
-**目标**: 新增常用 Schema API：string Transform、array nonempty、bigint 工厂、brand 元数据标记。
-
-**新增文件**:
-- `core/bigint.mbt` — `bigint()` 工厂函数（`number().int()` 语义别名）
-
-**修改文件**:
-- `core/schema.mbt` — `Schema` 新增 `brand` 字段 + `.brand()` 方法，通过 `message()` / `append_rule_with_annotation()` 等包装器透传 `brand`
-- `core/string.mbt` — 新增 `.trim()`, `.to_lower()`, `.to_upper()`；重写 `.nonempty()` 支持 string + array
-- `core/transform.mbt` — 修改 `parse_transform` 对外层规则：链式规则作用于 transformed value 而非 inner schema；新增 `brand` 透传
-- `core/{array,boolean,default,enum,intersection,literal,null,number,object,optional,union}.mbt` — 构造处补 `brand` 字段
-- `tests/reexporter.mbt` — 重新导出 `bigint`
-- `tests/test_string.mbt` — +72 行：trim/to_lower/to_upper/nonempty 测试
-- `tests/test_array.mbt` — +20 行：array nonempty 测试
-- `tests/test_combinators.mbt` — +48 行：brand + bigint 测试
-
-**关键决策**:
-- `.trim()/.to_lower()/.to_upper()` 基于 `.transform()` 实现，后续规则校验 transform 后值
-- `bigint()` 定位为语义别名而非独立类型（暂不接受 string 编码大整数）
-- `.brand()` 仅元数据标记，当前不主动导出到 prompt / JSON Schema
-
-**产出**: 444/444 测试全部通过（0 failed）；`moon info && moon fmt` 通过。
-
----
-
-详情见各 `step_phase_details/step_phase_*.md` 文件。
+> 如果某个很简单且必要的功能需要引入复杂的实现或大量代码，可能是设计上的坏味道，需要重构以保持核心库的简洁和可维护性。详情见各 `step_phase_details/step_phase_*.md` 文件。
