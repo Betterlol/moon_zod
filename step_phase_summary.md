@@ -310,8 +310,8 @@ if schema.name.is_empty() {
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
 | 子包数量 | 5（`core`, `exporters`, `importers`, `combinators`, `tests`） |
-| CLI 工具 | 4 个（`cmd/main` 基准, `cmd/wasm` 跨语言, `cmd/json2schema` 代码生成, `cmd/validate` 校验） |
-| 展示示例 | 5 个（`llm_agent`, `educational_agent`, `real_llm_agent`, `json2schema`, `schema2json`） |
+| CLI 工具 | 4 个（`cmd/main` 基准, `cmd/gen-stuct` 代码生成, `cmd/json2schema` 代码生成, `cmd/validate` 校验） |
+| 展示示例 | 9 个 |
 
 ---
 
