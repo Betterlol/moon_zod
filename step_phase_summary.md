@@ -461,6 +461,67 @@ if schema.name.is_empty() {
 
 ---
 
+#### ☐ `PipeType(input, output)` — 显式二阶段转换与校验（代替当前 `TransformType` 的模糊语义）
+
+**问题**: 当前 `TransformType(inner, closure)` 存在设计缺陷：
+
+1. **语义模糊**：`string().transform(fn).min(5)` — `.min(5)` 在 transform 后执行（检查转换后值），但错误报告的 `got` 是转换后的值，LLM/用户难以回溯到原始输入
+2. **exporters 无法表达**：所有 renderer 将 transform 当作透明包装渲染 inner，闭包逻辑完全丢失；`schema_to_moon_zod_code` 只能生成占位的 identity transform
+3. **与 Zod 的差距**：Zod 用 `.pipe()` 显式创建新 Schema 阶段，后续校验逻辑属于新 Schema，错误報告精确到阶段
+4. **链式规则归属混乱**：`append_rule` 不再穿透 TransformType（修复后的行为），但用户期望的 `.transform().min(5)` 到底是检查原始值还是转换值？两种直觉都有道理
+
+**方案**: 新增 `PipeType(input: Schema, output: Schema)` 变体，替代当前 `TransformType` 的"先校验再转换再校验"混在一起的设计。
+
+```moonbit
+// 新设计：PipeType
+let s = string()
+  .transform(fn(s) { Ok(Json::string(s.length().to_string())) })
+  .pipe(number().min(5))
+// 语义：string校验 → transform → number校验(.min(5))
+```
+
+**`PipeType` 与其他方案对比**:
+
+| 方案 | 描述 | 优点 | 缺点 |
+|------|------|------|------|
+| ✅ `PipeType(input, output)` | 新 SchemaType 变体，input 先校验，transform 可选桥接，output 再校验 | 结构清晰，LLM 错误定位明确，exporters 可分别渲染 input/output | 新增变体，需改所有 match |
+| ❌ 保留 `TransformType` 加强 | 在现有基础上修补 | 改动小 | 语义模糊根本问题不解决 |
+| ❌ 纯函数方案 | 外部 `combinators` 提供 pipe 函数而非 Schema 变体 | 核心理干净 | 无法被 exporters 识别渲染 |
+
+**核心设计**:
+
+```moonbit
+pub enum SchemaType {
+  // ...
+  PipeType(Schema, TransformClosure, Schema)  // input, bridge, output
+}
+```
+
+- `parse_pipe` 流程：`parse_inner(input)` → Ok → `bridge(parsed)` → Ok → `parse_inner(output)` → Ok → collect errors on output
+- 桥接闭包不可见（如 Zod 的 `.pipe()` 要求类型兼容，这里用 transform 桥接）
+- 所有错误来自具体阶段：input 失败 → "input 段错误"，output 失败 → "output 段错误"
+
+**任务**:
+- [ ] `types.mbt`: 新增 `PipeType(Schema, TransformClosure, Schema)` 变体
+- [ ] `pipe.mbt`（新文件）: `Schema::pipe(self, output: Schema, bridge?: (Json) -> Result[Json, String])` 工厂
+- [ ] `schema.mbt`: `parse_inner` 新增 `PipeType` 分支 → `parse_pipe`
+- [ ] `pipe.mbt`: `parse_pipe` 实现 — input 校验 → bridge → output 校验
+- [ ] `schema.mbt`: `append_rule_with_annotation` 的 `PipeType` 分支 — **rules 追加到 output schema**（与 Zod .pipe() 语义一致）
+- [ ] `shared_utils.mbt`: `unwrap_schema` / `inner_type` / `is_optional_schema` 穿透 PipeType 到 output
+- [ ] `schema.mbt`: `message()` / `brand` 传播处理 PipeType
+- [ ] 所有 exporters 新增 `render_pipe` trait 方法（`prompt_renderer.mbt`, `json_schema_renderer.mbt`, `moonbit_renderer.mbt`）
+- [ ] prompt 导出：`PipeType(input, _, output)` → 渲染 input + ` → ` + output 类型
+- [ ] JSON Schema 导出：`PipeType` 透明落到 output（JSON Schema 无 pipe 概念）
+- [ ] struct 代码生成：`PipeType(input, _, output)` → 用 output 的类型
+- [ ] `schema_to_moon_zod_code` 适配：`.pipe(output)` 代码生成
+- [ ] 新增 `tests/test_pipe.mbt` — 完整测试覆盖
+- [ ] **迁移策略**：逐步废弃 `TransformType`，推荐用户改用 `transform().pipe()`
+- [ ] 更新 `doc/INTRODUCTION.md` 的校验流程全景图
+
+**价值**: 解决当前 transform 的语义模糊问题，对齐 Zod `.pipe()` 设计，LLM/用户能获得精确的阶段级错误定位。
+
+---
+
 #### ☐ 多语言代码生成框架
 > 优先级较低
 
