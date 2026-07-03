@@ -94,3 +94,23 @@ test "array length custom message" {
   }
   @debug.assert_eq(errors[0].message, "数组长度必须为2")
 }
+
+///|
+/// nonempty() for array
+test "array nonempty passes non-empty" {
+  let s = array(string()).nonempty()
+  guard s.parse(parse_json("[\"a\"]")) is Ok(_) else { fail("expected Ok") }
+}
+
+///|
+test "array nonempty rejects empty" {
+  let s = array(string()).nonempty()
+  guard s.parse(parse_json("[]")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "array nonempty custom message" {
+  let s = array(string()).nonempty(msg="数组不能为空")
+  guard s.parse(parse_json("[]")) is Err(errors) else { fail("expected Err") }
+  @debug.assert_eq(errors[0].message, "数组不能为空")
+}

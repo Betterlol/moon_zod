@@ -13,6 +13,7 @@ pub fn union(
     required_error,
     invalid_type_error,
     name: "",
+    brand: "",
   }
 }
 

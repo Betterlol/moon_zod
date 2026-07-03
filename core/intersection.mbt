@@ -13,6 +13,7 @@ pub fn intersection(
     required_error,
     invalid_type_error,
     name: "",
+    brand: "",
   }
 }
 

@@ -351,3 +351,51 @@ test "literal with custom error messages" {
     _ => fail("expected Err")
   }
 }
+
+///|
+/// brand()
+test "brand sets brand field on schema" {
+  let s = string().brand("MyString")
+  @debug.assert_eq(s.brand, "MyString")
+}
+
+///|
+test "brand preserves chaining" {
+  let s = string().brand("EmailString").email()
+  guard s.parse(Json::string("user@example.com")) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+/// bigint()
+test "bigint accepts integer number" {
+  let s = bigint()
+  guard s.parse(parse_json("42")) is Ok(_) else { fail("expected Ok") }
+}
+
+///|
+test "bigint rejects non-integer number" {
+  let s = bigint()
+  guard s.parse(parse_json("3.14")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "bigint rejects boolean" {
+  let s = bigint()
+  guard s.parse(Json::boolean(true)) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "bigint respects min rule" {
+  let s = bigint().min(100)
+  guard s.parse(parse_json("50")) is Err(_) else { fail("expected Err") }
+  guard s.parse(parse_json("150")) is Ok(_) else { fail("expected Ok") }
+}
+
+///|
+test "bigint respects positive rule" {
+  let s = bigint().positive()
+  guard s.parse(parse_json("-5")) is Err(_) else { fail("expected Err") }
+  guard s.parse(parse_json("5")) is Ok(_) else { fail("expected Ok") }
+}

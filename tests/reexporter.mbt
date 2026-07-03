@@ -23,6 +23,7 @@ pub using @core {
   boolean,
   object,
   array,
+  bigint,
   enum_values,
   union,
   intersection,

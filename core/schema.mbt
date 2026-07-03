@@ -47,6 +47,7 @@ pub(all) struct Schema {
   required_error : String
   invalid_type_error : String
   name : String
+  brand : String
 } derive(Debug)
 
 ///|
@@ -63,6 +64,15 @@ pub fn Schema::describe(self : Schema, text : String) -> Schema {
 /// interface/type definitions in the generated prompt, supporting Object and Enum types.
 pub fn Schema::name(self : Schema, text : String) -> Schema {
   { ..self, name: text }
+}
+
+///|
+/// Assign a brand to a schema for nominal typing.
+/// Branded schemas carry a type-level marker that distinguishes
+/// structurally identical schemas (e.g., `UserId` vs `string`).
+/// The brand is rendered in prompt and JSON Schema exports.
+pub fn Schema::brand(self : Schema, text : String) -> Schema {
+  { ..self, brand: text }
 }
 
 ///|
@@ -85,6 +95,7 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
         required_error: self.required_error,
         invalid_type_error: self.invalid_type_error,
         name: self.name,
+        brand: self.brand,
       }
     }
     DefaultType(inner, val) => {
@@ -96,6 +107,7 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
         required_error: self.required_error,
         invalid_type_error: self.invalid_type_error,
         name: self.name,
+        brand: self.brand,
       }
     }
     TransformType(inner, cls) => {
@@ -107,6 +119,7 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
         required_error: self.required_error,
         invalid_type_error: self.invalid_type_error,
         name: self.name,
+        brand: self.brand,
       }
     }
     _ => {
@@ -171,6 +184,7 @@ pub fn append_rule_with_annotation(
         required_error: schema.required_error,
         invalid_type_error: schema.invalid_type_error,
         name: schema.name,
+        brand: schema.brand,
       }
     }
     DefaultType(inner, default_val) => {
@@ -184,19 +198,7 @@ pub fn append_rule_with_annotation(
         required_error: schema.required_error,
         invalid_type_error: schema.invalid_type_error,
         name: schema.name,
-      }
-    }
-    TransformType(inner, closure) => {
-      let new_inner = append_rule_with_annotation(
-        inner, check, message, annotation,
-      )
-      {
-        schema_type: TransformType(new_inner, closure),
-        rules: [],
-        description: schema.description,
-        required_error: schema.required_error,
-        invalid_type_error: schema.invalid_type_error,
-        name: schema.name,
+        brand: schema.brand,
       }
     }
     _ => { ..schema, rules: schema.rules + [{ check, message, annotation }] }

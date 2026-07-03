@@ -11,5 +11,6 @@ pub fn boolean(
     required_error,
     invalid_type_error,
     name: "",
+    brand: "",
   }
 }

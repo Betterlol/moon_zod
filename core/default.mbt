@@ -10,6 +10,7 @@ pub fn Schema::default(self : Schema, value : Json) -> Schema {
     required_error: self.required_error,
     invalid_type_error: self.invalid_type_error,
     name: self.name,
+    brand: self.brand,
   }
 }
 

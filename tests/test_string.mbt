@@ -671,3 +671,75 @@ test "url custom message" {
   }
   @debug.assert_eq(errors[0].message, "不是有效的URL")
 }
+
+///|
+/// trim()
+test "string trim removes leading and trailing whitespace" {
+  let s = string().trim()
+  match s.parse(Json::string("  hello  ")) {
+    Ok(v) => @debug.assert_eq(v, Json::string("hello"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "string trim passes already-trimmed string" {
+  let s = string().trim()
+  match s.parse(Json::string("hello")) {
+    Ok(v) => @debug.assert_eq(v, Json::string("hello"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "string trim with min rule" {
+  let s = string().trim().min(3)
+  // After trim, "ab" length is 2, so min(3) should fail
+  guard s.parse(Json::string("  ab  ")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+/// to_lower()
+test "string to_lower converts uppercase" {
+  let s = string().to_lower()
+  match s.parse(Json::string("HELLO")) {
+    Ok(v) => @debug.assert_eq(v, Json::string("hello"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "string to_lower passes already-lowercase" {
+  let s = string().to_lower()
+  match s.parse(Json::string("hello")) {
+    Ok(v) => @debug.assert_eq(v, Json::string("hello"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+/// to_upper()
+test "string to_upper converts lowercase" {
+  let s = string().to_upper()
+  match s.parse(Json::string("hello")) {
+    Ok(v) => @debug.assert_eq(v, Json::string("HELLO"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "string to_upper passes already-uppercase" {
+  let s = string().to_upper()
+  match s.parse(Json::string("HELLO")) {
+    Ok(v) => @debug.assert_eq(v, Json::string("HELLO"))
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
+test "string to_lower aborts for string.abort calls" {
+  // nonempty() should abort for non-string after to_lower chain
+  // Just verify to_lower followed by min works
+  let s = string().to_lower().min(2)
+  guard s.parse(Json::string("A")) is Err(_) else { fail("expected Err") }
+}

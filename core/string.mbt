@@ -11,6 +11,7 @@ pub fn string(
     required_error,
     invalid_type_error,
     name: "",
+    brand: "",
   }
 }
 
@@ -116,26 +117,6 @@ pub fn Schema::max(self : Schema, n : Int, msg? : String = "") -> Schema {
     _ => Json::null()
   }
   append_rule_with_annotation(self, check, message, annotation)
-}
-
-///|
-/// Require the string to be non-empty.
-pub fn Schema::nonempty(self : Schema, msg? : String = "") -> Schema {
-  match inner_type(self.schema_type) {
-    StringType => ()
-    _ => abort("nonempty() is only valid for string schemas")
-  }
-  let message = if msg.is_empty() { "String must not be empty" } else { msg }
-  append_rule(
-    self,
-    fn(json) {
-      match json {
-        String(s) => !s.is_empty()
-        _ => false
-      }
-    },
-    message,
-  )
 }
 
 ///|
@@ -996,6 +977,77 @@ fn schema_length_msg(s : Schema, n : Int) -> String {
     ArrayType(_) => "Array must contain exactly \{n} item(s)"
     _ => abort("length() is only valid for string or array schemas")
   }
+}
+
+///|
+/// Require the string to be non-empty (or array to be non-empty).
+pub fn Schema::nonempty(self : Schema, msg? : String = "") -> Schema {
+  match inner_type(self.schema_type) {
+    StringType => ()
+    ArrayType(_) => ()
+    _ => abort("nonempty() is only valid for string or array schemas")
+  }
+  let default_msg = match inner_type(self.schema_type) {
+    StringType => "String must not be empty"
+    _ => "Array must not be empty"
+  }
+  let message = if msg.is_empty() { default_msg } else { msg }
+  append_rule(
+    self,
+    fn(json) {
+      match json {
+        String(s) => !s.is_empty()
+        Array(arr) => !arr.is_empty()
+        _ => false
+      }
+    },
+    message,
+  )
+}
+
+///|
+/// Trim leading and trailing whitespace from the string.
+pub fn Schema::trim(self : Schema) -> Schema {
+  match inner_type(self.schema_type) {
+    StringType => ()
+    _ => abort("trim() is only valid for string schemas")
+  }
+  self.transform(fn(json) {
+    match json {
+      String(s) => Ok(Json::string(s.trim().to_owned()))
+      _ => Err("Expected string")
+    }
+  })
+}
+
+///|
+/// Convert the string to lowercase.
+pub fn Schema::to_lower(self : Schema) -> Schema {
+  match inner_type(self.schema_type) {
+    StringType => ()
+    _ => abort("to_lower() is only valid for string schemas")
+  }
+  self.transform(fn(json) {
+    match json {
+      String(s) => Ok(Json::string(s.to_lower()))
+      _ => Err("Expected string")
+    }
+  })
+}
+
+///|
+/// Convert the string to uppercase.
+pub fn Schema::to_upper(self : Schema) -> Schema {
+  match inner_type(self.schema_type) {
+    StringType => ()
+    _ => abort("to_upper() is only valid for string schemas")
+  }
+  self.transform(fn(json) {
+    match json {
+      String(s) => Ok(Json::string(s.to_upper()))
+      _ => Err("Expected string")
+    }
+  })
 }
 
 ///|

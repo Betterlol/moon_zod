@@ -20,6 +20,7 @@ pub fn literal(
     required_error,
     invalid_type_error,
     name: "",
+    brand: "",
   }
 }
 

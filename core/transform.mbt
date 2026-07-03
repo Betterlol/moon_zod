@@ -5,8 +5,7 @@
 /// called with the validated JSON. The transform can modify the value or
 /// return an error.
 ///
-/// Rules chained after `.transform()` are applied to the inner schema
-/// (before the transform), maintaining decorator penetration semantics.
+/// Rules chained after `.transform()` are applied to the transformed value.
 ///
 /// # Example
 /// ```mbt nocheck
@@ -28,6 +27,7 @@ pub fn Schema::transform(
     required_error: self.required_error,
     invalid_type_error: self.invalid_type_error,
     name: self.name,
+    brand: self.brand,
   }
 }
 
@@ -43,7 +43,15 @@ pub fn Schema::parse_transform(
     Err(e) => Err(e)
     Ok(validated) =>
       match (closure.f)(validated) {
-        Ok(transformed) => Ok(transformed)
+        Ok(transformed) => {
+          let errors : Array[ValidationError] = []
+          collect_errors(errors, path_stack, transformed, _self.rules)
+          if errors.is_empty() {
+            Ok(transformed)
+          } else {
+            Err(errors)
+          }
+        }
         Err(msg) => {
           let path = format_path(path_stack)
           Err([ValidationError::{ path, message: msg, got: json }])

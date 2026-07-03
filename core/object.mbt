@@ -16,6 +16,7 @@ pub fn object(
     required_error,
     invalid_type_error,
     name: "",
+    brand: "",
   }
 }
 
@@ -75,6 +76,7 @@ pub fn Schema::pick(self : Schema, keys : Array[String]) -> Schema {
         required_error: self.required_error,
         invalid_type_error: self.invalid_type_error,
         name: self.name,
+        brand: self.brand,
       }
     }
     _ => abort("pick() is only valid for object schemas")
@@ -109,6 +111,7 @@ pub fn Schema::omit(self : Schema, keys : Array[String]) -> Schema {
         required_error: self.required_error,
         invalid_type_error: self.invalid_type_error,
         name: self.name,
+        brand: self.brand,
       }
     }
     _ => abort("omit() is only valid for object schemas")
@@ -142,6 +145,7 @@ pub fn Schema::partial(self : Schema) -> Schema {
         required_error: self.required_error,
         invalid_type_error: self.invalid_type_error,
         name: self.name,
+        brand: self.brand,
       }
     }
     _ => abort("partial() is only valid for object schemas")
