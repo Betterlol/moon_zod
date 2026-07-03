@@ -302,6 +302,57 @@ if schema.name.is_empty() {
 
 ---
 
+## Phase 38 — Core Composition APIs (a9da166)
+
+**目标**: 补齐核心组合能力：`object().extend()` / `.merge()` / `tuple()`。
+
+**新增文件**:
+- `core/tuple.mbt` — `tuple()` 工厂、`TupleType(Array[Schema])`、`Schema::parse_tuple()` 按位置校验
+- `tests/test_tuple.mbt` — 6 个测试覆盖固定位置、空 tuple、错误长度、索引路径、链式规则
+
+**修改文件**:
+- `core/schema.mbt` — 新增 `TupleType(Array[Schema])`；parse dispatcher 增加 `parse_tuple()` 分发；`expected_msg` 增加 tuple 类型信息
+- `core/object.mbt` — 新增 `Schema::extend()` 追加字段 + `Schema::merge()` 合并右侧 schema（继承右侧 object mode）
+- `core/string.mbt` — `nonempty()` 增加 tuple 支持
+- `tests/test_object.mbt` — +70 行：7 个 extend/merge 测试
+- `tests/reexporter.mbt` — 重新导出 `tuple`
+
+**消费层处理**: `exporters/*` 仅加 `TupleType(_) => abort("... not implemented")` 编译兜底，不做语义同步。
+
+**关键决策**:
+- `extend()` 通过 Map 合并实现，保留 base object mode 与 metadata
+- `merge()` 继承右侧 object mode（与 Zod 保持一致）
+- `tuple()` 不做为消费层实现 exporter 语义（消费层冻结）
+
+**产出**: 457/457 测试全部通过（0 failed）；`moon check`, targeted `moon fmt`, `moon info` 通过。
+
+---
+
+## Phase 39 — Pass-through & Preprocess Core APIs
+
+**目标**: 补齐 core 层的 pass-through schema 与 preprocess 管线：`any()` / `unknown()` / `preprocess()`。
+
+**新增文件**:
+- `core/any_unknown.mbt` — 新增 `any()` 与 `unknown()` 工厂，运行时接受任意 JSON 值
+- `core/preprocess.mbt` — 新增 `preprocess(fn, schema)` 与 `Schema::parse_preprocess()`
+- `tests/test_any_unknown_preprocess.mbt` — 9 个测试覆盖 pass-through、refine、preprocess 顺序、返回值与错误路径
+
+**修改文件**:
+- `core/schema.mbt` — 新增 `AnyType`, `UnknownType`, `PreprocessType`；parse dispatcher 支持 pass-through 与 preprocess
+- `core/shared_utils.mbt` — named schema traversal 穿透 `PreprocessType`
+- `tests/reexporter.mbt` — 重新导出 `any`, `unknown`, `preprocess`
+- `exporters/{json_schema_renderer,moonbit_renderer,prompt_renderer,schema_exporter,moonbit_struct}.mbt` — 仅补最小 `abort("... not implemented")` 分支，保持消费层编译，不做语义同步
+
+**关键决策**:
+- `any()` / `unknown()` 当前运行时行为一致，区别保留为语义标记，后续消费层可分别解释
+- `preprocess()` 与 `.transform()` 顺序相反：先处理 raw input，再进入 inner schema 校验
+- preprocess 后续链式规则作用于 inner schema parse 后的值
+- exporters/importers 当前冻结，新增类型只做编译兜底，不主动导出
+
+**产出**: 466/466 测试全部通过（0 failed）；`moon check`, targeted `moon fmt`, `moon info`, `moon test` 通过。
+
+---
+
 ## 项目当前状态
 
 | 指标 | 数值 |
