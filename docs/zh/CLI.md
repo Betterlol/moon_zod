@@ -1,12 +1,12 @@
-### JSON-to-Schema 生成器 (CLI)
+### JSON转Schema生成器 (CLI)
 
-从任何 JSON 负载中即时生成 `@moon_zod` schema 代码 — 无需为真实世界的 API 数据手工编写 schema。
+从任何JSON数据负载即时生成 `@moon_zod` schema代码——无需手动为真实世界的API数据编写schema。
 
 ```bash
 moon run cmd/json2schema -- '{"hello": "world"}'
 ```
 
-输出（可直接复制粘贴的 moon_zod 代码）：
+输出（可直接复制粘贴的moon_zod代码）：
 
 ```moonbit
 @moon_zod.object({
@@ -14,20 +14,20 @@ moon run cmd/json2schema -- '{"hello": "world"}'
 })
 ```
 
-如需带调试信息的详细输出：
+获取带有调试信息的详细输出：
 ```bash
 moon run cmd/json2schema -- --verbose '{"hello": "world"}'
 ```
 
-该生成器递归推断类型（`string`、`number`、`boolean`、`null`、`array`、`object`），并安全转义对象键中的特殊字符。空数组会生成 `/* TODO: specify exact type */` 注释，以便在类型推断缺乏数据时提醒你。
+生成器递归推断类型（`string`、`number`、`boolean`、`null`、`array`、`object`），并安全转义对象键中的特殊字符。空数组会生成 `/* TODO: specify exact type */` 注释，以提醒你类型推断缺乏数据。
 
 ---
 
-### JSON Schema 反向导入器 (CLI)
+### JSON Schema反向导入器 (CLI)
 
-从标准 **JSON Schema (draft-07)** 定义生成 `@moon_zod` schema 代码 — `to_json_schema()` 的逆操作。
+从标准 **JSON Schema (draft-07)** 定义生成 `@moon_zod` schema代码——这是 `to_json_schema()` 的反向操作。
 
-**内联模式**（JSON Schema 作为命令行参数）：
+**内联模式**（JSON Schema作为命令参数）：
 ```bash
 moon run cmd/json2schema -- --from-json-schema '{
   "type": "object",
@@ -39,7 +39,7 @@ moon run cmd/json2schema -- --from-json-schema '{
 }'
 ```
 
-**文件模式**（从文件读取 JSON Schema）：
+**文件模式**（从文件读取JSON Schema）：
 ```bash
 moon run cmd/json2schema -- --from-json-schema --schema-file schema.json
 ```
@@ -53,20 +53,20 @@ moon run cmd/json2schema -- --from-json-schema --schema-file schema.json
 })
 ```
 
-**特性**：
-- 转换所有 JSON Schema 类型（string、number、integer、boolean、null、array、object）
-- 提取约束：`minLength`、`maxLength`、`minimum`、`maximum`、`exclusiveMinimum`、`exclusiveMaximum`、`multipleOf`、`pattern`、`format`（email、uri、date-time、ipv4、ipv6、uuid）
-- 处理 `$defs` 和 `$ref` 引用 — 生成单独的命名 schema 声明
+**功能特性**：
+- 转换所有JSON Schema类型（string、number、integer、boolean、null、array、object）
+- 提取约束条件：`minLength`、`maxLength`、`minimum`、`maximum`、`exclusiveMinimum`、`exclusiveMaximum`、`multipleOf`、`pattern`、`format`（email、uri、date-time、ipv4、ipv6、uuid）
+- 处理 `$defs` 和 `$ref` 引用——生成单独命名的schema声明
 - 支持 `enum`、`oneOf`、`anyOf`、`allOf`
 - 不在 `required` 中的字段自动用 `.optional()` 包装
-- 输出 **可直接复制粘贴的 MoonBit 源代码**
-- 完整支持 Phase 36 语义：`exclusiveMinimum`/`exclusiveMaximum` 在适用时生成 `.positive()`/`.negative()`
+- 输出**可直接复制粘贴的MoonBit源代码**
+- 完全支持Phase 36语义：在适用的地方，`exclusiveMinimum`/`exclusiveMaximum` 生成 `.positive()`/`.negative()`
 
 ---
 
-### MoonBit 结构体生成器 (CLI)
+### MoonBit结构体生成器 (CLI)
 
-从任何 JSON 示例生成 MoonBit 结构体定义 — 包括结构体定义和 `from_json()` 函数，用于类型安全转换。
+从任何JSON样本生成MoonBit结构体定义——包括结构体定义和 `from_json()` 函数用于类型安全的转换。
 
 ```bash
 moon run cmd/gen-struct -- '{"name":"Alice","age":30}'
@@ -100,29 +100,27 @@ pub fn inferred_schema_from_json(json : Json) -> Result[InferredSchema, Array[Va
 }
 ```
 
-支持嵌套对象、数组和可选字段。嵌套对象会自动命名并导出为单独的结构体定义。
+支持嵌套对象、数组和可选字段。嵌套对象自动命名并作为单独的结构体定义导出。
 
 ---
 
-### JSON 验证器 (CLI)
+### JSON校验器 (CLI)
 
-根据从示例推断的 schema 验证 JSON 数据 — 无需代码。支持 JSON Lines 进行批量验证。
+针对从样本推断的schema校验JSON数据——无需代码。支持JSON Lines格式进行批量校验。
 
 ```bash
-# 单个 JSON 验证
+# 单个JSON校验
 moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
 # PASS
 
-# 使用 JSON Lines 进行批量验证
+# 使用JSON Lines进行批量校验
 moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}\n{"age":30}'
 # FAIL: line 3
 #   [name] Required (got: Null)
 # Results: 2 passed, 1 failed
 
-# 文件模式（JSON Schema 作为 schema 源）
+# 文件模式（JSON Schema作为schema源）
 moon run cmd/validate -- --schema-file schema.json --sample-file data.json
 ```
 
 **错误输出格式**：`[field_path] message (got: value)`
-
----
