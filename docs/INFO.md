@@ -48,12 +48,15 @@ moon_zod/
 ├── core/                     # Core schema validation library
 │   ├── types.mbt             # ValidationError, SchemaResult, core types
 │   ├── schema.mbt            # Schema struct, parse dispatch, path stack
-│   ├── string.mbt            # string() factory + validators
+│   ├── string.mbt            # string() factory + validators (trim, to_lower, to_upper)
 │   ├── number.mbt            # number() factory + validators
 │   ├── boolean.mbt           # boolean() factory
 │   ├── null.mbt              # null() factory
+│   ├── bigint.mbt            # bigint() factory
+│   ├── any_unknown.mbt       # any() / unknown() pass-through schemas
 │   ├── array.mbt             # array() factory + parse_array
-│   ├── object.mbt            # object() + modes (strip/passthrough/strict), pick/omit/partial
+│   ├── tuple.mbt             # tuple() factory + parse_tuple
+│   ├── object.mbt            # object() + modes (strip/passthrough/strict), pick/omit/partial/extend/merge
 │   ├── optional.mbt          # optional() factory
 │   ├── default.mbt           # default() factory
 │   ├── enum.mbt              # enum_values() factory
@@ -62,6 +65,7 @@ moon_zod/
 │   ├── intersection.mbt      # intersection() / intersect()
 │   ├── refine.mbt            # refine() for custom validation
 │   ├── transform.mbt         # transform() for data transformation
+│   ├── preprocess.mbt        # preprocess() for input preprocessing
 │   ├── shared_utils.mbt      # Common utilities (unwrap_schema, peel_optional, etc.)
 │   ├── constraint_extractor.mbt  # Extract constraint info from rules
 │   └── moon_zod_wbtest.mbt   # White-box tests (path stack invariants)
@@ -84,13 +88,15 @@ moon_zod/
 │   ├── from_json_schema.mbt  # json_schema_to_moon_zod() — reverse JSON Schema → moon_zod code generation
 │   └── reexporter.mbt        # Module re-exports
 │
-├── tests/                    # Test suite (426 tests)
-│   ├── test_string.mbt       # string() validator tests
+├── tests/                    # Test suite (466 tests)
+│   ├── test_string.mbt       # string() validator tests (trim, to_lower, to_upper, nonempty)
 │   ├── test_number.mbt       # number() validator tests
 │   ├── test_boolean_null.mbt # boolean/null tests
-│   ├── test_object.mbt       # object() mode tests
-│   ├── test_array.mbt        # array() tests
-│   ├── test_combinators.mbt  # union/literal/optional/default tests
+│   ├── test_object.mbt       # object() mode + pick/omit/partial/extend/merge tests
+│   ├── test_array.mbt        # array() + nonempty tests
+│   ├── test_tuple.mbt        # tuple() tests
+│   ├── test_combinators.mbt  # union/literal/optional/default/brand/bigint tests
+│   ├── test_any_unknown_preprocess.mbt # any/unknown/preprocess tests
 │   ├── test_transform_refine.mbt # transform/refine tests
 │   ├── test_json_schema.mbt  # JSON Schema export + $defs/$ref tests
 │   ├── test_json_schema_fixes.mbt # exclusiveMin/Max semantics + enum edge cases
@@ -129,7 +135,7 @@ moon_zod/
 
 ```bash
 # Testing & Building
-moon test                # Run all tests (426 total, 0 warnings)
+moon test                # Run all tests (466 total, 0 warnings)
 moon build               # Build the library
 moon check               # Type check (0 errors, 0 warnings)
 moon info && moon fmt    # Update interface + format
@@ -157,17 +163,18 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
 
 ## Features
 
-- **Primitive schemas**: `string()`, `number()`, `boolean()`, `null()`
-- **Compound schemas**: `object(Map)`, `array(Schema)`, `union(Array[Schema])`, `intersection(Array[Schema])`, `enum_values(Array[String])`, `literal(Json)`
-- **String validators** (20+): `.min(n)`, `.max(n)`, `.nonempty()`, `.email()` (full RFC validation), `.url()` (full structure), `.regex(pattern)` (substring match), `.startsWith()`, `.endsWith()`, `.includes()`, `.uuid()`, `.cuid()`, `.ulid()`, `.datetime()`, `.ip()`/`.ipv4()`/`.ipv6()`, `.length(n)`
+- **Primitive schemas**: `string()`, `number()`, `boolean()`, `null()`, `bigint()`
+- **Compound schemas**: `object(Map)`, `array(Schema)`, `tuple([Schema...])`, `union(Array[Schema])`, `intersection(Array[Schema])`, `enum_values(Array[String])`, `literal(Json)`
+- **Pass-through schemas**: `any()` and `unknown()` accept any JSON value (semantic distinction)
+- **String validators** (23+): `.min(n)`, `.max(n)`, `.nonempty()`, `.trim()`, `.to_lower()`, `.to_upper()`, `.email()` (full RFC validation), `.url()` (full structure), `.regex(pattern)` (substring match), `.startsWith()`, `.endsWith()`, `.includes()`, `.uuid()`, `.cuid()`, `.ulid()`, `.datetime()`, `.ip()`/`.ipv4()`/`.ipv6()`, `.length(n)`
 - **Number validators** (8+): `.int()`, `.positive()`, `.negative()`, `.multipleOf()`, `.finite()`, `.safe()`, `.min()`, `.max()`
 - **Object modes**: `.strip()` (default, removes unknown fields), `.passthrough()` (keeps unknown fields), `.strict()` (rejects unknown fields)
-- **Schema composition**: `.pick(keys)`, `.omit(keys)`, `.partial()` to derive object sub-schemas
+- **Object composition**: `.pick(keys)`, `.omit(keys)`, `.partial()`, `.extend(Map)`, `.merge(Schema)`
 - **Optional/Default handling**: `.optional()` and `.default(value)` with correct rule chaining through wrappers
-- **Data transformation**: `.transform(fn)` validates then transforms
+- **Data transformation**: `.transform(fn)` validates then transforms; `preprocess(fn, schema)` transforms then validates
 - **Custom rules**: `.refine(check, message)`, `.intersect(other)` for explicit intersection
-- **Schema naming & description**: `.name(text)` for named exports, `.describe(text)` for human-readable descriptions in prompts
-- **Custom error messages**: `msg?` parameter on all validators, `.message(text)` override method, type-level `.string(invalid_type_error="...", required_error="...")`
+- **Schema naming & metadata**: `.name(text)` for named exports, `.describe(text)` for LLM prompts, `.brand(text)` for nominal typing
+- **Custom error messages**: `msg?` parameter on all validators, `.message(text)` override method, type-level `required_error` / `invalid_type_error`
 - **Error collection**: Collects **all** validation errors in one pass, perfect for LLM self-correction loops
 - **Full-path error reporting**: Every error includes exact field path (`users[0].profile.age`)
 - **LLM prompt generation**:
@@ -180,7 +187,7 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
 - **JSON Schema reverse import**:
   - `json_schema_to_moon_zod(json_schema)` — generate moon_zod source code from standard JSON Schema
   - Full support for `$defs`, `$ref`, constraints, format validation, enum
-- **MoonBit struct generation** (Phase 28-29):
+- **MoonBit struct generation**:
   - `schema_to_moonbit_struct(schema)` — generate MoonBit struct definitions
   - `schema_to_moonbit_struct_full(schema)` — generate struct + `from_json()` functions
   - `schema_to_moonbit_struct_named(schema)` / `schema_to_moonbit_struct_named_full(schema)` — handle nested named schemas
@@ -189,3 +196,4 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
 - **Performance**: ~18.5k-56k validations/second depending on schema complexity
 
 ---
+
