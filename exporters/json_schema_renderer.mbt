@@ -49,6 +49,8 @@ pub fn[R : JsonSchemaRenderer] render_json_type(
     NumberType => renderer.render_number(schema)
     BooleanType => renderer.render_boolean(schema)
     NullType => renderer.render_null(schema)
+    AnyType => abort("any JSON Schema export is not implemented")
+    UnknownType => abort("unknown JSON Schema export is not implemented")
     ObjectType(spec, mode) => renderer.render_object(spec, mode, schema)
     ArrayType(elem) => renderer.render_array(elem, schema)
     TupleType(_) => abort("tuple JSON Schema export is not implemented")
@@ -58,6 +60,8 @@ pub fn[R : JsonSchemaRenderer] render_json_type(
     EnumType(values) => renderer.render_enum(values, schema)
     UnionType(schemas) => renderer.render_union(schemas, schema)
     IntersectionType(schemas) => renderer.render_intersection(schemas, schema)
+    PreprocessType(_, _) =>
+      abort("preprocess JSON Schema export is not implemented")
     TransformType(inner, closure) =>
       renderer.render_transform(inner, closure, schema)
     LiteralType(value) => renderer.render_literal(value, schema)

@@ -11,6 +11,7 @@ pub fn unwrap_schema(schema : Schema) -> Schema {
   match schema.schema_type {
     OptionalType(inner) => unwrap_schema(inner)
     DefaultType(inner, _) => unwrap_schema(inner)
+    PreprocessType(_, inner) => unwrap_schema(inner)
     TransformType(inner, _) => unwrap_schema(inner)
     _ => schema
   }
@@ -90,6 +91,8 @@ pub fn collect_named_schemas_impl(
     ArrayType(elem) => collect_named_schemas_impl(elem, visited, result)
     OptionalType(inner) => collect_named_schemas_impl(inner, visited, result)
     DefaultType(inner, _) => collect_named_schemas_impl(inner, visited, result)
+    PreprocessType(_, inner) =>
+      collect_named_schemas_impl(inner, visited, result)
     TransformType(inner, _) =>
       collect_named_schemas_impl(inner, visited, result)
     UnionType(schemas) =>
@@ -235,6 +238,8 @@ pub fn find_schema_dependencies_impl(
     OptionalType(inner) =>
       find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
     DefaultType(inner, _) =>
+      find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
+    PreprocessType(_, inner) =>
       find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
     TransformType(inner, _) =>
       find_schema_dependencies_impl(inner, schema_map, deps, visited_names)

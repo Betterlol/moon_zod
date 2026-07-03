@@ -13,6 +13,8 @@ pub(all) enum SchemaType {
   NumberType
   BooleanType
   NullType
+  AnyType
+  UnknownType
   ObjectType(Map[String, Schema], ObjectMode)
   ArrayType(Schema)
   TupleType(Array[Schema])
@@ -21,6 +23,7 @@ pub(all) enum SchemaType {
   EnumType(Array[String])
   UnionType(Array[Schema])
   IntersectionType(Array[Schema])
+  PreprocessType(TransformClosure, Schema)
   TransformType(Schema, TransformClosure)
   LiteralType(Json)
 } derive(Debug)
@@ -147,6 +150,7 @@ pub fn inner_type(t : SchemaType) -> SchemaType {
   match t {
     OptionalType(inner) => inner.schema_type
     DefaultType(inner, _) => inner.schema_type
+    PreprocessType(_, inner) => inner.schema_type
     TransformType(inner, _) => inner.schema_type
     LiteralType(_) => t
     other => other
@@ -222,6 +226,8 @@ fn expected_msg(schema_type : SchemaType) -> String {
     NumberType => "Expected number"
     BooleanType => "Expected boolean"
     NullType => "Expected null"
+    AnyType => "Expected any"
+    UnknownType => "Expected unknown"
     ObjectType(_, _) => "Expected object"
     ArrayType(_) => "Expected array"
     TupleType(_) => "Expected tuple"
@@ -316,6 +322,15 @@ fn parse_inner(
     ArrayType(element_schema) =>
       schema.parse_array(element_schema, json, path_stack)
     TupleType(items) => schema.parse_tuple(items, json, path_stack)
+    AnyType | UnknownType => {
+      let errors : Array[ValidationError] = []
+      collect_errors(errors, path_stack, json, schema.rules)
+      if errors.is_empty() {
+        Ok(json)
+      } else {
+        Err(errors)
+      }
+    }
     OptionalType(inner) => schema.parse_optional(inner, json, path_stack)
     DefaultType(inner, default_val) =>
       schema.parse_default(inner, default_val, json, path_stack)
@@ -323,6 +338,8 @@ fn parse_inner(
     UnionType(schemas) => schema.parse_union(schemas, json, path_stack)
     IntersectionType(schemas) =>
       schema.parse_intersection(schemas, json, path_stack)
+    PreprocessType(closure, inner) =>
+      schema.parse_preprocess(closure, inner, json, path_stack)
     TransformType(inner, closure) =>
       schema.parse_transform(inner, closure, json, path_stack)
     LiteralType(expected) => schema.parse_literal(expected, json, path_stack)

@@ -74,6 +74,8 @@ pub fn[R : MoonBitStructRenderer] render_mbt_type(
     NumberType => renderer.render_number(schema, indent)
     BooleanType => renderer.render_boolean(schema, indent)
     NullType => renderer.render_null(schema, indent)
+    AnyType => abort("any MoonBit struct export is not implemented")
+    UnknownType => abort("unknown MoonBit struct export is not implemented")
     ObjectType(spec, mode) => renderer.render_object(spec, mode, schema, indent)
     ArrayType(elem) => renderer.render_array(elem, schema, indent)
     TupleType(_) => abort("tuple MoonBit struct export is not implemented")
@@ -84,6 +86,8 @@ pub fn[R : MoonBitStructRenderer] render_mbt_type(
     UnionType(schemas) => renderer.render_union(schemas, schema, indent)
     IntersectionType(schemas) =>
       renderer.render_intersection(schemas, schema, indent)
+    PreprocessType(_, _) =>
+      abort("preprocess MoonBit struct export is not implemented")
     TransformType(inner, closure) =>
       renderer.render_transform(inner, closure, schema, indent)
     LiteralType(value) => renderer.render_literal(value, schema, indent)

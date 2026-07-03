@@ -144,6 +144,8 @@ fn schema_type_to_code(
     NumberType => "@moon_zod.number()"
     BooleanType => "@moon_zod.boolean()"
     NullType => "@moon_zod.null()"
+    AnyType => abort("any code export is not implemented")
+    UnknownType => abort("unknown code export is not implemented")
     ObjectType(fields, mode) => {
       let base = if fields.length() == 0 {
         "@moon_zod.object({})"
@@ -199,6 +201,7 @@ fn schema_type_to_code(
       }
       "@moon_zod.intersection([" + join_with(parts, ", ") + "])"
     }
+    PreprocessType(_, _) => abort("preprocess code export is not implemented")
     LiteralType(val) => "@moon_zod.literal(" + json_to_literal(val) + ")"
     TransformType(inner, _) =>
       schema_to_moon_zod_code_inline(inner, Some(defined_names)) +

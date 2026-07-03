@@ -1133,6 +1133,8 @@ fn extract_type_expr(
       "\", message: \"expected null\", got: " +
       json_var +
       " }]) }"
+    AnyType => abort("any MoonBit struct extraction is not implemented")
+    UnknownType => abort("unknown MoonBit struct extraction is not implemented")
     EnumType(values) => {
       let mut arms = ""
       let mut first = true
@@ -1187,6 +1189,8 @@ fn extract_type_expr(
       "; Some(result) } }"
     }
     DefaultType(inner, _) => extract_type_expr(json_var, inner, named_schemas)
+    PreprocessType(_, _) =>
+      abort("preprocess MoonBit struct extraction is not implemented")
     TransformType(inner, _) => extract_type_expr(json_var, inner, named_schemas)
     ObjectType(_, _) => {
       // Check if this schema has a name and is in named_schemas
