@@ -15,6 +15,7 @@ pub(all) enum SchemaType {
   NullType
   ObjectType(Map[String, Schema], ObjectMode)
   ArrayType(Schema)
+  TupleType(Array[Schema])
   OptionalType(Schema)
   DefaultType(Schema, Json)
   EnumType(Array[String])
@@ -223,6 +224,7 @@ fn expected_msg(schema_type : SchemaType) -> String {
     NullType => "Expected null"
     ObjectType(_, _) => "Expected object"
     ArrayType(_) => "Expected array"
+    TupleType(_) => "Expected tuple"
     EnumType(_) => "Invalid enum value"
     IntersectionType(_) => "Expected intersection match"
     TransformType(_, _) => "Validation failed"
@@ -313,6 +315,7 @@ fn parse_inner(
     ObjectType(spec, mode) => schema.parse_object(spec, mode, json, path_stack)
     ArrayType(element_schema) =>
       schema.parse_array(element_schema, json, path_stack)
+    TupleType(items) => schema.parse_tuple(items, json, path_stack)
     OptionalType(inner) => schema.parse_optional(inner, json, path_stack)
     DefaultType(inner, default_val) =>
       schema.parse_default(inner, default_val, json, path_stack)

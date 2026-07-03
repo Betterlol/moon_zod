@@ -51,6 +51,7 @@ pub fn[R : JsonSchemaRenderer] render_json_type(
     NullType => renderer.render_null(schema)
     ObjectType(spec, mode) => renderer.render_object(spec, mode, schema)
     ArrayType(elem) => renderer.render_array(elem, schema)
+    TupleType(_) => abort("tuple JSON Schema export is not implemented")
     OptionalType(inner) => renderer.render_optional(inner, schema)
     DefaultType(inner, default_val) =>
       renderer.render_default(inner, default_val, schema)

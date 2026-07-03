@@ -76,6 +76,7 @@ pub fn[R : MoonBitStructRenderer] render_mbt_type(
     NullType => renderer.render_null(schema, indent)
     ObjectType(spec, mode) => renderer.render_object(spec, mode, schema, indent)
     ArrayType(elem) => renderer.render_array(elem, schema, indent)
+    TupleType(_) => abort("tuple MoonBit struct export is not implemented")
     OptionalType(inner) => renderer.render_optional(inner, schema, indent)
     DefaultType(inner, default_val) =>
       renderer.render_default(inner, default_val, schema, indent)

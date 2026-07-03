@@ -1174,6 +1174,7 @@ fn extract_type_expr(
       json_var +
       " }]) }"
     }
+    TupleType(_) => abort("tuple MoonBit struct extraction is not implemented")
     OptionalType(inner) => {
       let renderer = NamedStructRenderer(named_schemas~)
       let inner_type = render_mbt_type_named(renderer, inner, 0, named_schemas)

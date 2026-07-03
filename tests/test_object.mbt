@@ -320,3 +320,73 @@ test "partial preserves schema description" {
   let p = s.partial()
   @debug.assert_eq(p.description, "my schema")
 }
+
+///|
+/// Schema composition — extend()
+test "extend adds fields" {
+  let s = object({ "a": string() }).extend({ "b": number() })
+  guard s.parse(parse_json("{\"a\": \"x\", \"b\": 1}")) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "extend overrides existing fields" {
+  let s = object({ "a": string() }).extend({ "a": number() })
+  guard s.parse(Json::object({ "a": Json::string("x") })) is Err(_) else {
+    fail("expected Err")
+  }
+  guard s.parse(Json::object({ "a": Json::number(1) })) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "extend preserves object mode" {
+  let s = object({ "a": string() }).strict().extend({ "b": number() })
+  guard s.parse(parse_json("{\"a\": \"x\", \"b\": 1, \"c\": true}")) is Err(_) else {
+    fail("expected Err for strict mode")
+  }
+}
+
+///|
+test "extend preserves schema metadata" {
+  let s = object({ "a": string() }).describe("base").brand("Base")
+  let e = s.extend({ "b": number() })
+  @debug.assert_eq(e.description, "base")
+  @debug.assert_eq(e.brand, "Base")
+}
+
+///|
+/// Schema composition — merge()
+test "merge combines object fields" {
+  let left = object({ "a": string() })
+  let right = object({ "b": number() })
+  let s = left.merge(right)
+  guard s.parse(parse_json("{\"a\": \"x\", \"b\": 1}")) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "merge right side overrides duplicate fields" {
+  let left = object({ "a": string() })
+  let right = object({ "a": number() })
+  let s = left.merge(right)
+  guard s.parse(Json::object({ "a": Json::string("x") })) is Err(_) else {
+    fail("expected Err")
+  }
+  guard s.parse(Json::object({ "a": Json::number(1) })) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "merge inherits right object mode" {
+  let left = object({ "a": string() }).strict()
+  let right = object({ "b": number() }).passthrough()
+  let s = left.merge(right)
+  guard s.parse(parse_json("{\"a\": \"x\", \"b\": 1, \"c\": true}")) is Ok(_) else {
+    fail("expected Ok for passthrough mode")
+  }
+}

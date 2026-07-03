@@ -985,7 +985,8 @@ pub fn Schema::nonempty(self : Schema, msg? : String = "") -> Schema {
   match inner_type(self.schema_type) {
     StringType => ()
     ArrayType(_) => ()
-    _ => abort("nonempty() is only valid for string or array schemas")
+    TupleType(_) => ()
+    _ => abort("nonempty() is only valid for string, array, or tuple schemas")
   }
   let default_msg = match inner_type(self.schema_type) {
     StringType => "String must not be empty"

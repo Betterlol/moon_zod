@@ -24,6 +24,7 @@ pub using @core {
   object,
   array,
   bigint,
+  tuple,
   enum_values,
   union,
   intersection,

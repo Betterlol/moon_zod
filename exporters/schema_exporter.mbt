@@ -170,6 +170,7 @@ fn schema_type_to_code(
       let elem_code = schema_to_moon_zod_code_inline(elem, Some(defined_names))
       "@moon_zod.array(" + elem_code + ")"
     }
+    TupleType(_) => abort("tuple code export is not implemented")
     OptionalType(inner) =>
       schema_to_moon_zod_code_inline(inner, Some(defined_names)) + ".optional()"
     DefaultType(inner, default_val) =>

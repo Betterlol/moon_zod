@@ -153,6 +153,74 @@ pub fn Schema::partial(self : Schema) -> Schema {
 }
 
 ///|
+/// Extend an object schema with additional fields.
+/// Fields in `extension` override fields with the same name in the base schema.
+pub fn Schema::extend(self : Schema, extension : Map[String, Schema]) -> Schema {
+  match self.schema_type {
+    ObjectType(spec, mode) => {
+      let new_spec : Map[String, Schema] = {}
+      for key in spec.keys() {
+        match spec.get(key) {
+          Some(s) => new_spec.set(key, s)
+          None => ()
+        }
+      }
+      for key in extension.keys() {
+        match extension.get(key) {
+          Some(s) => new_spec.set(key, s)
+          None => ()
+        }
+      }
+      {
+        schema_type: ObjectType(new_spec, mode),
+        rules: self.rules,
+        description: self.description,
+        required_error: self.required_error,
+        invalid_type_error: self.invalid_type_error,
+        name: self.name,
+        brand: self.brand,
+      }
+    }
+    _ => abort("extend() is only valid for object schemas")
+  }
+}
+
+///|
+/// Merge two object schemas.
+/// Fields from `other` override fields with the same name in `self`.
+/// The merged schema inherits the right schema's object mode.
+pub fn Schema::merge(self : Schema, other : Schema) -> Schema {
+  match (self.schema_type, other.schema_type) {
+    (ObjectType(spec, _), ObjectType(other_spec, other_mode)) => {
+      let new_spec : Map[String, Schema] = {}
+      for key in spec.keys() {
+        match spec.get(key) {
+          Some(s) => new_spec.set(key, s)
+          None => ()
+        }
+      }
+      for key in other_spec.keys() {
+        match other_spec.get(key) {
+          Some(s) => new_spec.set(key, s)
+          None => ()
+        }
+      }
+      {
+        schema_type: ObjectType(new_spec, other_mode),
+        rules: self.rules,
+        description: self.description,
+        required_error: self.required_error,
+        invalid_type_error: self.invalid_type_error,
+        name: self.name,
+        brand: self.brand,
+      }
+    }
+    (_, ObjectType(_, _)) => abort("merge() is only valid for object schemas")
+    _ => abort("merge() requires an object schema")
+  }
+}
+
+///|
 pub fn Schema::parse_object(
   self : Schema,
   spec : Map[String, Schema],
