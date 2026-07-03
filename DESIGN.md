@@ -44,7 +44,6 @@ pub fn append_rule(schema, check, message) -> Schema {
   match schema.schema_type {
     OptionalType(inner)  => 递归到 inner，新建 OptionalType 包裹
     DefaultType(inner,_) => 递归到 inner，新建 DefaultType 包裹
-    TransformType(inner,_)=> 递归到 inner，新建 TransformType 包裹
     _ => 直接追加到 rules
   }
 }

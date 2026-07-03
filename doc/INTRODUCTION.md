@@ -6,6 +6,7 @@
 
 - [moon_zod 核心概念：Type、Rule、Schema](#moon_zod-核心概念typeruleschema)
 - [moon_zod 校验逻辑](#moon_zod-检验逻辑)
+- [moon_zod 方法](#moon_zod-方法)
 
 ## moon_zod 核心概念：Type、Rule、Schema
 
@@ -403,6 +404,36 @@ MoonBit 的 `Array` 是引用类型，同一个 path_stack 引用被传递给整
 3. push/pop 配对 → 自动维护路径上下文
 
 这个模式在 Phase 5 引入后，通过了白盒测试（`moon_zod_wbtest.mbt`）验证，确保 push/pop 始终平衡，不会出现路径错位。
+
+## moon_zod 方法
+
+### `Schema::transform`
+
+> 这是一个相当重要的功能！
+
+```moonbit
+// 包装 Schema，校验通过后调用 closure 转换输出值
+// 也就是它是一个 数据后处理逻辑，不影响 校验本身，而是对校验通过的结果进行变换
+pub fn Schema::transform(
+  self : Schema,
+  closure : fn(Json) -> Result[Json, String],
+) -> Schema {}
+```
+
+例如：
+
+```moonbit
+let schema = string().transform(|s| Ok(s.to_uppercase()))
+schema.parse("hello") → Ok("HELLO")
+```
+
+#### **注意事项**:
+- `transform()` 的 `append_rule` 不会穿透到内层 Schema，而是直接加到 TransformType 的 rules 上。
+> 之前的实现中，transform 的 rules 是空的，append_rule 会穿透到内层。即 `string().transform(f).min(3)` 会把 min rule 加到 StringType 上。
+> 然而，这种实现违反了直观语义，用户期望 transform 是对最终结果的处理，而不是对原始输入的约束。因此，transform 的 rules 不再穿透，而是直接作用于 TransformType。
+>（这个在 Phase 37 完成了修复）
+> 但是，这也意味着 transform 的 rules 只会在 transform 之后执行，而不是在原始输入上执行。这样返回的 error message 可能会让用户和llm感到疑惑，因为 transform 的过程很可能是一个闭包，用户无法直接看到它的内部逻辑。
+> 因此最好的实现是：`transform(f).min(3)` 会报错, 强制要求使用 `transform(f).pipe(z.min(3))`。但目前想要完成这个功能还需要更多的时间和精力。特别是如果要在 `exporters` 中也实现 `transform` 的导出，就相当麻烦了...
 
 ---
 
