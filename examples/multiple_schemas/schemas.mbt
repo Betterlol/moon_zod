@@ -1,4 +1,5 @@
 ///|
+/// show how to combine multiple schemas into one schema.
 fn full_user_schema() -> @moon_zod.Schema {
   @moon_zod.object({
     "id": uuid_schema(),
@@ -71,6 +72,75 @@ fn user_schema() -> @moon_zod.Schema {
   let user_without_email = full_user.omit(["email"])
   let user_with_only_name_and_age = user_without_email.pick(["name", "age"])
   user_with_only_name_and_age.name("User")
+}
+
+///|
+/// show how to use extend to create a new schema based on an existing one
+#warnings("-unused_value")
+fn extended_user_schema() -> @moon_zod.Schema {
+  let user = user_schema()
+  let extended_user = user.extend({
+    "email": email_schema(),
+    "profile": optional_profile_schema(),
+  })
+  extended_user.name("ExtendedUser")
+}
+
+///|
+/// show how to use merge to create a new schema based on two existing ones
+#warnings("-unused_value")
+fn merged_user_schema() -> @moon_zod.Schema {
+  let user = user_schema()
+  let extended_user = user.extend({
+    "email": email_schema(),
+    "profile": optional_profile_schema(),
+  })
+  let merged_user = user.merge(extended_user)
+  merged_user.name("MergedUser")
+}
+
+///|
+/// show how to use tuple to create a schema for a fixed-length array
+#warnings("-unused_value")
+fn tuple_schema() -> @moon_zod.Schema {
+  @moon_zod.tuple([
+    @moon_zod.string().min(1).describe("First element"),
+    @moon_zod.number().int().min(0).describe("Second element"),
+    @moon_zod.boolean().describe("Third element"),
+  ]).name("Tuple")
+}
+
+///|
+/// show how to use any/unknown to create a schema that accepts any value
+#warnings("-unused_value")
+fn any_schema() -> @moon_zod.Schema {
+  @moon_zod.object({
+    "data": @moon_zod.any().describe("Any value"),
+    "other": @moon_zod.unknown().describe("Unknown value"),
+  }).name("AnySchema")
+}
+
+///|
+/// show how to use preprocess to create a schema that transforms input before validation, use transform to create a schema that transforms output after validation
+#warnings("-unused_value")
+fn preprocess_transform_schema() -> @moon_zod.Schema {
+  let transform_schema = @moon_zod.string().transform(fn(json) {
+    match json {
+      String(v) => Ok(Json::string(v.to_upper()))
+      _ => Err("expected string")
+    }
+  })
+  let preprocess_schema = @moon_zod.preprocess(
+    fn(json) {
+      match json {
+        Number(v, ..) => Ok(Json::string(v.to_string()))
+        String(v) => Ok(Json::string(v.to_lower()))
+        _ => Ok(json)
+      }
+    },
+    transform_schema,
+  )
+  preprocess_schema.name("PreprocessTransformSchema")
 }
 
 ///|
@@ -151,6 +221,7 @@ fn datetime_schema() -> @moon_zod.Schema {
 }
 
 ///|
+/// show how to use intersection types (merge two schemas into one, the same fields will merge all rules together)
 fn order_id_schema() -> @moon_zod.Schema {
   fn order_id_positive_schema() -> @moon_zod.Schema {
     @moon_zod.object({ "id": @moon_zod.number().int().positive() })
@@ -200,6 +271,8 @@ fn shipping_info_schema() -> @moon_zod.Schema {
 }
 
 ///|
+/// output schema for an order, combining multiple schemas into one
+/// will be used to show the export of `ts interface prompt` and `json schema` and `moonbit struct`.
 fn order_schema() -> @moon_zod.Schema {
   @moon_zod.object({
     "user": user_schema(),

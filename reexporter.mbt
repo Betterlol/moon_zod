@@ -21,11 +21,16 @@ pub using @core {
   string,
   number,
   boolean,
+  any,
+  unknown,
   object,
   array,
+  bigint,
+  tuple,
   enum_values,
   union,
   intersection,
+  preprocess,
   literal,
   unwrap_schema,
   peel_optional,
@@ -73,6 +78,7 @@ pub using @exporters {
   schema_to_prompt_named,
   schema_to_moon_zod_code,
   schema_to_moon_zod_code_named,
+  schema_to_moon_zod_code_inline_with_refs,
 }
 
 ///|
