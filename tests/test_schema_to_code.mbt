@@ -171,7 +171,7 @@ test "schema_to_moon_zod_code covers formats and literal values" {
       }),
     ),
   )
-  @debug.assert_eq(literal_code.contains("Json::false()"), true)
+  @debug.assert_eq(literal_code.contains("false"), true)
   @debug.assert_eq(literal_code.contains("Json::array"), true)
   @debug.assert_eq(literal_code.contains("Json::object"), true)
 }

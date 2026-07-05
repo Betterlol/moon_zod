@@ -463,10 +463,6 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_literal(
 ///|
 /// Public API: convert a schema to a TypeScript-interface-style prompt @core.string.
 pub fn schema_to_prompt(schema : @core.Schema) -> String {
-  let mut schema = schema
-  if schema.name.is_empty() {
-    schema = schema.name("Root")
-  }
   let renderer = BasicPromptRenderer()
   let tp = render_type(renderer, schema, 0)
   let comment = schema_comment(schema)
@@ -483,6 +479,7 @@ pub fn schema_to_prompt(schema : @core.Schema) -> String {
 ///
 /// If `include_names` is None, exports all named schemas.
 /// If `include_names` is Some(names), exports only the specified schema names.
+/// If root schema has no name, it is assigned the name "Root".
 pub fn schema_to_prompt_named(
   schema : @core.Schema,
   include_names? : Array[String]? = None,

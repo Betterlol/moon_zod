@@ -867,8 +867,8 @@ test "json_schema_to_moon_zod: default boolean value" {
   let result = json_schema_to_moon_zod(
     parse_json("{\"type\":\"boolean\",\"default\":true}"),
   )
-  @debug.assert_eq(result.contains("Json::true()"), true)
-  @debug.assert_eq(result.contains(".default(Json::true())"), true)
+  @debug.assert_eq(result.contains("true"), true)
+  @debug.assert_eq(result.contains(".default(true)"), true)
 }
 
 ///|

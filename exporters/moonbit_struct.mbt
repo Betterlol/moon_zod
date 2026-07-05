@@ -17,6 +17,7 @@
 /// //   age : Int64
 /// // }
 /// ```
+/// If root schema has no name, it is assigned the name "Root".
 pub fn schema_to_moonbit_struct(schema : @core.Schema) -> String {
   let mut schema = schema
   if schema.name.is_empty() {
@@ -54,6 +55,7 @@ pub fn schema_to_moonbit_struct(schema : @core.Schema) -> String {
 /// //   addr : Address
 /// // }
 /// ```
+/// If root schema has no name, it is assigned the name "Root".
 pub fn schema_to_moonbit_struct_named(
   schema : @core.Schema,
   include_names? : Array[String]? = None,
@@ -421,6 +423,7 @@ fn[R : MoonBitStructRenderer] object_to_struct_def(
   indent : Int,
   struct_name : String,
 ) -> String {
+  let struct_name = @core.escape_type_name(struct_name)
   if spec.length() == 0 {
     return "pub struct " + struct_name + " {}" + " derive(ToJson, FromJson)"
   }
@@ -465,6 +468,7 @@ fn[R : MoonBitStructRenderer] object_to_struct_def_named(
   indent : Int,
   struct_name : String,
 ) -> String {
+  let struct_name = @core.escape_type_name(struct_name)
   if spec.length() == 0 {
     return "pub struct " + struct_name + " {}" + " derive(ToJson, FromJson)"
   }
@@ -880,6 +884,7 @@ fn chr_to_upper(c : Char) -> String {
 /// // pub struct User { name : String; age : Int64 }
 /// // pub fn user_from_json(json : Json) -> Result[User, Array[@moon_zod.ValidationError]] { ... }
 /// ```
+/// If root schema has no name, it is assigned the name "Root".
 pub fn schema_to_moonbit_struct_full(schema : @core.Schema) -> String {
   let mut schema = schema
   if schema.name.is_empty() {
@@ -907,6 +912,7 @@ pub fn schema_to_moonbit_struct_full(schema : @core.Schema) -> String {
 /// Collect all named schemas and generate struct definitions plus
 /// `from_json()` functions for each, topologically sorted so that
 /// dependencies appear before dependents.
+/// If root schema has no name, it is assigned the name "Root".
 pub fn schema_to_moonbit_struct_named_full(
   schema : @core.Schema,
   include_names? : Array[String]? = None,

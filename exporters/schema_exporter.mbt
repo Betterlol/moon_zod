@@ -14,12 +14,9 @@
 /// let code = schema_to_moon_zod_code(schema)
 /// // "@moon_zod.string().min(3).describe(\"username\")"
 /// ```
+/// If root schema has no name, it is assigned the name "Root".
 pub fn schema_to_moon_zod_code(schema : @core.Schema) -> String {
-  let mut schema = schema
-  if schema.name.is_empty() {
-    schema = schema.name("Root")
-  }
-  let schema_name = schema.name
+  let schema_name = if schema.name.is_empty() { "Root" } else { schema.name }
   let code = schema_to_moon_zod_code_inline(schema, None)
   let result = "let " +
     @core.escape_variable_name(schema_name) +
@@ -55,6 +52,7 @@ pub fn schema_to_moon_zod_code_inline_with_refs(
 /// // "User: @moon_zod.object({ ... }).name(\"User\")\n
 /// //  Profile: @moon_zod.object({ ... }).name(\"Profile\")"
 /// ```
+/// If root schema has no name, it is assigned the name "Root".
 pub fn schema_to_moon_zod_code_named(
   schema : @core.Schema,
   include_names? : Array[String]? = None,
@@ -342,9 +340,9 @@ fn json_to_literal(val : Json) -> String {
   match val {
     String(s) => "Json::string(\"" + @core.escape_mbt_string(s) + "\")"
     Number(v, ..) => "Json::number(" + @core.format_double_simple(v) + ")"
-    True => "Json::true()"
-    False => "Json::false()"
-    Null => "Json::null()"
+    True => "true"
+    False => "false"
+    Null => "null"
     Array(arr) => {
       let parts = arr.map(fn(v) { json_to_literal(v) })
       "Json::array([" + join_with(parts, ", ") + "])"
