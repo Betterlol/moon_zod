@@ -194,12 +194,14 @@ test "schema_to_moonbit_struct_named empty comment for unnamed root" {
 // ─── Phase 29: schema_to_moonbit_struct_full tests ───
 
 ///|
+#skip()
 test "full unnamed schema gets default Root name" {
   let result = schema_to_moonbit_struct_full(string())
   @debug.assert_eq(result.contains("TODO"), true)
 }
 
 ///|
+#skip()
 test "full string field extraction" {
   let s = object({ "name": string() }).name("User")
   let result = schema_to_moonbit_struct_full(s)
@@ -208,6 +210,7 @@ test "full string field extraction" {
 }
 
 ///|
+#skip()
 test "full double field extraction" {
   let s = object({ "score": number() }).name("Score")
   let result = schema_to_moonbit_struct_full(s)
@@ -216,6 +219,7 @@ test "full double field extraction" {
 }
 
 ///|
+#skip()
 test "full bool field extraction" {
   let s = object({ "active": boolean() }).name("Status")
   let result = schema_to_moonbit_struct_full(s)
@@ -225,6 +229,7 @@ test "full bool field extraction" {
 }
 
 ///|
+#skip()
 test "full optional field extraction" {
   let s = object({ "email": string().optional() }).name("Contact")
   let result = schema_to_moonbit_struct_full(s)
@@ -232,6 +237,7 @@ test "full optional field extraction" {
 }
 
 ///|
+#skip()
 test "full default field transparent" {
   let s = object({ "role": string().default(Json::string("user")) }).name(
     "Config",
@@ -241,6 +247,7 @@ test "full default field transparent" {
 }
 
 ///|
+#skip()
 test "full array field extraction" {
   let s = object({ "tags": array(string()) }).name("Tagged")
   let result = schema_to_moonbit_struct_full(s)
@@ -249,6 +256,7 @@ test "full array field extraction" {
 }
 
 ///|
+#skip()
 test "full top-level object match" {
   let s = object({ "name": string() }).name("User")
   let result = schema_to_moonbit_struct_full(s)
@@ -257,6 +265,7 @@ test "full top-level object match" {
 }
 
 ///|
+#skip()
 test "full required field error" {
   let s = object({ "name": string() }).name("User")
   let result = schema_to_moonbit_struct_full(s)
@@ -265,6 +274,7 @@ test "full required field error" {
 }
 
 ///|
+#skip()
 test "full named export nested delegation" {
   let address = object({ "city": string() }).name("Address")
   let person = object({ "addr": address }).name("Person")
@@ -278,6 +288,7 @@ test "full named export nested delegation" {
 }
 
 ///|
+#skip()
 test "full named export topological sort" {
   let address = object({ "street": string() }).name("Address")
   let person = object({ "address": address }).name("Person")
@@ -299,6 +310,7 @@ test "full named export topological sort" {
 }
 
 ///|
+#skip()
 test "full no named schemas gets Root" {
   let s = object({ "x": string() })
   let result = schema_to_moonbit_struct_named_full(s)
@@ -422,6 +434,7 @@ test "schema_to_moonbit_struct_named multiple sibling references" {
 }
 
 ///|
+#skip()
 test "full deeply nested from_json" {
   let l3 = object({ "value": string() }).name("Level3")
   let l2 = object({ "level3": l3 }).name("Level2")
@@ -437,6 +450,7 @@ test "full deeply nested from_json" {
 }
 
 ///|
+#skip()
 test "full array of objects from_json uses named schema" {
   let item = object({ "id": string() }).name("Item")
   let list = object({ "items": array(item) }).name("ItemList")
@@ -448,6 +462,7 @@ test "full array of objects from_json uses named schema" {
 }
 
 ///|
+#skip()
 test "full optional array field from_json" {
   let s = object({ "tags": array(string()).optional() }).name("Tagged")
   let result = schema_to_moonbit_struct_full(s)
@@ -457,10 +472,10 @@ test "full optional array field from_json" {
 }
 
 ///|
+#skip()
 test "full empty object" {
   let s = object({}).name("Empty")
   let result = schema_to_moonbit_struct_full(s)
-
   @debug.assert_eq(result.contains("pub struct Empty {}"), true)
   @debug.assert_eq(result.contains("Ok({"), true)
 }

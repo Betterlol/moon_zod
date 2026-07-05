@@ -1377,3 +1377,21 @@ fn struct_name_to_fn_prefix(name : String) -> String {
   }
   result + "_from_json"
 }
+
+///|
+#warnings("-unused_value")
+fn generate_to_schema_fn(
+  schema : @core.Schema,
+  struct_name : String
+) -> String {
+  let struct_name = @core.escape_type_name(struct_name)
+  let fn_name = struct_name + "::" + "to_schema"
+  let fn_def = "pub fn " +
+    fn_name +
+    "(self: \{struct_name})" +
+    " -> @moon_zod.Schema {"
+  let schema_code = schema_to_moon_zod_code(schema)
+  let return_stmt = @core.escape_variable_name(struct_name)
+  let result = fn_def + "\n" + @core.indent_str(1) + schema_code + "\n" + @core.indent_str(1) + return_stmt + "\n" + "}"
+  result
+}
