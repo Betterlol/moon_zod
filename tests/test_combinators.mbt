@@ -353,6 +353,26 @@ test "literal with custom error messages" {
 }
 
 ///|
+test "literal complex values format expected message" {
+  let array_schema = literal(
+    Json::array([Json::number(3.14), Json::boolean(false)]),
+  )
+  match array_schema.parse(Json::array([])) {
+    Err(errors) => {
+      assert_true(errors[0].message.contains("3.14"))
+      assert_true(errors[0].message.contains("false"))
+    }
+    _ => fail("expected Err")
+  }
+
+  let object_schema = literal(Json::object({ "ok": Json::null() }))
+  match object_schema.parse(Json::object({})) {
+    Err(errors) => assert_true(errors[0].message.contains("\"ok\": null"))
+    _ => fail("expected Err")
+  }
+}
+
+///|
 /// brand()
 test "brand sets brand field on schema" {
   let s = string().brand("MyString")

@@ -149,6 +149,14 @@ test "message method with optional chain" {
 }
 
 ///|
+test "message method penetrates existing optional wrapper" {
+  let s = string().min(3).optional().message("太短了")
+  guard s.parse(Json::string("ab")) is Err(errors) else { fail("expected Err") }
+  @debug.assert_eq(errors[0].message, "太短了")
+  guard s.parse(Json::null()) is Ok(_) else { fail("expected Ok") }
+}
+
+///|
 test "message method with default chain" {
   let s = string().min(3).message("太短了").default(Json::string(""))
   guard s.parse(Json::string("ab")) is Err(errors) else { fail("expected Err") }
@@ -156,8 +164,23 @@ test "message method with default chain" {
 }
 
 ///|
+test "message method penetrates existing default wrapper" {
+  let s = string().min(3).default(Json::string("abcd")).message("太短了")
+  guard s.parse(Json::string("ab")) is Err(errors) else { fail("expected Err") }
+  @debug.assert_eq(errors[0].message, "太短了")
+  guard s.parse(Json::null()) is Ok(_) else { fail("expected Ok") }
+}
+
+///|
 test "message method with transform chain" {
   let s = string().min(3).message("太短了").transform(fn(json) { Ok(json) })
+  guard s.parse(Json::string("ab")) is Err(errors) else { fail("expected Err") }
+  @debug.assert_eq(errors[0].message, "太短了")
+}
+
+///|
+test "message method penetrates existing transform wrapper" {
+  let s = string().min(3).transform(fn(json) { Ok(json) }).message("太短了")
   guard s.parse(Json::string("ab")) is Err(errors) else { fail("expected Err") }
   @debug.assert_eq(errors[0].message, "太短了")
 }

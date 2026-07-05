@@ -237,6 +237,71 @@ test "to_json_schema skeleton intersection" {
 }
 
 ///|
+test "to_json_schema skeleton object strict and literal" {
+  let object_result = to_json_schema_skeleton(
+    object({ "flag": boolean(), "name": string().optional() }).strict(),
+  )
+  let object_expected = parse_json(
+    "{\"type\":\"object\",\"properties\":{\"flag\":{\"type\":\"boolean\"},\"name\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"flag\"]}",
+  )
+  @debug.assert_eq(object_result, object_expected)
+
+  let literal_result = to_json_schema_skeleton(literal(Json::boolean(false)))
+  @debug.assert_eq(literal_result, parse_json("{\"const\": false}"))
+}
+
+///|
+test "to_json_schema named wrappers and literal definitions" {
+  let status = literal(Json::string("active")).name("Status")
+  let active = literal(Json::boolean(true)).name("Active")
+  let aliases = union([string(), number()]).name("Alias")
+  let transformed = string().name("Transformed").transform(fn(j) { Ok(j) })
+  let record = object({
+    "status": status.default(Json::string("active")),
+    "active": active,
+    "alias": aliases,
+    "transformed": transformed,
+  }).name("Record")
+
+  let result = to_json_schema_named(record)
+  match result {
+    Object(m) =>
+      match m.get("$defs") {
+        Some(Object(defs)) => {
+          guard defs.get("Status") is Some(Object(status_def)) else {
+            fail("missing Status")
+          }
+          @debug.assert_eq(
+            status_def.get("$ref"),
+            Some(Json::string("#/$defs/Status")),
+          )
+          @debug.assert_eq(
+            status_def.get("default"),
+            Some(Json::string("active")),
+          )
+          guard defs.get("Active") is Some(Object(active_def)) else {
+            fail("missing Active")
+          }
+          @debug.assert_eq(active_def.get("const"), Some(Json::boolean(true)))
+          guard defs.get("Alias") is Some(Object(alias_def)) else {
+            fail("missing Alias")
+          }
+          @debug.assert_eq(alias_def.contains("anyOf"), true)
+          guard defs.get("Transformed") is Some(Object(transformed_def)) else {
+            fail("missing Transformed")
+          }
+          @debug.assert_eq(
+            transformed_def.get("$ref"),
+            Some(Json::string("#/$defs/Transformed")),
+          )
+        }
+        _ => fail("missing defs")
+      }
+    _ => fail("expected object")
+  }
+}
+
+///|
 test "to_json_schema merge_annotations with refine rule" {
   let s = number().refine(
     fn(json) {

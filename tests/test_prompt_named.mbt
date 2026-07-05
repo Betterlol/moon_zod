@@ -15,6 +15,13 @@ test "schema_to_prompt_named: object and enum export" {
 
   // Just check that we get some output
   @debug.assert_eq(prompt.length() > 0, true)
+  @debug.assert_eq(prompt.contains("export interface User"), true)
+  @debug.assert_eq(prompt.contains("name: string"), true)
+  @debug.assert_eq(prompt.contains("age: number"), true)
+  @debug.assert_eq(prompt.contains("type Mood"), true)
+  @debug.assert_eq(prompt.contains("\"calm\" | \"nervous\" | \"angry\""), true)
+  @debug.assert_eq(prompt.contains("user: User"), true)
+  @debug.assert_eq(prompt.contains("mood: Mood"), true)
 }
 
 ///|
@@ -32,6 +39,10 @@ test "schema_to_prompt_named: nested objects" {
 
   // Just check that we get some output
   @debug.assert_eq(prompt.length() > 0, true)
+  @debug.assert_eq(prompt.contains("export interface Address"), true)
+  @debug.assert_eq(prompt.contains("street: string"), true)
+  @debug.assert_eq(prompt.contains("city: string"), true)
+  @debug.assert_eq(prompt.contains("address: Address"), true)
 }
 
 ///|
@@ -45,6 +56,9 @@ test "schema_to_prompt_named: array of named objects" {
 
   // Just check that we get some output
   @debug.assert_eq(prompt.length() > 0, true)
+  @debug.assert_eq(prompt.contains("export interface Item"), true)
+  @debug.assert_eq(prompt.contains("export interface ItemList"), true)
+  @debug.assert_eq(prompt.contains("items: Item[]"), true)
 }
 
 ///|
@@ -109,6 +123,16 @@ test "schema_to_prompt_named: optional named field" {
 
   // Just verify that we get both interfaces generated
   @debug.assert_eq(prompt.length() > 0, true)
+}
+
+///|
+test "schema_to_prompt_named uses named primitive references" {
+  let username_schema = string().min(3).name("Username")
+  let user_schema = object({ "name": username_schema }).name("User")
+
+  let prompt = schema_to_prompt_named(user_schema)
+
+  @debug.assert_eq(prompt.contains("name: Username"), true)
 }
 
 ///|

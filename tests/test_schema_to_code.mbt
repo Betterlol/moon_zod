@@ -99,3 +99,79 @@ test "schema_to_moon_zod_code_named for unnamed root" {
     true,
   )
 }
+
+///|
+test "json_infer_schema validates inferred object shape" {
+  let schema = json_infer_schema(
+    parse_json(
+      "{\"name\": \"Alice\", \"age\": 30, \"tags\": [\"a\"], \"active\": true}",
+    ),
+  )
+
+  guard schema.parse(
+      parse_json(
+        "{\"name\": \"Bob\", \"age\": 42, \"tags\": [\"b\"], \"active\": false}",
+      ),
+    )
+    is Ok(_) else {
+    fail("expected inferred schema to accept matching object")
+  }
+  guard schema.parse(
+      parse_json(
+        "{\"name\": \"Bob\", \"age\": 42.5, \"tags\": [\"b\"], \"active\": false}",
+      ),
+    )
+    is Err(_) else {
+    fail("expected inferred int field to reject float")
+  }
+}
+
+///|
+test "json_infer_schema handles empty arrays as string arrays" {
+  let schema = json_infer_schema(parse_json("[]"))
+
+  guard schema.parse(parse_json("[\"x\"]")) is Ok(_) else {
+    fail("expected inferred empty array to accept strings")
+  }
+  guard schema.parse(parse_json("[1]")) is Err(_) else {
+    fail("expected inferred empty array to reject numbers")
+  }
+}
+
+///|
+test "moon_zod code escaping helpers cover special identifiers" {
+  @debug.assert_eq(escape_mbt_string("a\\b\n\t\"c"), "a\\\\b\\n\\t\\\"c")
+  @debug.assert_eq(escape_ident("9 bad-name"), "_9_bad_name")
+  @debug.assert_eq(escape_variable_name("UserName"), "userName")
+  @debug.assert_eq(escape_variable_name("!!!"), "___")
+}
+
+///|
+test "schema_to_moon_zod_code covers formats and literal values" {
+  let formatted = schema_to_moon_zod_code(
+    object({
+      "time": string().datetime(),
+      "ip4": string().ipv4(),
+      "ip6": string().ipv6(),
+      "id": string().uuid(),
+      "tags": array(string()).max(3),
+    }),
+  )
+  @debug.assert_eq(formatted.contains(".datetime()"), true)
+  @debug.assert_eq(formatted.contains(".ipv4()"), true)
+  @debug.assert_eq(formatted.contains(".ipv6()"), true)
+  @debug.assert_eq(formatted.contains(".uuid()"), true)
+  @debug.assert_eq(formatted.contains(".max(3)"), true)
+
+  let literal_code = schema_to_moon_zod_code(
+    literal(
+      Json::object({
+        "flag": Json::boolean(false),
+        "items": Json::array([Json::number(1), Json::null()]),
+      }),
+    ),
+  )
+  @debug.assert_eq(literal_code.contains("Json::false()"), true)
+  @debug.assert_eq(literal_code.contains("Json::array"), true)
+  @debug.assert_eq(literal_code.contains("Json::object"), true)
+}

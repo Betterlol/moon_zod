@@ -356,3 +356,19 @@ test "schema_to_prompt intersection" {
     "string & number & boolean",
   )
 }
+
+///|
+test "schema_to_prompt literal values" {
+  @debug.assert_eq(schema_to_prompt(literal(Json::number(3.14))), "3.14")
+  @debug.assert_eq(schema_to_prompt(literal(Json::boolean(true))), "true")
+  @debug.assert_eq(schema_to_prompt(literal(Json::boolean(false))), "false")
+  @debug.assert_eq(schema_to_prompt(literal(Json::null())), "null")
+  @debug.assert_eq(
+    schema_to_prompt(literal(Json::array([Json::string("a"), Json::number(1)]))),
+    "[\"a\", 1]",
+  )
+  @debug.assert_eq(
+    schema_to_prompt(literal(Json::object({ "ok": Json::boolean(true) }))),
+    "{\"ok\": true}",
+  )
+}

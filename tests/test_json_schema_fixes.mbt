@@ -262,3 +262,122 @@ test "enum_null_falls_back_to_string" {
     fail("null enum fallback: should reject null")
   }
 }
+
+///|
+test "json schema const imports literal schema" {
+  let schema = json_schema_to_schema(parse_json("{\"const\": \"ready\"}"))
+  guard schema.parse(Json::string("ready")) is Ok(_) else {
+    fail("expected Ok")
+  }
+  guard schema.parse(Json::string("waiting")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "json schema imports string formats" {
+  let datetime_schema = json_schema_to_schema(
+    parse_json("{\"type\": \"string\", \"format\": \"date-time\"}"),
+  )
+  guard datetime_schema.parse(Json::string("2024-02-29T10:30:00Z")) is Ok(_) else {
+    fail("expected valid datetime")
+  }
+  guard datetime_schema.parse(Json::string("2024-02-30T10:30:00Z")) is Err(_) else {
+    fail("expected invalid datetime")
+  }
+
+  let ipv4_schema = json_schema_to_schema(
+    parse_json("{\"type\": \"string\", \"format\": \"ipv4\"}"),
+  )
+  guard ipv4_schema.parse(Json::string("192.168.0.1")) is Ok(_) else {
+    fail("expected valid ipv4")
+  }
+  guard ipv4_schema.parse(Json::string("999.168.0.1")) is Err(_) else {
+    fail("expected invalid ipv4")
+  }
+
+  let uuid_schema = json_schema_to_schema(
+    parse_json("{\"type\": \"string\", \"format\": \"uuid\"}"),
+  )
+  guard uuid_schema.parse(Json::string("550e8400-e29b-41d4-a716-446655440000"))
+    is Ok(_) else {
+    fail("expected valid uuid")
+  }
+
+  let ipv6_schema = json_schema_to_schema(
+    parse_json("{\"type\": \"string\", \"format\": \"ipv6\"}"),
+  )
+  guard ipv6_schema.parse(
+      Json::string("2001:0db8:85a3:0000:0000:8a2e:0370:7334"),
+    )
+    is Ok(_) else {
+    fail("expected valid ipv6")
+  }
+}
+
+///|
+test "json schema imports array maxItems" {
+  let schema = json_schema_to_schema(
+    parse_json(
+      "{\"type\": \"array\", \"items\": {\"type\": \"string\"}, \"maxItems\": 2}",
+    ),
+  )
+  guard schema.parse(parse_json("[\"a\", \"b\"]")) is Ok(_) else {
+    fail("expected Ok")
+  }
+  guard schema.parse(parse_json("[\"a\", \"b\", \"c\"]")) is Err(_) else {
+    fail("expected Err")
+  }
+}
+
+///|
+test "json schema fallback handles missing and unknown type" {
+  let missing_items = json_schema_to_schema(parse_json("{\"type\": \"array\"}"))
+  guard missing_items.parse(parse_json("[\"x\"]")) is Ok(_) else {
+    fail("expected fallback string item")
+  }
+  guard missing_items.parse(parse_json("[1]")) is Err(_) else {
+    fail("expected string item validation")
+  }
+
+  let unknown = json_schema_to_schema(parse_json("{\"type\": \"made-up\"}"))
+  guard unknown.parse(Json::string("x")) is Ok(_) else { fail("expected Ok") }
+  guard unknown.parse(Json::number(1)) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "json schema fallback handles malformed schema shapes" {
+  let non_object = json_schema_to_schema(Json::string("not a schema"))
+  guard non_object.parse(Json::string("x")) is Ok(_) else {
+    fail("expected Ok")
+  }
+  guard non_object.parse(Json::number(1)) is Err(_) else {
+    fail("expected Err")
+  }
+
+  let empty_object = json_schema_to_schema(parse_json("{}"))
+  guard empty_object.parse(Json::string("x")) is Ok(_) else {
+    fail("expected fallback string schema")
+  }
+
+  let missing_ref = json_schema_to_schema(
+    parse_json("{\"$ref\": \"#/missing\"}"),
+  )
+  guard missing_ref.parse(Json::string("x")) is Ok(_) else {
+    fail("expected missing ref fallback")
+  }
+  guard missing_ref.parse(Json::boolean(true)) is Err(_) else {
+    fail("expected string fallback to reject boolean")
+  }
+}
+
+///|
+test "json schema object without properties and mixed required" {
+  let schema = json_schema_to_schema(
+    parse_json("{\"type\": \"object\", \"required\": [\"name\", 1]}"),
+  )
+  guard schema.parse(parse_json("{}")) is Ok(_) else {
+    fail("expected empty object schema")
+  }
+  guard schema.parse(Json::string("x")) is Err(_) else { fail("expected Err") }
+}
