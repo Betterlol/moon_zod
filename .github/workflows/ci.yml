@@ -2,9 +2,9 @@ name: MoonBit CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, develop ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, develop ]
 
 jobs:
   build-and-test:
@@ -60,10 +60,14 @@ jobs:
       - name: Coverage Analysis
         run: |
           moon coverage analyze > coverage_caret.log 2>&1
-          total_line=$(tail -1 coverage_caret.log)
-          echo "$total_line"
-          echo ""
+          core_only='^(core/)'
+          core_report=$(moon coverage report -f summary 2>&1 | grep -E "$core_only")
+          include_pattern='^(core/|exporters/|importers/|combinators/|tests/)'
+          report=$(moon coverage report -f summary 2>&1 | grep -E "$include_pattern")
           echo "=== Per-File Coverage (covered / total) ==="
-          moon coverage report -f summary 2>&1
+          echo "$report"
           echo ""
-          echo "::notice title=Coverage::$total_line"
+          core_total=$(echo "$core_report" | awk -F'[:/ ]+' '{c+=$(NF-1); t+=$NF} END{printf "%d/%d (%.1f%%)", c, t, 100*c/t}')
+          echo "::notice title=Core Coverage::Core: $core_total"
+          total=$(echo "$report" | awk -F'[:/ ]+' '{c+=$(NF-1); t+=$NF} END{printf "%d/%d (%.1f%%)", c, t, 100*c/t}')
+          echo "::notice title=Coverage::Total: $total"
