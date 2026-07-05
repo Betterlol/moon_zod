@@ -41,15 +41,21 @@ jobs:
       - name: Code Line Count
         run: |
           echo "=== Source Code Lines ==="
-          core=$(find . -maxdepth 1 -name "*.mbt" ! -name "*_test*" ! -name "moon_zod.mbt" | xargs wc -l | tail -1)
-          test_files=$(wc -l moon_zod_test.mbt moon_zod_wbtest.mbt | tail -1)
-          cli=$(find cmd examples -name "*.mbt" -exec wc -l {} + | tail -1)
-          total=$(find . -maxdepth 1 -name "*.mbt" -exec wc -l {} + | tail -1)
-          echo "  Core library:   $core"
-          echo "  Test files:     $test_files"
-          echo "  CLI/Examples:   $cli"
-          echo "  Total (root):   $total"
-          echo "::notice title=Lines of Code::Core: $core | Tests: $test_files | CLI: $cli"
+          core=$(find core combinators -name "*.mbt" ! -name "*_wbtest*" | xargs wc -l | tail -1)
+          exporters=$(find exporters -name "*.mbt" | xargs wc -l | tail -1)
+          importers=$(find importers -name "*.mbt" | xargs wc -l | tail -1)
+          cli=$(find cmd examples -name "*.mbt" | xargs wc -l | tail -1)
+          tests=$(find tests -name "*.mbt" | xargs wc -l | tail -1)
+          root=$(find . -maxdepth 1 -name "*.mbt" | xargs wc -l | tail -1)
+          total=$(( $(echo "$core" | awk '{print $1}') + $(echo "$exporters" | awk '{print $1}') + $(echo "$importers" | awk '{print $1}') + $(echo "$cli" | awk '{print $1}') + $(echo "$tests" | awk '{print $1}') + $(echo "$root" | awk '{print $1}') ))
+          echo "  core/:           $core"
+          echo "  exporters/:      $exporters"
+          echo "  importers/:      $importers"
+          echo "  cmd/ + examples/: $cli"
+          echo "  tests/:          $tests"
+          echo "  root:            $root"
+          echo "  Total:           $total"
+          echo "::notice title=Lines of Code::core: $core | exporters: $exporters | importers: $importers | tests: $tests"
 
       - name: Coverage Analysis
         run: |
