@@ -56,18 +56,13 @@ fn show_ts() -> Unit {
 }
 
 ///|
-/// to show 3 different ways to generate Moonbit struct
+/// to show MoonBit struct generation with and without schema functions
 fn show_moonbit() -> Unit {
   let moonbit_struct = show_moonbit_struct()
-  let moonbit_struct_named = show_moonbit_struct_named()
-  let moonbit_struct_named_selected = show_moonbit_struct_named_selected()
+  let moonbit_struct_full = show_moonbit_struct_full()
   println("Moonbit Struct:\n\{moonbit_struct}\n")
   println("\n======================\n")
-  println("Moonbit Struct with Names:\n\{moonbit_struct_named}\n")
-  println("\n======================\n")
-  println(
-    "Moonbit Struct with Names (Selected):\n\{moonbit_struct_named_selected}\n",
-  )
+  println("Moonbit Struct Full:\n\{moonbit_struct_full}\n")
   println("\n======================\n")
 }
 
@@ -124,18 +119,7 @@ fn show_moonbit_struct() -> String {
 }
 
 ///|
-fn show_moonbit_struct_named() -> String {
+fn show_moonbit_struct_full() -> String {
   let order_schema = order_schema()
-  @moon_zod.schema_to_moonbit_struct_named(order_schema)
-}
-
-///|
-fn show_moonbit_struct_named_selected() -> String {
-  let order_schema = order_schema()
-  @moon_zod.schema_to_moonbit_struct_named(
-    order_schema,
-    include_names=Some([
-      "Order", "OrderStatus", "User", "Product", "HomeAddress", "OfficeAddress",
-    ]),
-  )
+  @moon_zod.schema_to_moonbit_struct_full(order_schema)
 }

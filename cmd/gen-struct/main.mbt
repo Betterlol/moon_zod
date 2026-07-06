@@ -17,7 +17,7 @@ fn main {
     println("Usage: moon run cmd/gen-struct -- --schema '<json-schema>'")
     println("")
     println("Generate MoonBit struct definitions from a JSON Schema document.")
-    println("Uses $defs for named schemas and $ref for type references.")
+    println("Nested JSON Schema objects are emitted as standalone structs.")
     println("")
     println("Examples:")
     println(
@@ -44,7 +44,7 @@ fn main {
   let schema = @moon_zod.json_schema_to_schema(schema_json)
 
   println("── Generated MoonBit struct definitions ──")
-  println(@moon_zod.schema_to_moonbit_struct_named(schema))
+  println(@moon_zod.schema_to_moonbit_struct(schema))
   println("")
   println("── End ──")
 }

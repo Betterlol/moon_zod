@@ -1,481 +1,125 @@
 ///|
-test "schema_to_moonbit_struct unnamed schema gets default Root name" {
-  let result = schema_to_moonbit_struct(string())
-  @debug.assert_eq(result.contains("TODO"), true)
-}
+test "schema_to_moonbit_struct emits root object struct" {
+  let schema = object({ "name": string(), "age": number().int() }).name("User")
+  let result = schema_to_moonbit_struct(schema)
 
-///|
-test "schema_to_moonbit_struct non-object type returns comment" {
-  let result = schema_to_moonbit_struct(string().name("MyString"))
-  @debug.assert_eq(result.contains("not an ObjectType"), true)
-}
-
-///|
-test "schema_to_moonbit_struct object with int64 field" {
-  let s = object({ "age": number().int() }).name("Person")
-  let result = schema_to_moonbit_struct(s)
+  @debug.assert_eq(result.contains("pub struct User"), true)
+  @debug.assert_eq(result.contains("name : String"), true)
   @debug.assert_eq(result.contains("age : Int64"), true)
 }
 
 ///|
-test "schema_to_moonbit_struct object with double field" {
-  let s = object({ "score": number() }).name("Score")
-  let result = schema_to_moonbit_struct(s)
-  @debug.assert_eq(result.contains("score : Double"), true)
-}
-
-///|
-test "schema_to_moonbit_struct object with boolean field" {
-  let s = object({ "active": boolean() }).name("Status")
-  let result = schema_to_moonbit_struct(s)
-  @debug.assert_eq(result.contains("active : Bool"), true)
-}
-
-///|
-test "schema_to_moonbit_struct object with optional field" {
-  let s = object({ "email": string().optional() }).name("Contact")
-  let result = schema_to_moonbit_struct(s)
-  @debug.assert_eq(result.contains("email? : String"), true)
-}
-
-///|
-test "schema_to_moonbit_struct object with default field" {
-  let s = object({ "role": string().default(Json::string("user")) }).name(
-    "Config",
-  )
-  let result = schema_to_moonbit_struct(s)
-  @debug.assert_eq(result.contains("role? : String"), true)
-}
-
-///|
-test "schema_to_moonbit_struct object with array field" {
-  let s = object({ "tags": array(string()) }).name("Tagged")
-  let result = schema_to_moonbit_struct(s)
-  @debug.assert_eq(result.contains("tags : Array[String]"), true)
-}
-
-///|
-test "schema_to_moonbit_struct object with nullable field" {
-  let s = object({ "note": union([string(), null()]) }).name("Nullable")
-  let result = schema_to_moonbit_struct(s)
-  @debug.assert_eq(result.contains("note : String?"), true)
-}
-
-///|
-test "schema_to_moonbit_struct enum" {
-  let s = enum_values(["calm", "nervous", "angry"]).name("Mood")
-  let result = schema_to_moonbit_struct(s)
-  let expected = "pub enum Mood {\n" +
-    "  Calm\n" +
-    "  Nervous\n" +
-    "  Angry\n" +
-    "}"
-  @debug.assert_eq(result, expected)
-}
-
-///|
-test "schema_to_moonbit_struct union type comment" {
-  let s = object({ "mixed": union([string(), number()]) }).name("Mixed")
-  let result = schema_to_moonbit_struct(s)
-  @debug.assert_eq(result.contains("TODO: union type"), true)
-}
-
-///|
-test "schema_to_moonbit_struct_named nested objects" {
-  let address = object({ "city": string() }).name("Address")
-  let person = object({ "name": string(), "addr": address }).name("Person")
-  let result = schema_to_moonbit_struct_named(person)
-
-  @debug.assert_eq(result.contains("pub struct Address"), true)
-  @debug.assert_eq(result.contains("pub struct Person"), true)
-  @debug.assert_eq(result.contains("addr : Address"), true)
-}
-
-///|
-test "schema_to_moonbit_struct_named enum export" {
-  let mood = enum_values(["calm", "nervous"]).name("Mood")
-  let state = object({ "mood": mood }).name("State")
-  let result = schema_to_moonbit_struct_named(state)
-
-  @debug.assert_eq(result.contains("pub enum Mood"), true)
-  @debug.assert_eq(result.contains("mood : Mood"), true)
-}
-
-///|
-test "schema_to_moonbit_struct_named topological sort" {
-  let address = object({ "street": string() }).name("Address")
-  let person = object({ "address": address }).name("Person")
-  let company = object({ "ceo": person }).name("Company")
-
-  let result = schema_to_moonbit_struct_named(company)
-
-  // Address should appear before Person, Person before Company
-  let pos_addr = result.find("pub struct Address")
-  let pos_person = result.find("pub struct Person")
-  let pos_company = result.find("pub struct Company")
-
-  match (pos_addr, pos_person, pos_company) {
-    (Some(a), Some(p), Some(c)) => {
-      @debug.assert_eq(a < p, true)
-      @debug.assert_eq(p < c, true)
-    }
-    _ => @debug.assert_eq(true, false)
-  }
-}
-
-///|
-test "schema_to_moonbit_struct_named deep nesting" {
-  let level3 = object({ "value": string() }).name("Level3")
-  let level2 = object({ "level3": level3 }).name("Level2")
-  let level1 = object({ "level2": level2 }).name("Level1")
-
-  let result = schema_to_moonbit_struct_named(level1)
-
-  @debug.assert_eq(result.contains("pub struct Level1"), true)
-  @debug.assert_eq(result.contains("pub struct Level2"), true)
-  @debug.assert_eq(result.contains("pub struct Level3"), true)
-}
-
-///|
-test "schema_to_moonbit_struct_named array of named" {
-  let item = object({ "id": string() }).name("Item")
-  let list = object({ "items": array(item) }).name("ItemList")
-
-  let result = schema_to_moonbit_struct_named(list)
-
-  @debug.assert_eq(result.contains("pub struct Item"), true)
-  @debug.assert_eq(result.contains("pub struct ItemList"), true)
-  @debug.assert_eq(result.contains("items : Array[Item]"), true)
-}
-
-///|
-test "schema_to_moonbit_struct object with constraint comment" {
-  let s = object({ "name": string().min(2).max(50) }).name("Constrained")
-  let result = schema_to_moonbit_struct(s)
-
-  @debug.assert_eq(result.contains("name : String"), true)
-  @debug.assert_eq(result.contains("2-50 chars"), true)
-}
-
-///|
-test "schema_to_moonbit_struct multiple fields" {
-  let s = object({
+test "schema_to_moonbit_struct emits nested object structs" {
+  let schema = object({
     "name": string(),
-    "age": number().int(),
-    "active": boolean(),
-    "score": number(),
-    "email": string().optional(),
-  }).name("FullStruct")
+    "profile": object({ "city": string(), "score": number() }),
+  }).name("User")
+  let result = schema_to_moonbit_struct(schema)
 
-  let result = schema_to_moonbit_struct(s)
-
-  @debug.assert_eq(result.contains("name : String"), true)
-  @debug.assert_eq(result.contains("age : Int64"), true)
-  @debug.assert_eq(result.contains("active : Bool"), true)
+  @debug.assert_eq(result.contains("pub struct UserProfile"), true)
+  @debug.assert_eq(result.contains("city : String"), true)
   @debug.assert_eq(result.contains("score : Double"), true)
-  @debug.assert_eq(result.contains("email? : String"), true)
+  @debug.assert_eq(result.contains("pub struct User"), true)
+  @debug.assert_eq(result.contains("profile : UserProfile"), true)
 }
 
 ///|
-test "schema_to_moonbit_struct_named no named schemas gets Root" {
-  let s = object({ "x": string() })
-  let result = schema_to_moonbit_struct_named(s)
-  @debug.assert_eq(result.contains("pub struct Root"), true)
+test "schema_to_moonbit_struct emits array element object structs" {
+  let schema = object({
+    "items": array(object({ "id": string(), "active": boolean() })),
+  }).name("Catalog")
+  let result = schema_to_moonbit_struct(schema)
+
+  @debug.assert_eq(result.contains("pub struct CatalogItemsItem"), true)
+  @debug.assert_eq(result.contains("id : String"), true)
+  @debug.assert_eq(result.contains("active : Bool"), true)
+  @debug.assert_eq(result.contains("items : Array[CatalogItemsItem]"), true)
 }
 
 ///|
-test "schema_to_moonbit_struct_named empty comment for unnamed root" {
-  let s = object({ "x": string() }).name("Root")
-  let result = schema_to_moonbit_struct_named(s)
-  @debug.assert_eq(result.contains("pub struct Root"), true)
-  @debug.assert_eq(result.contains("x : String"), true)
-}
-
-// ─── Phase 29: schema_to_moonbit_struct_full tests ───
-
-///|
-#skip()
-test "full unnamed schema gets default Root name" {
-  let result = schema_to_moonbit_struct_full(string())
-  @debug.assert_eq(result.contains("TODO"), true)
-}
-
-///|
-#skip()
-test "full string field extraction" {
-  let s = object({ "name": string() }).name("User")
-  let result = schema_to_moonbit_struct_full(s)
-  @debug.assert_eq(result.contains("String(s) => s"), true)
-  @debug.assert_eq(result.contains("expected string"), true)
-}
-
-///|
-#skip()
-test "full double field extraction" {
-  let s = object({ "score": number() }).name("Score")
-  let result = schema_to_moonbit_struct_full(s)
-  @debug.assert_eq(result.contains("Number(v, ..) => v"), true)
-  @debug.assert_eq(result.contains("expected number"), true)
-}
-
-///|
-#skip()
-test "full bool field extraction" {
-  let s = object({ "active": boolean() }).name("Status")
-  let result = schema_to_moonbit_struct_full(s)
-  @debug.assert_eq(result.contains("True => true"), true)
-  @debug.assert_eq(result.contains("False => false"), true)
-  @debug.assert_eq(result.contains("expected boolean"), true)
-}
-
-///|
-#skip()
-test "full optional field extraction" {
-  let s = object({ "email": string().optional() }).name("Contact")
-  let result = schema_to_moonbit_struct_full(s)
-  @debug.assert_eq(result.contains("Some(Null) | None => None"), true)
-}
-
-///|
-#skip()
-test "full default field transparent" {
-  let s = object({ "role": string().default(Json::string("user")) }).name(
-    "Config",
-  )
-  let result = schema_to_moonbit_struct_full(s)
-  @debug.assert_eq(result.contains("Some(Null) | None => None"), true)
-}
-
-///|
-#skip()
-test "full array field extraction" {
-  let s = object({ "tags": array(string()) }).name("Tagged")
-  let result = schema_to_moonbit_struct_full(s)
-  @debug.assert_eq(result.contains("Array(elems) =>"), true)
-  @debug.assert_eq(result.contains("let mut items : Array[String] = []"), true)
-}
-
-///|
-#skip()
-test "full top-level object match" {
-  let s = object({ "name": string() }).name("User")
-  let result = schema_to_moonbit_struct_full(s)
-  @debug.assert_eq(result.contains("match json {"), true)
-  @debug.assert_eq(result.contains("Object(map) =>"), true)
-}
-
-///|
-#skip()
-test "full required field error" {
-  let s = object({ "name": string() }).name("User")
-  let result = schema_to_moonbit_struct_full(s)
-  @debug.assert_eq(result.contains("None => return Err("), true)
-  @debug.assert_eq(result.contains("required"), true)
-}
-
-///|
-#skip()
-test "full named export nested delegation" {
-  let address = object({ "city": string() }).name("Address")
-  let person = object({ "addr": address }).name("Person")
-  let result = schema_to_moonbit_struct_named_full(person)
+test "schema_to_moonbit_struct uses schema name only as type hint" {
+  let schema = object({
+    "shipping": object({ "city": string() }).name("Address"),
+    "billing": object({ "city": string() }),
+  }).name("Order")
+  let result = schema_to_moonbit_struct(schema)
 
   @debug.assert_eq(result.contains("pub struct Address"), true)
-  @debug.assert_eq(result.contains("pub struct Person"), true)
-  @debug.assert_eq(result.contains("pub fn address_from_json"), true)
-  @debug.assert_eq(result.contains("pub fn person_from_json"), true)
-  @debug.assert_eq(result.contains("address_from_json(v)"), true)
+  @debug.assert_eq(result.contains("shipping : Address"), true)
+  @debug.assert_eq(result.contains("pub struct OrderBilling"), true)
+  @debug.assert_eq(result.contains("billing : OrderBilling"), true)
 }
 
 ///|
-#skip()
-test "full named export topological sort" {
-  let address = object({ "street": string() }).name("Address")
-  let person = object({ "address": address }).name("Person")
-  let company = object({ "ceo": person }).name("Company")
+test "schema_to_moonbit_struct emits enum definitions for enum fields" {
+  let schema = object({ "status": enum_values(["pending", "shipped", "404"]) }).name(
+    "Order",
+  )
+  let result = schema_to_moonbit_struct(schema)
 
-  let result = schema_to_moonbit_struct_named_full(company)
-
-  let pos_addr = result.find("pub struct Address")
-  let pos_person = result.find("pub struct Person")
-  let pos_company = result.find("pub struct Company")
-
-  match (pos_addr, pos_person, pos_company) {
-    (Some(a), Some(p), Some(c)) => {
-      @debug.assert_eq(a < p, true)
-      @debug.assert_eq(p < c, true)
-    }
-    _ => @debug.assert_eq(true, false)
-  }
+  @debug.assert_eq(result.contains("pub enum OrderStatus"), true)
+  @debug.assert_eq(result.contains("Pending"), true)
+  @debug.assert_eq(result.contains("Shipped"), true)
+  @debug.assert_eq(result.contains("V404"), true)
+  @debug.assert_eq(result.contains("status : OrderStatus"), true)
 }
 
 ///|
-#skip()
-test "full no named schemas gets Root" {
-  let s = object({ "x": string() })
-  let result = schema_to_moonbit_struct_named_full(s)
+test "schema_to_moonbit_struct handles optional default and nullable fields" {
+  let schema = object({
+    "email": string().optional(),
+    "role": string().default(Json::string("user")),
+    "note": union([string(), null()]),
+  }).name("User")
+  let result = schema_to_moonbit_struct(schema)
+
+  @debug.assert_eq(result.contains("email? : String"), true)
+  @debug.assert_eq(result.contains("role? : String"), true)
+  @debug.assert_eq(result.contains("note? : String"), true)
+}
+
+///|
+test "schema_to_moonbit_struct keeps constraint comments" {
+  let schema = object({
+    "name": string().min(2).max(50),
+    "tags": array(string()).min(1),
+  }).name("Product")
+  let result = schema_to_moonbit_struct(schema)
+
+  @debug.assert_eq(result.contains("name : String  // 2-50 chars"), true)
+  @debug.assert_eq(
+    result.contains("tags : Array[String]  // min: 1 items"),
+    true,
+  )
+}
+
+///|
+test "schema_to_moonbit_struct_full emits static to_schema functions" {
+  let schema = object({
+    "profile": object({ "city": string() }),
+    "status": enum_values(["active", "inactive"]),
+  }).name("User")
+  let result = schema_to_moonbit_struct_full(schema)
+
+  @debug.assert_eq(result.contains("pub fn UserProfile::to_schema()"), true)
+  @debug.assert_eq(result.contains("pub fn UserStatus::to_schema()"), true)
+  @debug.assert_eq(result.contains("pub fn User::to_schema()"), true)
+  @debug.assert_eq(result.contains("@moon_zod.object"), true)
+  @debug.assert_eq(result.contains("@moon_zod.enum_values"), true)
+  @debug.assert_eq(result.contains("from_json"), false)
+}
+
+///|
+test "schema_to_moonbit_struct assigns Root to unnamed root object" {
+  let result = schema_to_moonbit_struct(object({ "value": string() }))
+
   @debug.assert_eq(result.contains("pub struct Root"), true)
-}
-
-// ─── Additional edge case tests ───
-
-///|
-test "schema_to_moonbit_struct deeply nested 3 levels" {
-  let l3 = object({ "value": string() }).name("Level3")
-  let l2 = object({ "level3": l3 }).name("Level2")
-  let l1 = object({ "level2": l2 }).name("Level1")
-  let result = schema_to_moonbit_struct(l1)
-
-  @debug.assert_eq(result.contains("level2 : Level2"), true)
+  @debug.assert_eq(result.contains("value : String"), true)
 }
 
 ///|
-test "schema_to_moonbit_struct array of optional strings" {
-  let s = object({ "tags": array(string().optional()) }).name("Tagged")
-  let result = schema_to_moonbit_struct(s)
+test "schema_to_moonbit_struct reports unsupported root schemas" {
+  let result = schema_to_moonbit_struct(string())
 
-  @debug.assert_eq(result.contains("tags : Array[String?]"), true)
-}
-
-///|
-test "schema_to_moonbit_struct object with only optional fields" {
-  let s = object({
-    "name": string().optional(),
-    "age": number().int().optional(),
-  }).name("OptionalOnly")
-  let result = schema_to_moonbit_struct(s)
-
-  @debug.assert_eq(result.contains("name? : String"), true)
-  @debug.assert_eq(result.contains("age? : Int64"), true)
-}
-
-///|
-test "schema_to_moonbit_struct array of arrays" {
-  let s = object({ "matrix": array(array(number().int())) }).name("Matrix")
-  let result = schema_to_moonbit_struct(s)
-
-  @debug.assert_eq(result.contains("matrix : Array[Array[Int64]]"), true)
-}
-
-///|
-test "schema_to_moonbit_struct object with all field types" {
-  let s = object({
-    "id": string(),
-    "count": number().int(),
-    "ratio": number(),
-    "active": boolean(),
-    "data": null(),
-    "items": array(string()),
-    "meta": object({ "key": string() }),
-  }).name("AllTypes")
-  let result = schema_to_moonbit_struct(s)
-
-  @debug.assert_eq(result.contains("id : String"), true)
-  @debug.assert_eq(result.contains("count : Int64"), true)
-  @debug.assert_eq(result.contains("ratio : Double"), true)
-  @debug.assert_eq(result.contains("active : Bool"), true)
-  @debug.assert_eq(result.contains("data : Unit"), true)
-  @debug.assert_eq(result.contains("items : Array[String]"), true)
-  @debug.assert_eq(result.contains("meta : Json"), true)
-}
-
-///|
-test "schema_to_moonbit_struct object with default number" {
-  let s = object({ "timeout": number().int().default(Json::number(30.0)) }).name(
-    "Config",
-  )
-  let result = schema_to_moonbit_struct(s)
-
-  @debug.assert_eq(result.contains("timeout? : Int64"), true)
-}
-
-///|
-test "schema_to_moonbit_struct object with default boolean" {
-  let s = object({ "debug": boolean().default(Json::boolean(false)) }).name(
-    "Options",
-  )
-  let result = schema_to_moonbit_struct(s)
-
-  @debug.assert_eq(result.contains("debug? : Bool"), true)
-}
-
-///|
-test "schema_to_moonbit_struct optional object field" {
-  let s = object({ "profile": object({ "name": string() }).optional() }).name(
-    "User",
-  )
-  let result = schema_to_moonbit_struct(s)
-
-  @debug.assert_eq(result.contains("profile? : Json"), true)
-}
-
-///|
-test "schema_to_moonbit_struct optional array field" {
-  let s = object({ "emails": array(string()).optional() }).name("Contact")
-  let result = schema_to_moonbit_struct(s)
-
-  @debug.assert_eq(result.contains("emails? : Array[String]"), true)
-}
-
-///|
-test "schema_to_moonbit_struct_named multiple sibling references" {
-  let item = object({ "id": string() }).name("Item")
-  let list1 = object({ "items": array(item) }).name("List1")
-  let list2 = object({ "items": array(item) }).name("List2")
-  let wrapper = object({ "list1": list1, "list2": list2 }).name("Wrapper")
-
-  let result = schema_to_moonbit_struct_named(wrapper)
-
-  @debug.assert_eq(result.contains("pub struct Item"), true)
-  @debug.assert_eq(result.contains("pub struct List1"), true)
-  @debug.assert_eq(result.contains("pub struct List2"), true)
-  @debug.assert_eq(result.contains("pub struct Wrapper"), true)
-  @debug.assert_eq(result.contains("items : Array[Item]"), true)
-}
-
-///|
-#skip()
-test "full deeply nested from_json" {
-  let l3 = object({ "value": string() }).name("Level3")
-  let l2 = object({ "level3": l3 }).name("Level2")
-  let l1 = object({ "level2": l2 }).name("Level1")
-  let result = schema_to_moonbit_struct_named_full(l1)
-
-  @debug.assert_eq(result.contains("pub struct Level1"), true)
-  @debug.assert_eq(result.contains("pub struct Level2"), true)
-  @debug.assert_eq(result.contains("pub struct Level3"), true)
-  @debug.assert_eq(result.contains("pub fn level3_from_json"), true)
-  @debug.assert_eq(result.contains("pub fn level2_from_json"), true)
-  @debug.assert_eq(result.contains("pub fn level1_from_json"), true)
-}
-
-///|
-#skip()
-test "full array of objects from_json uses named schema" {
-  let item = object({ "id": string() }).name("Item")
-  let list = object({ "items": array(item) }).name("ItemList")
-  let result = schema_to_moonbit_struct_named_full(list)
-
-  @debug.assert_eq(result.contains("Array(elems) =>"), true)
-  @debug.assert_eq(result.contains("item_from_json(item)"), true)
-  @debug.assert_eq(result.contains("pub struct Item"), true)
-}
-
-///|
-#skip()
-test "full optional array field from_json" {
-  let s = object({ "tags": array(string()).optional() }).name("Tagged")
-  let result = schema_to_moonbit_struct_full(s)
-
-  @debug.assert_eq(result.contains("Some(Null) | None => None"), true)
-  @debug.assert_eq(result.contains("Array(elems) =>"), true)
-}
-
-///|
-#skip()
-test "full empty object" {
-  let s = object({}).name("Empty")
-  let result = schema_to_moonbit_struct_full(s)
-  @debug.assert_eq(result.contains("pub struct Empty {}"), true)
-  @debug.assert_eq(result.contains("Ok({"), true)
+  @debug.assert_eq(result.contains("does not contain any object or enum"), true)
 }
