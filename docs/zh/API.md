@@ -79,10 +79,8 @@
 | `to_json_schema_skeleton(Schema)` | **Phase 15**：导出轻量级 JSON Schema 骨架（仅结构） |
 | `to_json_schema_named(Schema, include_names?)` | **Phase 26, 34**：将命名 schema 导出为 `$defs` 和 `$ref` |
 | `json_schema_to_moon_zod(Json)` | **Phase 27, 36**：从 JSON Schema 反向生成 moon_zod 代码 |
-| `schema_to_moonbit_struct(Schema)` | **Phase 28**：生成 MoonBit 结构体定义 |
-| `schema_to_moonbit_struct_full(Schema)` | **Phase 29**：生成结构体 + `from_json()` 函数 |
-| `schema_to_moonbit_struct_named(Schema, include_names?)` | **Phase 31**：从命名 schema 生成结构体 |
-| `schema_to_moonbit_struct_named_full(Schema, include_names?)` | **Phase 31**：从命名 schema 生成结构体 + `from_json()` |
+| `schema_to_moonbit_struct(Schema)` | 为每个对象/枚举 schema 生成 MoonBit struct/enum 定义 |
+| `schema_to_moonbit_struct_full(Schema)` | 生成定义并附加静态 `Type::to_schema()` 函数 |
 | `schema_to_moon_zod_code(Schema)` | 生成 moon_zod schema 源代码 |
 | `schema_to_moon_zod_code_named(Schema, include_names?)` | 生成具有 `$defs` 和 `$ref` 的 moon_zod 代码 |
 | `json_schema_to_schema(Json)` | 将 JSON Schema 反向解析为 moon_zod Schema |

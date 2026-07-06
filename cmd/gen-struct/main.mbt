@@ -44,7 +44,7 @@ fn main {
   let schema = @moon_zod.json_schema_to_schema(schema_json)
 
   println("── Generated MoonBit struct definitions ──")
-  println(@moon_zod.schema_to_moonbit_struct(schema))
+  println(@moon_zod.schema_to_moonbit_struct_full(schema))
   println("")
   println("── End ──")
 }

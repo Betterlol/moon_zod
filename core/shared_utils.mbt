@@ -341,9 +341,8 @@ pub fn value_in_array(value : String, arr : Array[String]) -> Bool {
 /// Check if a name is a reserved keyword in MoonBit.
 pub fn is_keyword(name : String) -> Bool {
   let keywords = [
-    "if", "else", "while", "for", "return", "break", "continue",
-    "let", "const", "true", "false", "null", "undefined", 
-    "fn", "struct", "type"
+    "if", "else", "while", "for", "return", "break", "continue", "let", "const",
+    "true", "false", "null", "undefined", "fn", "struct", "type",
   ]
   value_in_array(name, keywords)
 }

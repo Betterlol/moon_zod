@@ -201,9 +201,9 @@ fn schema_type_to_code(
     }
     PreprocessType(_, _) => abort("preprocess code export is not implemented")
     LiteralType(val) => "@moon_zod.literal(" + json_to_literal(val) + ")"
-    TransformType(inner, _) => 
+    TransformType(inner, _) =>
       schema_to_moon_zod_code_inline(inner, Some(defined_names)) +
-      ".transform(fn(x) { Ok(x) })"  // TODO: Handle transform function code export
+      ".transform(fn(x) { Ok(x) })" // TODO: Handle transform function code export
   }
 }
 

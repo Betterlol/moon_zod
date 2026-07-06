@@ -66,37 +66,26 @@ Output:
 
 ### MoonBit Struct Generator (CLI)
 
-Generate MoonBit struct definitions from any JSON sample — struct definitions + `from_json()` functions for type-safe conversion.
+Generate MoonBit struct definitions from any JSON Schema — struct definitions + static `Type::to_schema()` functions.
 
 ```bash
-moon run cmd/gen-struct -- '{"name":"Alice","age":30}'
+moon run cmd/gen-struct -- --schema '{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}},"required":["name","age"]}'
 ```
 
 Output:
 
 ```moonbit
-pub struct InferredSchema {
+pub struct Root {
   name : String
-  age : Int64
-}
+  age : Int64  // int
+} derive(ToJson, FromJson)
 
-pub fn inferred_schema_from_json(json : Json) -> Result[InferredSchema, Array[ValidationError]] {
-  match json {
-    Object(map) => {
-      let name = match map.get("name") {
-        Some(String(s)) => s
-        Some(got) => return Err([ValidationError::{ path: "name", message: "expected string", got }])
-        None => return Err([ValidationError::{ path: "name", message: "required", got: Null }])
-      }
-      let age = match map.get("age") {
-        Some(Number(v, ..)) => v.to_int()
-        Some(got) => return Err([ValidationError::{ path: "age", message: "expected integer", got }])
-        None => return Err([ValidationError::{ path: "age", message: "required", got: Null }])
-      }
-      Ok({ name:, age: })
-    }
-    _ => Err([ValidationError::{ path: "", message: "expected object", got: json }])
-  }
+pub fn Root::to_schema() -> @moon_zod.Schema {
+  let root = @moon_zod.object({
+    "name": @moon_zod.string(),
+    "age": @moon_zod.number().int(),
+  }).name("Root")
+  root
 }
 ```
 

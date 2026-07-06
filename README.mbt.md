@@ -89,8 +89,7 @@ moon_zod/
 │   ├── prompt_renderer.mbt   # Trait-based prompt rendering
 │   ├── json_schema.mbt       # to_json_schema() / to_json_schema_named()
 │   ├── json_schema_renderer.mbt # Trait-based JSON Schema rendering
-│   ├── moonbit_struct.mbt    # schema_to_moonbit_struct() + from_json() generation
-│   ├── moonbit_renderer.mbt  # Trait-based MoonBit struct rendering
+│   ├── moonbit_struct.mbt    # schema_to_moonbit_struct() + static to_schema() generation
 │   ├── schema_exporter.mbt   # Shared exporter utilities
 │   └── reexporter.mbt        # Module re-exports
 │
@@ -122,7 +121,7 @@ moon_zod/
 │   ├── main/                 # Benchmark runner (performance baselines)
 │   ├── wasm/                 # WebAssembly cross-language benchmark
 │   ├── json2schema/          # JSON → moon_zod schema code generator + JSON Schema reverse importer
-│   ├── gen-struct/           # JSON → MoonBit struct + from_json() generator
+│   ├── gen-struct/           # JSON Schema → MoonBit struct generator
 │   └── validate/             # JSON schema validator (infer-then-validate)
 │
 └── examples/                 # LLM agent demonstrations
@@ -155,7 +154,7 @@ moon run cmd/main                                      # Run performance benchma
 moon run cmd/json2schema -- '{"hello":"world"}'      # JSON → moon_zod schema code
 moon run cmd/json2schema -- --from-json-schema '<{...}>'  # JSON Schema → moon_zod code
 moon run cmd/json2schema -- --from-json-schema '<{...}>' --verbose  # with debug output
-moon run cmd/gen-struct -- '{"name":"Alice"}'        # JSON → MoonBit struct + from_json()
+moon run cmd/gen-struct -- --schema '<{...}>'          # JSON Schema → MoonBit structs
 moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # Validate JSON
 
 # Examples
@@ -198,15 +197,13 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
   - `json_schema_to_moon_zod(json_schema)` — generate moon_zod source code from standard JSON Schema
   - Full support for `$defs`, `$ref`, constraints, format validation, enum
 - **MoonBit struct generation**:
-  - `schema_to_moonbit_struct(schema)` — generate MoonBit struct definitions
-  - `schema_to_moonbit_struct_full(schema)` — generate struct + `from_json()` functions
-  - `schema_to_moonbit_struct_named(schema)` / `schema_to_moonbit_struct_named_full(schema)` — handle nested named schemas
+  - `schema_to_moonbit_struct(schema)` — recursively generate MoonBit struct/enum definitions for every object/enum schema
+  - `schema_to_moonbit_struct_full(schema)` — generate definitions plus static `Type::to_schema()` functions
 - **Zero external dependencies**: Only core MoonBit library (`@json`, `@debug`, etc.)
 - **WebAssembly-ready**: Mutable path stack for zero heap allocation on success path
 - **Performance**: ~18.5k-56k validations/second depending on schema complexity
 
 ---
-
 
 ## API Reference
 
@@ -289,10 +286,8 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
 | `to_json_schema_skeleton(Schema)` | **Phase 15**: Export lightweight JSON Schema skeleton (structure only) |
 | `to_json_schema_named(Schema, include_names?)` | **Phase 26, 34**: Export named schemas as `$defs` with `$ref` |
 | `json_schema_to_moon_zod(Json)` | **Phase 27, 36**: Reverse-generate moon_zod code from JSON Schema |
-| `schema_to_moonbit_struct(Schema)` | **Phase 28**: Generate MoonBit struct definition |
-| `schema_to_moonbit_struct_full(Schema)` | **Phase 29**: Generate struct + `from_json()` function |
-| `schema_to_moonbit_struct_named(Schema, include_names?)` | **Phase 31**: Generate structs from named schemas |
-| `schema_to_moonbit_struct_named_full(Schema, include_names?)` | **Phase 31**: Generate structs + `from_json()` from named schemas |
+| `schema_to_moonbit_struct(Schema)` | Generate MoonBit struct/enum definitions for every object/enum schema |
+| `schema_to_moonbit_struct_full(Schema)` | Generate definitions plus static `Type::to_schema()` functions |
 | `schema_to_moon_zod_code(Schema)` | Generate moon_zod schema source code |
 | `schema_to_moon_zod_code_named(Schema, include_names?)` | Generate moon_zod code with `$defs` and `$ref` |
 | `json_schema_to_schema(Json)` | Reverse-parse JSON Schema into a moon_zod Schema |
@@ -393,37 +388,28 @@ Output:
 
 ### MoonBit Struct Generator (CLI)
 
-Generate MoonBit struct definitions from any JSON sample — struct definitions + `from_json()` functions for type-safe conversion.
+Generate MoonBit struct definitions from any JSON Schema — struct definitions + static `Type::to_schema()` functions.
 
 ```bash
-moon run cmd/gen-struct -- '{"name":"Alice","age":30}'
+moon run cmd/gen-struct -- --schema '{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}},"required":["name","age"]}'
 ```
 
 Output:
 
 ```moonbit nocheck
-pub struct InferredSchema {
+///|
+pub struct Root {
   name : String
-  age : Int64
-}
+  age : Int64 // int
+} derive(ToJson, FromJson)
 
-pub fn inferred_schema_from_json(json : Json) -> Result[InferredSchema, Array[ValidationError]] {
-  match json {
-    Object(map) => {
-      let name = match map.get("name") {
-        Some(String(s)) => s
-        Some(got) => return Err([ValidationError::{ path: "name", message: "expected string", got }])
-        None => return Err([ValidationError::{ path: "name", message: "required", got: Null }])
-      }
-      let age = match map.get("age") {
-        Some(Number(v, ..)) => v.to_int()
-        Some(got) => return Err([ValidationError::{ path: "age", message: "expected integer", got }])
-        None => return Err([ValidationError::{ path: "age", message: "required", got: Null }])
-      }
-      Ok({ name:, age: })
-    }
-    _ => Err([ValidationError::{ path: "", message: "expected object", got: json }])
-  }
+///|
+pub fn Root::to_schema() -> @moon_zod.Schema {
+  let root = @moon_zod.object({
+    "name": @moon_zod.string(),
+    "age": @moon_zod.number().int(),
+  }).name("Root")
+  root
 }
 ```
 

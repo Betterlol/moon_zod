@@ -79,10 +79,8 @@
 | `to_json_schema_skeleton(Schema)` | **Phase 15**: Export lightweight JSON Schema skeleton (structure only) |
 | `to_json_schema_named(Schema, include_names?)` | **Phase 26, 34**: Export named schemas as `$defs` with `$ref` |
 | `json_schema_to_moon_zod(Json)` | **Phase 27, 36**: Reverse-generate moon_zod code from JSON Schema |
-| `schema_to_moonbit_struct(Schema)` | **Phase 28**: Generate MoonBit struct definition |
-| `schema_to_moonbit_struct_full(Schema)` | **Phase 29**: Generate struct + `from_json()` function |
-| `schema_to_moonbit_struct_named(Schema, include_names?)` | **Phase 31**: Generate structs from named schemas |
-| `schema_to_moonbit_struct_named_full(Schema, include_names?)` | **Phase 31**: Generate structs + `from_json()` from named schemas |
+| `schema_to_moonbit_struct(Schema)` | Generate MoonBit struct/enum definitions for every object/enum schema |
+| `schema_to_moonbit_struct_full(Schema)` | Generate definitions plus static `Type::to_schema()` functions |
 | `schema_to_moon_zod_code(Schema)` | Generate moon_zod schema source code |
 | `schema_to_moon_zod_code_named(Schema, include_names?)` | Generate moon_zod code with `$defs` and `$ref` |
 | `json_schema_to_schema(Json)` | Reverse-parse JSON Schema into a moon_zod Schema |

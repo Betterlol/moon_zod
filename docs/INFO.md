@@ -79,8 +79,7 @@ moon_zod/
 │   ├── prompt_renderer.mbt   # Trait-based prompt rendering
 │   ├── json_schema.mbt       # to_json_schema() / to_json_schema_named()
 │   ├── json_schema_renderer.mbt # Trait-based JSON Schema rendering
-│   ├── moonbit_struct.mbt    # schema_to_moonbit_struct() + from_json() generation
-│   ├── moonbit_renderer.mbt  # Trait-based MoonBit struct rendering
+│   ├── moonbit_struct.mbt    # schema_to_moonbit_struct() + static to_schema() generation
 │   ├── schema_exporter.mbt   # Shared exporter utilities
 │   └── reexporter.mbt        # Module re-exports
 │
@@ -112,7 +111,7 @@ moon_zod/
 │   ├── main/                 # Benchmark runner (performance baselines)
 │   ├── wasm/                 # WebAssembly cross-language benchmark
 │   ├── json2schema/          # JSON → moon_zod schema code generator + JSON Schema reverse importer
-│   ├── gen-struct/           # JSON → MoonBit struct + from_json() generator
+│   ├── gen-struct/           # JSON Schema → MoonBit struct generator
 │   └── validate/             # JSON schema validator (infer-then-validate)
 │
 └── examples/                 # LLM agent demonstrations
@@ -145,7 +144,7 @@ moon run cmd/main                                      # Run performance benchma
 moon run cmd/json2schema -- '{"hello":"world"}'      # JSON → moon_zod schema code
 moon run cmd/json2schema -- --from-json-schema '<{...}>'  # JSON Schema → moon_zod code
 moon run cmd/json2schema -- --from-json-schema '<{...}>' --verbose  # with debug output
-moon run cmd/gen-struct -- '{"name":"Alice"}'        # JSON → MoonBit struct + from_json()
+moon run cmd/gen-struct -- --schema '<{...}>'          # JSON Schema → MoonBit structs
 moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # Validate JSON
 
 # Examples
@@ -188,12 +187,10 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
   - `json_schema_to_moon_zod(json_schema)` — generate moon_zod source code from standard JSON Schema
   - Full support for `$defs`, `$ref`, constraints, format validation, enum
 - **MoonBit struct generation**:
-  - `schema_to_moonbit_struct(schema)` — generate MoonBit struct definitions
-  - `schema_to_moonbit_struct_full(schema)` — generate struct + `from_json()` functions
-  - `schema_to_moonbit_struct_named(schema)` / `schema_to_moonbit_struct_named_full(schema)` — handle nested named schemas
+  - `schema_to_moonbit_struct(schema)` — recursively generate MoonBit struct/enum definitions for every object/enum schema
+  - `schema_to_moonbit_struct_full(schema)` — generate definitions plus static `Type::to_schema()` functions
 - **Zero external dependencies**: Only core MoonBit library (`@json`, `@debug`, etc.)
 - **WebAssembly-ready**: Mutable path stack for zero heap allocation on success path
 - **Performance**: ~18.5k-56k validations/second depending on schema complexity
 
 ---
-
