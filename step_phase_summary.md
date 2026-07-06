@@ -353,16 +353,23 @@ if schema.name.is_empty() {
 
 ---
 
+## Phase 40 moonbit_struct 代码生成重构 和 gen-struct cli examples 的丰富实现
+```bash
+git diff --stat 6f637ff70f00aab555b4e106cf158415b9dd00ce 914d1cda317755e55ecbe17ab2a3428225228fb8 
+```
+
+**产出**: 448/448 测试全部通过（0 failed）；`moon check`, targeted `moon fmt`, `moon info`, `moon test` 通过。
+
 ## 项目当前状态
 
 | 指标 | 数值 |
 |---|---|
-| 测试数量 | **444** (▲+18) |
+| 测试数量 | **448** |
 | 外部依赖 | 0（仅 `moonbitlang/core`） |
 | 编译器警告 | 0 |
 | 子包数量 | 5（`core`, `exporters`, `importers`, `combinators`, `tests`） |
 | CLI 工具 | 4 个（`cmd/main` 基准, `cmd/gen-stuct` 代码生成, `cmd/json2schema` 代码生成, `cmd/validate` 校验） |
-| 展示示例 | 9 个 |
+| 展示示例 | 8 个 |
 
 ---
 
