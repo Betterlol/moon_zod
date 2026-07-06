@@ -152,7 +152,7 @@ fn render_struct_def(type_name : String, schema : @core.Schema) -> String {
         )
         let opt_mark = if is_optional_field(field_schema) { "?" } else { "" }
         let comment = @core.constraint_comment(field_schema)
-        let line = "  " + field_name + opt_mark + " : " + field_type
+        let line = "  " + field_name + " : " + field_type + opt_mark
         if comment.is_empty() {
           result = result + line + "\n"
         } else {
@@ -233,7 +233,7 @@ fn field_to_moonbit_type(schema : @core.Schema, type_hint : String) -> String {
     ObjectType(_, _) => schema_type_name(schema, type_hint)
     ArrayType(elem) =>
       "Array[" + field_to_moonbit_type(elem, type_hint + "Item") + "]"
-    TupleType(_) => "Json /* TODO: tuple type */"
+    TupleType(_) => "Json // TODO: tuple type"
     EnumType(_) => schema_type_name(schema, type_hint)
     UnionType(schemas) => union_to_moonbit_type(schemas, type_hint)
     IntersectionType(schemas) =>
@@ -257,7 +257,7 @@ fn union_to_moonbit_type(
       return field_to_moonbit_type(left, type_hint)
     }
   }
-  "Json /* TODO: union type */"
+  "Json // TODO: union type"
 }
 
 ///|
@@ -268,7 +268,7 @@ fn intersection_to_moonbit_type(
   if schemas.length() == 1 {
     return field_to_moonbit_type(schemas[0], type_hint)
   }
-  "Json /* TODO: intersection type */"
+  "Json // TODO: intersection type"
 }
 
 ///|

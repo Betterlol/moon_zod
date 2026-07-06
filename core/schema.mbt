@@ -290,16 +290,6 @@ pub fn sub_index(path : String, i : Int) -> String {
 }
 
 ///|
-pub fn value_in_array(s : String, arr : Array[String]) -> Bool {
-  for v in arr {
-    if v == s {
-      return true
-    }
-  }
-  false
-}
-
-///|
 pub fn is_optional_schema(s : Schema) -> Bool {
   match s.schema_type {
     OptionalType(_) | DefaultType(_, _) => true

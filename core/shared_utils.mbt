@@ -327,6 +327,28 @@ pub fn filter_named_schemas(
 }
 
 ///|
+/// Check if a value is in an array of strings.
+pub fn value_in_array(value : String, arr : Array[String]) -> Bool {
+  for v in arr {
+    if v == value {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Check if a name is a reserved keyword in MoonBit.
+pub fn is_keyword(name : String) -> Bool {
+  let keywords = [
+    "if", "else", "while", "for", "return", "break", "continue",
+    "let", "const", "true", "false", "null", "undefined", 
+    "fn", "struct", "type"
+  ]
+  value_in_array(name, keywords)
+}
+
+///|
 /// Escape a string for use in MoonBit code, handling backslashes, quotes, newlines, and tabs.
 pub fn escape_mbt_string(s : String) -> String {
   let mut result = ""
@@ -372,13 +394,18 @@ pub fn escape_ident(name : String) -> String {
 /// escape a string to be a valid MoonBit variable name (lowercase first letter, valid identifier).
 pub fn escape_variable_name(name : String) -> String {
   let escaped = escape_ident(name)
+  let mut result = ""
   if escaped.is_empty() {
-    "var".to_string()
+    result = "var".to_string()
   } else if escaped[0] >= 'A' && escaped[0] <= 'Z' {
-    escaped[0:1].to_owned().to_lower() + escaped[1:].to_owned()
+    result = escaped[0:1].to_owned().to_lower() + escaped[1:].to_owned()
   } else {
-    escaped
+    result = escaped
   }
+  if is_keyword(result) {
+    result = "_" + result
+  }
+  result
 }
 
 ///|
