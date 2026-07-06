@@ -115,6 +115,7 @@ moon_zod/
 │   └── validate/             # JSON schema validator (infer-then-validate)
 │
 └── examples/                 # LLM agent demonstrations
+    ├── gen-struct/           # JSON Schema → MoonBit struct generator demo
     ├── json2schema/          # JSON → moon_zod schema code generation
     ├── mock/                 # Mock agent demonstrations
     │   ├── llm_agent/        # Basic LLM tool calling example

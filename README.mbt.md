@@ -125,6 +125,7 @@ moon_zod/
 │   └── validate/             # JSON schema validator (infer-then-validate)
 │
 └── examples/                 # LLM agent demonstrations
+    ├── gen-struct/           # JSON Schema → MoonBit struct generator demo
     ├── json2schema/          # JSON → moon_zod schema code generation
     ├── mock/                 # Mock agent demonstrations
     │   ├── llm_agent/        # Basic LLM tool calling example
@@ -330,7 +331,7 @@ moon run cmd/json2schema -- '{"hello": "world"}'
 
 Output (copy-paste ready moon_zod code):
 
-```moonbit nocheck
+```moonbit
 @moon_zod.object({
   "hello": @moon_zod.string(),
 })
@@ -368,7 +369,7 @@ moon run cmd/json2schema -- --from-json-schema --schema-file schema.json
 
 Output:
 
-```moonbit nocheck
+```moonbit
 @moon_zod.object({
   "name": @moon_zod.string().min(2),
   "age": @moon_zod.number().int().min(0).max(150),
@@ -396,14 +397,12 @@ moon run cmd/gen-struct -- --schema '{"type":"object","properties":{"name":{"typ
 
 Output:
 
-```moonbit nocheck
-///|
+```moonbit
 pub struct Root {
   name : String
-  age : Int64 // int
+  age : Int64  // int
 } derive(ToJson, FromJson)
 
-///|
 pub fn Root::to_schema() -> @moon_zod.Schema {
   let root = @moon_zod.object({
     "name": @moon_zod.string(),
@@ -614,30 +613,11 @@ Then **LLM sees only the definitions it needs**, reducing token count and improv
 **Example usage:**
 ```mbt nocheck
 // Define named schemas
-///|
-let user_schema = @moon_zod.object(
-  {
-    ...
-  },
-).name("User")
-
-///|
-let order_schema = @moon_zod.object(
-  {
-    ...
-  },
-).name("Order")
-
-///|
-let product_schema = @moon_zod.object(
-  {
-    ...
-  },
-).name("Product")
+let user_schema = @moon_zod.object({ ... }).name("User")
+let order_schema = @moon_zod.object({ ... }).name("Order")
+let product_schema = @moon_zod.object({ ... }).name("Product")
 
 // Auto-extract + generate modular prompt
-
-///|
 let prompt = @moon_zod.schema_to_prompt_named(user_schema)
 // Output:
 // export interface User { ... }

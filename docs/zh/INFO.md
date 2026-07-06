@@ -115,6 +115,7 @@ moon_zod/
 │   └── validate/             # JSON Schema 校验器（推断后校验）
 │
 └── examples/                 # LLM 智能体演示
+    ├── gen-struct/           # JSON Schema → MoonBit 结构生成演示
     ├── json2schema/          # JSON → moon_zod Schema 代码生成
     ├── mock/                 # 模拟智能体演示
     │   ├── llm_agent/        # 基础 LLM 工具调用示例

@@ -125,6 +125,7 @@ moon_zod/
 │   └── validate/             # JSON Schema 校验器（推断后校验）
 │
 └── examples/                 # LLM 智能体演示
+    ├── gen-struct/           # JSON Schema → MoonBit 结构生成演示
     ├── json2schema/          # JSON → moon_zod Schema 代码生成
     ├── mock/                 # 模拟智能体演示
     │   ├── llm_agent/        # 基础 LLM 工具调用示例
@@ -325,7 +326,7 @@ moon run cmd/json2schema -- '{"hello": "world"}'
 
 输出（可直接复制粘贴的moon_zod代码）：
 
-```moonbit nocheck
+```moonbit
 @moon_zod.object({
   "hello": @moon_zod.string(),
 })
@@ -363,7 +364,7 @@ moon run cmd/json2schema -- --from-json-schema --schema-file schema.json
 
 输出：
 
-```moonbit nocheck
+```moonbit
 @moon_zod.object({
   "name": @moon_zod.string().min(2),
   "age": @moon_zod.number().int().min(0).max(150),
@@ -391,14 +392,12 @@ moon run cmd/gen-struct -- --schema '{"type":"object","properties":{"name":{"typ
 
 输出：
 
-```moonbit nocheck
-///|
+```moonbit
 pub struct Root {
   name : String
-  age : Int64 // int
+  age : Int64  // int
 } derive(ToJson, FromJson)
 
-///|
 pub fn Root::to_schema() -> @moon_zod.Schema {
   let root = @moon_zod.object({
     "name": @moon_zod.string(),
@@ -606,30 +605,11 @@ Product → 使用类型名称 `Product`
 **使用示例：**
 ```mbt nocheck
 // 定义命名 Schema
-///|
-let user_schema = @moon_zod.object(
-  {
-    ...
-  },
-).name("User")
-
-///|
-let order_schema = @moon_zod.object(
-  {
-    ...
-  },
-).name("Order")
-
-///|
-let product_schema = @moon_zod.object(
-  {
-    ...
-  },
-).name("Product")
+let user_schema = @moon_zod.object({ ... }).name("User")
+let order_schema = @moon_zod.object({ ... }).name("Order")
+let product_schema = @moon_zod.object({ ... }).name("Product")
 
 // 自动提取 + 生成模块化提示词
-
-///|
 let prompt = @moon_zod.schema_to_prompt_named(user_schema)
 // 输出：
 // export interface User { ... }
