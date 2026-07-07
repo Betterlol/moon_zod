@@ -358,6 +358,32 @@ if schema.name.is_empty() {
 git diff --stat 6f637ff70f00aab555b4e106cf158415b9dd00ce 914d1cda317755e55ecbe17ab2a3428225228fb8 
 ```
 
+### MoonBit Struct Generator Rewrite
+- Complete rewrite of `schema_to_moonbit_struct()` — now emits static `Type::to_schema()` functions alongside struct/enum definitions, enabling schema-from-struct round-trips
+- Dropped `from_json()` generation (`schema_to_moonbit_struct_full` no longer includes `FromJson` derive functions — use MoonBit's built-in `derive(FromJson)` instead)
+- New `schema_to_moonbit_struct_full()` generates both type definitions and `Type::to_schema()` static methods
+- Added keyword and reserved-name escaping for field names and type names (MoonBit `is_keyword()`, `escape_variable_name()`, `escape_type_name()`)
+- Unified root name fallback with `"Root"` for unnamed schemas
+- Constraint comments preserved on generated struct fields
+- ~1500 line net reduction through elimination of `from_json()` code generation
+
+### Gen-Struct CLI
+- New `cmd/gen-struct/cli.sh` for file-based input: `sh cmd/gen-struct/cli.sh --schema schema.json`
+- Inline mode: `moon run cmd/gen-struct -- --schema '<json>'`
+- Outputs standalone struct definitions + optional `Type::to_schema()` functions
+- Supports nested objects, arrays, optional fields, enums, union nullables
+
+### Documentation & Examples
+- New `examples/gen-struct/README.md` with generated struct output examples
+- Major docs restructure: `README.mbt.md`/`README_zh.mbt.md` migrated to reference `docs/` directory
+- `docs/API.md`, `docs/CLI.md`, `docs/INFO.md` (Chinese versions in `docs/zh/`) consolidated as single source of truth
+- `EXAMPLES.md` rewritten to catalog all actual examples with output snippets
+
+### Fixes
+- `value_in_array` moved from `prompt.mbt` to `shared_utils.mbt` for cross-module reuse
+- Fixed `json_to_literal()` boolean/null output to use valid MoonBit constructors
+- Fixed `moon run cmd/validate` JSON Lines — shell `\n` is now correctly interpreted as real newline
+
 **产出**: 448/448 测试全部通过（0 failed）；`moon check`, targeted `moon fmt`, `moon info`, `moon test` 通过。
 
 ## 项目当前状态
