@@ -35,7 +35,7 @@ jobs:
           output=$(moon build 2>&1); echo "$output"
           warn_count=$(echo "$output" | grep -c 'warning' || true)
           echo "::notice title=Build Warnings::$warn_count warning(s)"
-          [ "$warn_count" -eq 0 ] || echo "::warning title=Build Warnings::Found $warn_count warning(s)"
+          [ "$warn_count" -eq 0 ] || { echo "::error title=Build Warnings::Found $warn_count warning(s)"; exit 1; }
 
       - name: Build Wasm
         run: moon build --target wasm --release
