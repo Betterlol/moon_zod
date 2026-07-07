@@ -2,217 +2,7 @@
 /// Convert a moon_zod @core.Schema into a TypeScript-interface-style prompt @core.string
 /// suitable for LLM system prompts or correction feedback.
 ///
-/// Uses StringRenderer trait with BasicPromptRenderer / NamedPromptRenderer.
-
-///|
-/// Basic prompt renderer: renders all types inline (no name references).
-pub struct BasicPromptRenderer {}
-
-///|
-pub fn BasicPromptRenderer::BasicPromptRenderer() -> BasicPromptRenderer {
-  BasicPromptRenderer::{  }
-}
-
-///|
-#warnings("-unused_value")
-pub impl StringRenderer for BasicPromptRenderer with fn render_string(
-  self : BasicPromptRenderer,
-  _schema : @core.Schema,
-  _indent : Int,
-) -> String {
-  "string"
-}
-
-///|
-#warnings("-unused_value")
-pub impl StringRenderer for BasicPromptRenderer with fn render_number(
-  self : BasicPromptRenderer,
-  _schema : @core.Schema,
-  _indent : Int,
-) -> String {
-  "number"
-}
-
-///|
-#warnings("-unused_value")
-pub impl StringRenderer for BasicPromptRenderer with fn render_boolean(
-  self : BasicPromptRenderer,
-  _schema : @core.Schema,
-  _indent : Int,
-) -> String {
-  "boolean"
-}
-
-///|
-#warnings("-unused_value")
-pub impl StringRenderer for BasicPromptRenderer with fn render_null(
-  self : BasicPromptRenderer,
-  _schema : @core.Schema,
-  _indent : Int,
-) -> String {
-  "null"
-}
-
-///|
-#warnings("-unused_value")
-pub impl StringRenderer for BasicPromptRenderer with fn render_optional(
-  self : BasicPromptRenderer,
-  inner : @core.Schema,
-  schema : @core.Schema,
-  indent : Int,
-) -> String {
-  render_type(self, inner, indent) + " | null"
-}
-
-///|
-#warnings("-unused_value")
-pub impl StringRenderer for BasicPromptRenderer with fn render_default(
-  self : BasicPromptRenderer,
-  inner : @core.Schema,
-  _default_val : Json,
-  schema : @core.Schema,
-  indent : Int,
-) -> String {
-  render_type(self, inner, indent) + " | null"
-}
-
-///|
-#warnings("-unused_value")
-pub impl StringRenderer for BasicPromptRenderer with fn render_transform(
-  self : BasicPromptRenderer,
-  inner : @core.Schema,
-  _closure : @core.TransformClosure,
-  schema : @core.Schema,
-  indent : Int,
-) -> String {
-  render_type(self, inner, indent)
-}
-
-///|
-#warnings("-unused_value")
-pub impl StringRenderer for BasicPromptRenderer with fn render_enum(
-  self : BasicPromptRenderer,
-  values : Array[String],
-  schema : @core.Schema,
-  _indent : Int,
-) -> String {
-  let mut result = ""
-  let mut first = true
-  for v in values {
-    if first {
-      result = "\"" + v + "\""
-    } else {
-      result = result + " | \"" + v + "\""
-    }
-    first = false
-  }
-  result
-}
-
-///|
-#warnings("-unused_value")
-pub impl StringRenderer for BasicPromptRenderer with fn render_array(
-  self : BasicPromptRenderer,
-  elem : @core.Schema,
-  schema : @core.Schema,
-  indent : Int,
-) -> String {
-  render_type(self, elem, indent) + "[]"
-}
-
-///|
-#warnings("-unused_value")
-pub impl StringRenderer for BasicPromptRenderer with fn render_union(
-  self : BasicPromptRenderer,
-  schemas : Array[@core.Schema],
-  schema : @core.Schema,
-  indent : Int,
-) -> String {
-  let mut result = ""
-  let mut first = true
-  for s in schemas {
-    if first {
-      result = render_type(self, s, indent)
-    } else {
-      result = result + " | " + render_type(self, s, indent)
-    }
-    first = false
-  }
-  result
-}
-
-///|
-#warnings("-unused_value")
-pub impl StringRenderer for BasicPromptRenderer with fn render_intersection(
-  self : BasicPromptRenderer,
-  schemas : Array[@core.Schema],
-  schema : @core.Schema,
-  indent : Int,
-) -> String {
-  let mut result = ""
-  let mut first = true
-  for s in schemas {
-    if first {
-      result = render_type(self, s, indent)
-    } else {
-      result = result + " & " + render_type(self, s, indent)
-    }
-    first = false
-  }
-  result
-}
-
-///|
-#warnings("-unused_value")
-pub impl StringRenderer for BasicPromptRenderer with fn render_object(
-  self : BasicPromptRenderer,
-  spec : Map[String, @core.Schema],
-  _mode : @core.ObjectMode,
-  schema : @core.Schema,
-  indent : Int,
-) -> String {
-  if spec.length() == 0 {
-    return "{}"
-  }
-  let mut result = "{\n"
-  let inner_indent = indent + 1
-  for key, val_schema in spec {
-    let key_is_optional = @core.is_optional_schema(val_schema)
-    let inner = if key_is_optional {
-      @core.peel_optional(val_schema)
-    } else {
-      val_schema
-    }
-
-    let field_type = render_type(self, inner, inner_indent)
-    let comment = schema_comment(val_schema)
-    let opt_mark = if key_is_optional { "?" } else { "" }
-    let line = @core.indent_str(inner_indent) +
-      key +
-      opt_mark +
-      ": " +
-      field_type
-
-    if comment.is_empty() {
-      result = result + line + ",\n"
-    } else {
-      result = result + line + ",  // " + comment + "\n"
-    }
-  }
-  result = result + @core.indent_str(indent) + "}"
-  result
-}
-
-///|
-#warnings("-unused_value")
-pub impl StringRenderer for BasicPromptRenderer with fn render_literal(
-  self : BasicPromptRenderer,
-  value : Json,
-  schema : @core.Schema,
-  _indent : Int,
-) -> String {
-  json_to_ts_literal(value)
-}
+/// Uses StringRenderer trait with NamedPromptRenderer.
 
 ///|
 /// Named prompt renderer: uses name references for named schemas.
@@ -463,7 +253,15 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_literal(
 ///|
 /// Public API: convert a schema to a TypeScript-interface-style prompt @core.string.
 pub fn schema_to_prompt(schema : @core.Schema) -> String {
-  let renderer = BasicPromptRenderer()
+  schema_to_prompt_inline(schema, [])
+}
+
+///|
+fn schema_to_prompt_inline(
+  schema : @core.Schema,
+  named_schemas : Array[@core.Schema],
+) -> String {
+  let renderer = NamedPromptRenderer(named_schemas~)
   let tp = render_type(renderer, schema, 0)
   let comment = schema_comment(schema)
   if comment.is_empty() {

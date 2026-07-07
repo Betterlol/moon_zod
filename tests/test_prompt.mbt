@@ -160,6 +160,13 @@ test "schema_to_prompt simple object" {
 }
 
 ///|
+test "schema_to_prompt keeps named schemas inline" {
+  let s = object({ "name": string().min(2).name("Username") }).name("User")
+  let expected = "{\n" + "  name: string,  // [min: 2]\n" + "}"
+  @debug.assert_eq(schema_to_prompt(s), expected)
+}
+
+///|
 test "schema_to_prompt object with optional fields" {
   let s = object({
     "name": string(),
