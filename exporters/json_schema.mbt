@@ -165,6 +165,13 @@ fn[R : JsonSchemaRenderer] render_intersection_schema(
   named_names : Array[String],
   include_annotations : Bool,
 ) -> Json {
+  if can_merge_object_intersection(schemas) {
+    return maybe_merge_annotations(
+      render_merged_object_intersection_schema(renderer, schemas, named_names),
+      schema.rules,
+      include_annotations,
+    )
+  }
   maybe_merge_annotations(
     Json::object({
       "allOf": Json::array(
@@ -174,6 +181,124 @@ fn[R : JsonSchemaRenderer] render_intersection_schema(
     schema.rules,
     include_annotations,
   )
+}
+
+///|
+fn can_merge_object_intersection(schemas : Array[@core.Schema]) -> Bool {
+  for schema in schemas {
+    match schema.schema_type {
+      ObjectType(_, _) => ()
+      IntersectionType(nested) =>
+        if !can_merge_object_intersection(nested) {
+          return false
+        }
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn[R : JsonSchemaRenderer] render_merged_object_intersection_schema(
+  renderer : R,
+  schemas : Array[@core.Schema],
+  named_names : Array[String],
+) -> Json {
+  let props : Map[String, Json] = {}
+  let required_arr : Array[String] = []
+  collect_object_intersection_parts(
+    renderer, schemas, named_names, props, required_arr,
+  )
+  Json::object({
+    "type": Json::string("object"),
+    "properties": Json::object(props),
+    "additionalProperties": Json::boolean(
+      object_intersection_allows_additional_properties(schemas),
+    ),
+    "required": Json::array(required_arr.map(fn(k) { Json::string(k) })),
+  })
+}
+
+///|
+fn[R : JsonSchemaRenderer] collect_object_intersection_parts(
+  renderer : R,
+  schemas : Array[@core.Schema],
+  named_names : Array[String],
+  props : Map[String, Json],
+  required_arr : Array[String],
+) -> Unit {
+  for schema in schemas {
+    match schema.schema_type {
+      ObjectType(spec, _) =>
+        for key, val in spec {
+          let rendered = render_json_child(renderer, val, named_names)
+          match props.get(key) {
+            Some(existing) =>
+              props.set(key, combine_property_schema(existing, rendered))
+            None => props.set(key, rendered)
+          }
+          if !@core.is_optional_schema(val) &&
+            !@core.value_in_array(key, required_arr) {
+            required_arr.push(key)
+          }
+        }
+      IntersectionType(nested) =>
+        collect_object_intersection_parts(
+          renderer, nested, named_names, props, required_arr,
+        )
+      _ => ()
+    }
+  }
+}
+
+///|
+fn combine_property_schema(left : Json, right : Json) -> Json {
+  if left == right {
+    left
+  } else {
+    Json::object({ "allOf": Json::array([left, right]) })
+  }
+}
+
+///|
+fn object_intersection_allows_additional_properties(
+  schemas : Array[@core.Schema],
+) -> Bool {
+  if object_intersection_has_strict(schemas) {
+    false
+  } else {
+    object_intersection_has_passthrough(schemas)
+  }
+}
+
+///|
+fn object_intersection_has_strict(schemas : Array[@core.Schema]) -> Bool {
+  for schema in schemas {
+    match schema.schema_type {
+      ObjectType(_, Strict) => return true
+      IntersectionType(nested) =>
+        if object_intersection_has_strict(nested) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn object_intersection_has_passthrough(schemas : Array[@core.Schema]) -> Bool {
+  for schema in schemas {
+    match schema.schema_type {
+      ObjectType(_, Passthrough) => return true
+      IntersectionType(nested) =>
+        if object_intersection_has_passthrough(nested) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
 }
 
 // ── NamedJsonRenderer: shared JSON Schema renderer ──

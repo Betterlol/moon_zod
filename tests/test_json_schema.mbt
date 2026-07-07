@@ -263,6 +263,43 @@ test "to_json_schema skeleton intersection" {
 }
 
 ///|
+test "to_json_schema object intersection merges closed object fields" {
+  let result = to_json_schema(
+    intersection([
+      object({ "id": number().int().positive() }),
+      object({ "created_at": string().datetime() }),
+    ]),
+  )
+  let expected = parse_json(
+    "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"integer\",\"exclusiveMinimum\":0},\"created_at\":{\"type\":\"string\",\"format\":\"date-time\"}},\"additionalProperties\":false,\"required\":[\"id\",\"created_at\"]}",
+  )
+  @debug.assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema object intersection preserves overlapping field constraints" {
+  let result = to_json_schema(
+    intersection([
+      object({ "id": number().int().positive() }),
+      object({ "id": number().int().max(100) }),
+    ]),
+  )
+  match result {
+    Object(m) =>
+      match m.get("properties") {
+        Some(Object(props)) =>
+          match props.get("id") {
+            Some(Object(id_schema)) =>
+              @debug.assert_eq(id_schema.get("allOf") is Some(Array(_)), true)
+            _ => fail("missing id schema")
+          }
+        _ => fail("missing properties")
+      }
+    _ => fail("expected object schema")
+  }
+}
+
+///|
 test "to_json_schema skeleton object strict and literal" {
   let object_result = to_json_schema_skeleton(
     object({ "flag": boolean(), "name": string().optional() }).strict(),
