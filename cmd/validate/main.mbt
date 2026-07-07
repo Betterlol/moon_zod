@@ -85,19 +85,25 @@ fn main {
 }
 
 ///|
-fn validate(schema : @moon_zod.Schema, data_raw : String) -> Bool {
-  let is_jsonl = data_raw.contains("\n")
+/// CLI 传入的 \n 是字面量反斜杠+n，替换为真正换行符以便分割。
+fn normalize_sep(data : String) -> String {
+  data.replace(old="\\n", new="\n")
+}
 
-  if is_jsonl {
-    validate_jsonl(schema, data_raw)
+///|
+fn validate(schema : @moon_zod.Schema, data_raw : String) -> Bool {
+  let data = normalize_sep(data_raw)
+
+  if data.contains("\n") {
+    validate_lines(schema, data)
   } else {
-    validate_single(schema, data_raw)
+    validate_one(schema, data)
   }
 }
 
 ///|
-fn validate_single(schema : @moon_zod.Schema, data_raw : String) -> Bool {
-  let data_json = @json.parse(data_raw) catch {
+fn validate_one(schema : @moon_zod.Schema, data : String) -> Bool {
+  let data_json = @json.parse(data) catch {
     _ => {
       println("ERROR: invalid data JSON")
       return false
@@ -120,8 +126,8 @@ fn validate_single(schema : @moon_zod.Schema, data_raw : String) -> Bool {
 }
 
 ///|
-fn validate_jsonl(schema : @moon_zod.Schema, data_raw : String) -> Bool {
-  let lines = data_raw.split("\n")
+fn validate_lines(schema : @moon_zod.Schema, data : String) -> Bool {
+  let lines = data.split("\n")
   let mut pass_count = 0
   let mut fail_count = 0
   let mut line_num = 0
@@ -130,26 +136,25 @@ fn validate_jsonl(schema : @moon_zod.Schema, data_raw : String) -> Bool {
     line_num = line_num + 1
     let trimmed = line.trim()
     if trimmed.is_empty() {
-      // Skip empty lines
-    } else {
-      let data_json = @json.parse(trimmed) catch {
-        _ => {
-          println("FAIL: line \{line_num} - invalid JSON")
-          fail_count = fail_count + 1
-          continue
-        }
+      continue
+    }
+    let data_json = @json.parse(trimmed) catch {
+      _ => {
+        println("FAIL: line \{line_num} — invalid JSON")
+        fail_count = fail_count + 1
+        continue
       }
-      match schema.parse(data_json) {
-        Ok(_) => pass_count = pass_count + 1
-        Err(errors) => {
-          println("FAIL: line \{line_num}")
-          for e in errors {
-            println(
-              "  [\{e.path}] \{e.message} (got: \{@debug.to_string(e.got)})",
-            )
-          }
-          fail_count = fail_count + 1
+    }
+    match schema.parse(data_json) {
+      Ok(_) => pass_count = pass_count + 1
+      Err(errors) => {
+        println("FAIL: line \{line_num}")
+        for e in errors {
+          println(
+            "  [\{e.path}] \{e.message} (got: \{@debug.to_string(e.got)})",
+          )
         }
+        fail_count = fail_count + 1
       }
     }
   }
