@@ -10,13 +10,12 @@ A runtime JSON schema validation library for MoonBit, inspired by [Zod](https://
 
 @include "INFO.md"
 
-@include "API.md"
-
-@include "CLI.md"
-
-@include "BENCHMARK.md"
-
-@include "EXAMPLES.md"
+| Document | Description |
+|---|---|
+| [API Reference](./docs/en/API.md) | Detailed API documentation |
+| [CLI Reference](./docs/en/CLI.md) | Command-line usage |
+| [Benchmark](./docs/en/BENCHMARK.md) | Performance comparison with other validation libraries |
+| [Examples](./docs/en/EXAMPLES.md) | Practical usage examples |
 
 ## Learn More
 
