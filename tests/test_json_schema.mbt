@@ -11,7 +11,7 @@ test "to_json_schema object with optional field" {
   let s = object({ "name": string(), "email": string().optional() })
   let result = to_json_schema(s)
   let expected = parse_json(
-    "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"email\":{\"type\":\"string\"}},\"additionalProperties\":true,\"required\":[\"name\"]}",
+    "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"email\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}]}},\"additionalProperties\":false,\"required\":[\"name\"]}",
   )
   @debug.assert_eq(result, expected)
 }
@@ -19,6 +19,26 @@ test "to_json_schema object with optional field" {
 ///|
 test "to_json_schema strict object" {
   let s = object({ "x": number() }).strict()
+  let result = to_json_schema(s)
+  let expected = parse_json(
+    "{\"type\":\"object\",\"properties\":{\"x\":{\"type\":\"number\"}},\"additionalProperties\":false,\"required\":[\"x\"]}",
+  )
+  @debug.assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema passthrough object allows additional properties" {
+  let s = object({ "x": number() }).passthrough()
+  let result = to_json_schema(s)
+  let expected = parse_json(
+    "{\"type\":\"object\",\"properties\":{\"x\":{\"type\":\"number\"}},\"additionalProperties\":true,\"required\":[\"x\"]}",
+  )
+  @debug.assert_eq(result, expected)
+}
+
+///|
+test "to_json_schema strip object rejects additional properties" {
+  let s = object({ "x": number() })
   let result = to_json_schema(s)
   let expected = parse_json(
     "{\"type\":\"object\",\"properties\":{\"x\":{\"type\":\"number\"}},\"additionalProperties\":false,\"required\":[\"x\"]}",
@@ -86,7 +106,7 @@ test "to_json_schema nested object with constraints" {
   })
   let result = to_json_schema(s)
   let expected = parse_json(
-    "{\"type\":\"object\",\"properties\":{\"name\":{\"minLength\":2,\"maxLength\":50,\"type\":\"string\"},\"age\":{\"minimum\":0,\"maximum\":150,\"type\":\"integer\"},\"email\":{\"type\":\"string\",\"format\":\"email\"}},\"additionalProperties\":true,\"required\":[\"name\",\"age\"]}",
+    "{\"type\":\"object\",\"properties\":{\"name\":{\"minLength\":2,\"maxLength\":50,\"type\":\"string\"},\"age\":{\"minimum\":0,\"maximum\":150,\"type\":\"integer\"},\"email\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"email\"},{\"type\":\"null\"}]}},\"additionalProperties\":false,\"required\":[\"name\",\"age\"]}",
   )
   @debug.assert_eq(result, expected)
 }
@@ -95,9 +115,9 @@ test "to_json_schema nested object with constraints" {
 test "to_json_schema constraints penetrate optional" {
   let s = string().min(3).optional()
   let result = to_json_schema(s)
-  // optional() should be transparent — constraints on the inner type
-  // are exported as normal string constraints
-  let expected = parse_json("{\"minLength\":3,\"type\":\"string\"}")
+  let expected = parse_json(
+    "{\"anyOf\":[{\"minLength\":3,\"type\":\"string\"},{\"type\":\"null\"}]}",
+  )
   @debug.assert_eq(result, expected)
 }
 
@@ -161,7 +181,9 @@ test "to_json_schema union type" {
 ///|
 test "to_json_schema default type" {
   let result = to_json_schema(string().default(Json::string("x")))
-  let expected = parse_json("{\"type\":\"string\",\"default\":\"x\"}")
+  let expected = parse_json(
+    "{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"default\":\"x\"}",
+  )
   @debug.assert_eq(result, expected)
 }
 
@@ -207,14 +229,18 @@ test "to_json_schema skeleton union" {
 ///|
 test "to_json_schema skeleton optional" {
   let result = to_json_schema_skeleton(string().optional())
-  let expected = parse_json("{\"type\": \"string\"}")
+  let expected = parse_json(
+    "{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}]}",
+  )
   @debug.assert_eq(result, expected)
 }
 
 ///|
 test "to_json_schema skeleton default" {
   let result = to_json_schema_skeleton(string().default(Json::string("x")))
-  let expected = parse_json("{\"type\":\"string\",\"default\":\"x\"}")
+  let expected = parse_json(
+    "{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"default\":\"x\"}",
+  )
   @debug.assert_eq(result, expected)
 }
 
@@ -242,12 +268,29 @@ test "to_json_schema skeleton object strict and literal" {
     object({ "flag": boolean(), "name": string().optional() }).strict(),
   )
   let object_expected = parse_json(
-    "{\"type\":\"object\",\"properties\":{\"flag\":{\"type\":\"boolean\"},\"name\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"flag\"]}",
+    "{\"type\":\"object\",\"properties\":{\"flag\":{\"type\":\"boolean\"},\"name\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}]}},\"additionalProperties\":false,\"required\":[\"flag\"]}",
   )
   @debug.assert_eq(object_result, object_expected)
 
   let literal_result = to_json_schema_skeleton(literal(Json::boolean(false)))
   @debug.assert_eq(literal_result, parse_json("{\"const\": false}"))
+}
+
+///|
+test "to_json_schema broad and preprocessing schema types" {
+  @debug.assert_eq(to_json_schema(any()), parse_json("{}"))
+  @debug.assert_eq(to_json_schema(unknown()), parse_json("{}"))
+  @debug.assert_eq(
+    to_json_schema(tuple([string(), number()])),
+    parse_json(
+      "{\"type\":\"array\",\"prefixItems\":[{\"type\":\"string\"},{\"type\":\"number\"}],\"minItems\":2,\"maxItems\":2}",
+    ),
+  )
+  let s = preprocess(fn(j) { Ok(j) }, string().min(2))
+  @debug.assert_eq(
+    to_json_schema(s),
+    parse_json("{\"type\":\"string\",\"minLength\":2}"),
+  )
 }
 
 ///|
@@ -271,10 +314,7 @@ test "to_json_schema named wrappers and literal definitions" {
           guard defs.get("Status") is Some(Object(status_def)) else {
             fail("missing Status")
           }
-          @debug.assert_eq(
-            status_def.get("$ref"),
-            Some(Json::string("#/$defs/Status")),
-          )
+          @debug.assert_eq(status_def.get("anyOf") is Some(Array(_)), true)
           @debug.assert_eq(
             status_def.get("default"),
             Some(Json::string("active")),
@@ -291,8 +331,8 @@ test "to_json_schema named wrappers and literal definitions" {
             fail("missing Transformed")
           }
           @debug.assert_eq(
-            transformed_def.get("$ref"),
-            Some(Json::string("#/$defs/Transformed")),
+            transformed_def.get("type"),
+            Some(Json::string("string")),
           )
         }
         _ => fail("missing defs")
@@ -441,11 +481,37 @@ test "to_json_schema_named: optional named field" {
       match m.get("$defs") {
         Some(Object(defs)) =>
           match defs.get("User") {
-            Some(Object(user_def)) =>
+            Some(Object(user_def)) => {
               match user_def.get("required") {
                 Some(Array(required)) => @debug.assert_eq(required.length(), 1) // only "name"
                 _ => @debug.assert_eq(true, false)
               }
+              match user_def.get("properties") {
+                Some(Object(props)) =>
+                  match props.get("contact") {
+                    Some(Object(contact_ref)) =>
+                      @debug.assert_eq(
+                        contact_ref.get("$ref"),
+                        Some(Json::string("#/$defs/Contact")),
+                      )
+                    _ => @debug.assert_eq(true, false)
+                  }
+                _ => @debug.assert_eq(true, false)
+              }
+            }
+            _ => @debug.assert_eq(true, false)
+          }
+        _ => @debug.assert_eq(true, false)
+      }
+    _ => @debug.assert_eq(true, false)
+  }
+  match result {
+    Object(m) =>
+      match m.get("$defs") {
+        Some(Object(defs)) =>
+          match defs.get("Contact") {
+            Some(Object(contact_def)) =>
+              @debug.assert_eq(contact_def.get("anyOf") is Some(Array(_)), true)
             _ => @debug.assert_eq(true, false)
           }
         _ => @debug.assert_eq(true, false)
