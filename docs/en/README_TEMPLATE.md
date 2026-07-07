@@ -21,8 +21,6 @@ A runtime JSON schema validation library for MoonBit, inspired by [Zod](https://
 
 @include "INFO.md"
 
----
-
 ## Learn More
 
 - [DESIGN.md](./DESIGN.md) for architecture, design decisions, and future directions.

@@ -155,7 +155,7 @@ moon run examples/real_llm_agent -- product prompt   # Real LLM with mock fallba
 moon run examples/real_llm_agent -- product validate # Validate with real API
 moon run examples/multiple_schemas                   # Multiple schema handling
 moon run examples/schema2json -- product schema      # Schema → JSON Schema export
-moon run examples/schema2prompt                      # Schema → prompt generation showcase
+moon run examples/schema2prompt -- product schema    # Schema → prompt generation showcase
 moon run examples/json2schema                        # JSON → moon_zod schema code gen
 ```
 

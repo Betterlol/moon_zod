@@ -155,7 +155,7 @@ moon run examples/real_llm_agent -- product prompt   # 真实 LLM 带模拟回�
 moon run examples/real_llm_agent -- product validate # 用真实 API 校验
 moon run examples/multiple_schemas                   # 多个 Schema 处理
 moon run examples/schema2json -- product schema      # Schema → JSON Schema 导出
-moon run examples/schema2prompt                      # Schema → 提示生成展示
+moon run examples/schema2prompt -- product schema    # Schema → 提示生成展示
 moon run examples/json2schema                        # JSON → moon_zod Schema 代码生成
 ```
 

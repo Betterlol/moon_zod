@@ -21,8 +21,6 @@ MoonBit 运行时 JSON Schema 校验库，受 [Zod](https://zod.dev) 和 [Pydant
 
 @include "INFO.md"
 
----
-
 ## 了解更多
 
 - [架构设计文档](./DESIGN.md) — 核心架构、设计决策与未来方向
