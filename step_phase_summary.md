@@ -353,7 +353,8 @@ if schema.name.is_empty() {
 
 ---
 
-## Phase 40 moonbit_struct 代码生成重构 和 gen-struct cli examples 的丰富实现
+## Phase 40 moonbit_struct 代码生成重构 和 gen-struct cli examples 的丰富实现（v0.8.0）
+
 ```bash
 git diff --stat 6f637ff70f00aab555b4e106cf158415b9dd00ce 914d1cda317755e55ecbe17ab2a3428225228fb8 
 ```
@@ -386,16 +387,60 @@ git diff --stat 6f637ff70f00aab555b4e106cf158415b9dd00ce 914d1cda317755e55ecbe17
 
 **产出**: 448/448 测试全部通过（0 failed）；`moon check`, targeted `moon fmt`, `moon info`, `moon test` 通过。
 
-## 项目当前状态
+## Phase 41 — Prompt & JSON Schema Exporter 硬化（v0.8.1）
+
+**目标**: 消除 `schema_to_prompt()`/`to_json_schema()` 中对 `any/unknown/tuple/preprocess` 的直接 `abort`；修复可选字段语义（nullable）、object mode 的 `additionalProperties` 导出策略、object intersection 导致不可满足 schema 的问题；收敛重复 renderer 类型。
+
+**Committs**: `4f4f6a0e37e08bd66368fe1a092a98f124d0c4bc` -> `8a8045dfc4c458f7c07f95937e108c2f40042039`
+
+### CI/CD 增强和修复
+
+使用 `moon fmt --check`, `moon update`, `moon check` 等，并把 `warning` 作为 `error` 处理，确保 CI/CD 流程的稳定性。
+
+
+### A — Prompt 导出统一与语义修复
+
+| 文件 | 变更 |
+|------|------|
+| `exporters/prompt_renderer.mbt` | `AnyType → "any"`、`UnknownType → "unknown"`、`TupleType → [T...]`、`PreprocessType → inner` |
+| `exporters/prompt.mbt` | 删除 `BasicPromptRenderer`；`schema_to_prompt()` 复用 `NamedPromptRenderer([])`；named wrapper 现在生成 `export type X = T` 且字段引用保留 wrapper name；named intersection 不再合并 object 字段改为 `export type X = A & B` |
+| `tests/test_prompt.mbt` | 新增 non-abort 测试（any/unknown/tuple/preprocess）& named inline 测试 |
+| `tests/test_prompt_named.mbt` | 新增 wrapper alias 定义回归、ProductMetadata 引用回归、非 object intersection type expression 回归 |
+
+### B — JSON Schema 语义修复与 renderer 收敛
+
+| 文件 | 变更 |
+|------|------|
+| `exporters/json_schema_renderer.mbt` | `Any|Unknown → {}`、`TupleType → prefixItems + fixed length`、`PreprocessType → inner` |
+| `exporters/json_schema.mbt` | 删除 `FullJsonRenderer` + `SkeletonJsonRenderer`；`NamedJsonRenderer` 新增 `include_annotations` 参数统一三种模式；`optional/default` 导出 nullable `anyOf: [inner, null]`；`Strip` 导出 `additionalProperties: false`（之前 `true`）；`$defs` 渲染排除自引用；object intersection 合并为单个 closed object（属性级 `allOf` 保留同名字段约束）|
+| `tests/test_json_schema.mbt` | 新增 nullable、strip/passthrough、tuple/any/unknown/preprocess、object intersection 合并、同名约束等测试 |
+
+### C — schema_to_moon_zod_code 语义修复
+
+| 文件 | 变更 |
+|------|------|
+| `exporters/schema_exporter.mbt` | `AnyType → @moon_zod.any()`、`UnknownType → @moon_zod.unknown()`、`TupleType → @moon_zod.tuple([...])`、`PreprocessType → @moon_zod.preprocess(fn(x) { Ok(x) }, inner)` |
+
+**关键决策**:
+- Prompt renderer 统一：只保留 `NamedPromptRenderer`，`schema_to_prompt()` 用空 named set 调用 → 全内联。
+- JSON Schema renderer 收敛：删除 Full/Skeleton 两个公开结构，`NamedJsonRenderer` 用 `include_annotations` 开关约束输出。
+- object intersection 合并：输出单个 closed object 而非多个闭 object 的 `allOf`（避免不可满足），同名字段用属性级 `allOf` 保留约束。
+- `schema_to_moon_zod_code` 的 `required_error` / `invalid_type_error` 链式方法仍输出，但实际不暴露在 `Schema` API 中——已知 round-trip 不安全，标记为最佳代码输出。
+
+**产出**: 470/470 测试全部通过（0 failed）；`moon check`, `moon info && moon fmt` 通过。
+
+---
+
+## 项目当前状态（Phase 41）
 
 | 指标 | 数值 |
-|---|---|
-| 测试数量 | **448** |
-| 外部依赖 | 0（仅 `moonbitlang/core`） |
+|------|------|
+| 测试数量 | **470** |
+| 外部依赖 | `moonbitlang/regexp` |
 | 编译器警告 | 0 |
-| 子包数量 | 5（`core`, `exporters`, `importers`, `combinators`, `tests`） |
-| CLI 工具 | 4 个（`cmd/main` 基准, `cmd/gen-stuct` 代码生成, `cmd/json2schema` 代码生成, `cmd/validate` 校验） |
-| 展示示例 | 8 个 |
+| 子包数量 | 5（`core`, `exporters`, `importers`, `combinators`, `tests`）|
+| 公开导出类型 | `NamedPromptRenderer`（StringRenderer impl）、`NamedJsonRenderer`（JsonSchemaRenderer impl）— Full/Skeleton/Basic 已删除 |
+| CLI 工具 | 4 个（`cmd/main`, `cmd/gen-struct`, `cmd/json2schema`, `cmd/validate`）|
 
 ---
 
@@ -823,3 +868,8 @@ pub enum SchemaType {
 
 - 定期检查是否有 "代码坏味道" 出现（重复代码、过长函数、复杂条件分支等），及时重构保持代码质量；定期检查代码质量，保持核心库的简洁和可维护性，可拓展性。
 > 如果某个很简单且必要的功能需要引入复杂的实现或大量代码，可能是设计上的坏味道，需要重构以保持核心库的简洁和可维护性。详情见各 `step_phase_details/step_phase_*.md` 文件。
+
+---
+
+
+
