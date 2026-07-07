@@ -590,32 +590,47 @@ fn schema_to_interface_definition_with_names(
     return ""
   }
 
-  let renderer = NamedPromptRenderer(named_schemas~)
+  let ref_schemas = named_schemas.filter(fn(s) { s.name != schema.name })
+  let renderer = NamedPromptRenderer(named_schemas=ref_schemas)
 
   match schema.schema_type {
     ObjectType(spec, _) =>
       "export interface " +
       schema.name +
       " " +
-      render_object_prompt(renderer, spec, named_schemas, 0)
+      render_object_prompt(renderer, spec, ref_schemas, 0)
     EnumType(values) =>
       "type " + schema.name + " = " + enum_values_to_string(values)
     UnionType(schemas) => {
       let union_type = union_to_prompt_inline_str(
-        renderer, schemas, named_schemas, 0,
+        renderer, schemas, ref_schemas, 0,
       )
       "export type " + schema.name + " = " + union_type
     }
     IntersectionType(schemas) => {
-      let merged_spec = merge_intersection_object_specs(schemas)
-      "export interface " +
-      schema.name +
-      " " +
-      render_object_prompt(renderer, merged_spec, named_schemas, 0)
+      let intersection_type = intersection_to_prompt_inline_str(
+        renderer, schemas, ref_schemas, 0,
+      )
+      "export type " + schema.name + " = " + intersection_type
     }
     LiteralType(value) =>
       "export type " + schema.name + " = " + json_to_ts_literal(value)
-    _ => ""
+    _ => schema_to_type_alias_with_names(schema, renderer)
+  }
+}
+
+///|
+fn schema_to_type_alias_with_names(
+  schema : @core.Schema,
+  renderer : NamedPromptRenderer,
+) -> String {
+  let rendered = render_type(renderer, schema, 0)
+  let comment = schema_comment(schema)
+  let base = "export type " + schema.name + " = " + rendered
+  if comment.is_empty() {
+    base
+  } else {
+    base + "  // " + comment
   }
 }
 
@@ -634,14 +649,8 @@ fn render_object_prompt(
   let inner_indent = indent + 1
   for key, val_schema in spec {
     let key_is_optional = @core.is_optional_schema(val_schema)
-    let inner = if key_is_optional {
-      @core.peel_optional(val_schema)
-    } else {
-      val_schema
-    }
-
-    let field_type = render_type_named(
-      renderer, inner, inner_indent, named_schemas,
+    let field_type = field_type_with_names(
+      renderer, val_schema, inner_indent, named_schemas,
     )
     let comment = schema_comment(val_schema)
     let opt_mark = if key_is_optional { "?" } else { "" }
@@ -662,6 +671,27 @@ fn render_object_prompt(
 }
 
 ///|
+fn field_type_with_names(
+  renderer : NamedPromptRenderer,
+  schema : @core.Schema,
+  indent : Int,
+  named_schemas : Array[@core.Schema],
+) -> String {
+  if has_name_in(schema, named_schemas) {
+    schema.name
+  } else if @core.is_optional_schema(schema) {
+    render_type_named(
+      renderer,
+      @core.peel_optional(schema),
+      indent,
+      named_schemas,
+    )
+  } else {
+    render_type_named(renderer, schema, indent, named_schemas)
+  }
+}
+
+///|
 /// Helper: render @core.union with named references.
 fn union_to_prompt_inline_str(
   renderer : NamedPromptRenderer,
@@ -677,6 +707,29 @@ fn union_to_prompt_inline_str(
     } else {
       result = result +
         " | " +
+        render_type_named(renderer, s, indent, named_schemas)
+    }
+    first = false
+  }
+  result
+}
+
+///|
+/// Helper: render @core.intersection with named references.
+fn intersection_to_prompt_inline_str(
+  renderer : NamedPromptRenderer,
+  schemas : Array[@core.Schema],
+  named_schemas : Array[@core.Schema],
+  indent : Int,
+) -> String {
+  let mut result = ""
+  let mut first = true
+  for s in schemas {
+    if first {
+      result = render_type_named(renderer, s, indent, named_schemas)
+    } else {
+      result = result +
+        " & " +
         render_type_named(renderer, s, indent, named_schemas)
     }
     first = false
@@ -715,30 +768,4 @@ fn has_name_in(
     }
   }
   false
-}
-
-///|
-/// Merge @core.object specs from multiple schemas in an @core.intersection.
-fn merge_intersection_object_specs(
-  schemas : Array[@core.Schema],
-) -> Map[String, @core.Schema] {
-  let merged : Map[String, @core.Schema] = {}
-
-  for s in schemas {
-    match s.schema_type {
-      ObjectType(spec, _) =>
-        for key, val_schema in spec {
-          merged.set(key, val_schema)
-        }
-      IntersectionType(nested_schemas) => {
-        let nested_merged = merge_intersection_object_specs(nested_schemas)
-        for key, val_schema in nested_merged {
-          merged.set(key, val_schema)
-        }
-      }
-      _ => ()
-    }
-  }
-
-  merged
 }

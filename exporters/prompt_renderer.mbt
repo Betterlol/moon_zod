@@ -74,11 +74,11 @@ pub fn[R : StringRenderer] render_type(
     NumberType => renderer.render_number(schema, indent)
     BooleanType => renderer.render_boolean(schema, indent)
     NullType => renderer.render_null(schema, indent)
-    AnyType => abort("any prompt export is not implemented")
-    UnknownType => abort("unknown prompt export is not implemented")
+    AnyType => "any"
+    UnknownType => "unknown"
     ObjectType(spec, mode) => renderer.render_object(spec, mode, schema, indent)
     ArrayType(elem) => renderer.render_array(elem, schema, indent)
-    TupleType(_) => abort("tuple prompt export is not implemented")
+    TupleType(items) => render_tuple_type(renderer, items, indent)
     OptionalType(inner) => renderer.render_optional(inner, schema, indent)
     DefaultType(inner, default_val) =>
       renderer.render_default(inner, default_val, schema, indent)
@@ -86,11 +86,24 @@ pub fn[R : StringRenderer] render_type(
     UnionType(schemas) => renderer.render_union(schemas, schema, indent)
     IntersectionType(schemas) =>
       renderer.render_intersection(schemas, schema, indent)
-    PreprocessType(_, _) => abort("preprocess prompt export is not implemented")
+    PreprocessType(_, inner) => render_type(renderer, inner, indent)
     TransformType(inner, closure) =>
       renderer.render_transform(inner, closure, schema, indent)
     LiteralType(value) => renderer.render_literal(value, schema, indent)
   }
+}
+
+///|
+fn[R : StringRenderer] render_tuple_type(
+  renderer : R,
+  items : Array[@core.Schema],
+  indent : Int,
+) -> String {
+  let parts : Array[String] = []
+  for item in items {
+    parts.push(render_type(renderer, item, indent))
+  }
+  "[" + parts.join(", ") + "]"
 }
 
 ///|

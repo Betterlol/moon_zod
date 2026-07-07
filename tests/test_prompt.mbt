@@ -372,3 +372,15 @@ test "schema_to_prompt literal values" {
     "{\"ok\": true}",
   )
 }
+
+///|
+test "schema_to_prompt non aborting broad schema types" {
+  @debug.assert_eq(schema_to_prompt(any()), "any")
+  @debug.assert_eq(schema_to_prompt(unknown()), "unknown")
+  @debug.assert_eq(
+    schema_to_prompt(tuple([string(), number()])),
+    "[string, number]",
+  )
+  let s = preprocess(fn(j) { Ok(j) }, string().min(2))
+  @debug.assert_eq(schema_to_prompt(s), "string  // [min: 2]")
+}

@@ -132,7 +132,70 @@ test "schema_to_prompt_named uses named primitive references" {
 
   let prompt = schema_to_prompt_named(user_schema)
 
+  @debug.assert_eq(prompt.contains("export type Username = string"), true)
   @debug.assert_eq(prompt.contains("name: Username"), true)
+}
+
+///|
+test "schema_to_prompt_named emits named aliases for wrappers and containers" {
+  let tags_schema = array(string().min(2)).name("Tags")
+  let optional_schema = string().optional().name("MaybeText")
+  let default_schema = number().int().default(Json::number(1)).name("Count")
+  let transform_schema = string().transform(fn(j) { Ok(j) }).name("Transformed")
+  let tuple_schema = tuple([string(), number()]).name("Pair")
+  let any_schema = any().name("Anything")
+  let unknown_schema = unknown().name("Mystery")
+  let preprocessed_schema = preprocess(fn(j) { Ok(j) }, string()).name(
+    "Preprocessed",
+  )
+  let parent = object({
+    "tags": tags_schema,
+    "maybe": optional_schema,
+    "count": default_schema,
+    "transformed": transform_schema,
+    "pair": tuple_schema,
+    "anything": any_schema,
+    "mystery": unknown_schema,
+    "preprocessed": preprocessed_schema,
+  }).name("Parent")
+
+  let prompt = schema_to_prompt_named(parent)
+
+  @debug.assert_eq(prompt.contains("export type Tags = string[]"), true)
+  @debug.assert_eq(
+    prompt.contains("export type MaybeText = string | null"),
+    true,
+  )
+  @debug.assert_eq(prompt.contains("export type Count = number | null"), true)
+  @debug.assert_eq(prompt.contains("export type Transformed = string"), true)
+  @debug.assert_eq(prompt.contains("export type Pair = [string, number]"), true)
+  @debug.assert_eq(prompt.contains("export type Anything = any"), true)
+  @debug.assert_eq(prompt.contains("export type Mystery = unknown"), true)
+  @debug.assert_eq(prompt.contains("export type Preprocessed = string"), true)
+  @debug.assert_eq(prompt.contains("tags: Tags"), true)
+  @debug.assert_eq(prompt.contains("maybe?: MaybeText"), true)
+  @debug.assert_eq(prompt.contains("count?: Count"), true)
+  @debug.assert_eq(prompt.contains("pair: Pair"), true)
+}
+
+///|
+test "schema_to_prompt_named references named optional object wrappers" {
+  let metadata_schema = object({
+      "description": string().max(2000).optional(),
+      "images": array(string().url()).max(10),
+    })
+    .optional()
+    .name("ProductMetadata")
+  let product_schema = object({ "metadata": metadata_schema }).name("Product")
+
+  let prompt = schema_to_prompt_named(product_schema)
+
+  @debug.assert_eq(
+    prompt.contains("export type ProductMetadata = {") &&
+    prompt.contains("} | null"),
+    true,
+  )
+  @debug.assert_eq(prompt.contains("metadata?: ProductMetadata"), true)
 }
 
 ///|
@@ -162,19 +225,45 @@ test "schema_to_prompt_named: union type export" {
 ///|
 /// Test schema_to_prompt_named: intersection type export
 test "schema_to_prompt_named: intersection type export" {
-  let positive_schema = object({ "id": number().int().positive() })
-
-  let bounded_schema = object({ "id": number().int().max(100) })
-
+  let positive_schema = object({ "id": number().int().positive() }).name(
+    "PositiveId",
+  )
+  let bounded_schema = object({ "id": number().int().max(100) }).name(
+    "BoundedId",
+  )
   let order_id_schema = intersection([positive_schema, bounded_schema]).name(
     "OrderId",
   )
 
   let prompt = schema_to_prompt_named(order_id_schema)
 
-  // Verify intersection type is exported as interface
-  @debug.assert_eq(prompt.contains("export interface OrderId"), true)
-  @debug.assert_eq(prompt.contains("id: number"), true)
+  @debug.assert_eq(prompt.contains("export interface PositiveId"), true)
+  @debug.assert_eq(prompt.contains("id: number,  // [int, positive]"), true)
+  @debug.assert_eq(prompt.contains("export interface BoundedId"), true)
+  @debug.assert_eq(prompt.contains("id: number,  // [int, max: 100]"), true)
+  @debug.assert_eq(
+    prompt.contains("export type OrderId = PositiveId & BoundedId"),
+    true,
+  )
+  @debug.assert_eq(prompt.contains("export interface OrderId"), false)
+}
+
+///|
+test "schema_to_prompt_named: non-object intersection stays type expression" {
+  let text_schema = string().min(2).name("Text")
+  let branded_schema = string().brand("Brand")
+  let combined_schema = intersection([text_schema, branded_schema]).name(
+    "BrandedText",
+  )
+
+  let prompt = schema_to_prompt_named(combined_schema)
+
+  @debug.assert_eq(prompt.contains("export type Text = string"), true)
+  @debug.assert_eq(
+    prompt.contains("export type BrandedText = Text & string"),
+    true,
+  )
+  @debug.assert_eq(prompt.contains("export interface BrandedText"), false)
 }
 
 ///|
