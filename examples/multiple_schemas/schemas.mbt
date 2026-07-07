@@ -101,7 +101,6 @@ fn merged_user_schema() -> @moon_zod.Schema {
 
 ///|
 /// show how to use tuple to create a schema for a fixed-length array
-#warnings("-unused_value")
 fn tuple_schema() -> @moon_zod.Schema {
   @moon_zod.tuple([
     @moon_zod.string().min(1).describe("First element"),
@@ -122,7 +121,6 @@ fn any_schema() -> @moon_zod.Schema {
 
 ///|
 /// show how to use preprocess to create a schema that transforms input before validation, use transform to create a schema that transforms output after validation
-#warnings("-unused_value")
 fn preprocess_transform_schema() -> @moon_zod.Schema {
   let transform_schema = @moon_zod.string().transform(fn(json) {
     match json {
@@ -294,5 +292,7 @@ fn order_schema() -> @moon_zod.Schema {
     "coupon_code": @moon_zod.string()
     .optional()
     .describe("Optional coupon code"),
+    "preprocessed_field": preprocess_transform_schema().optional(),
+    "tuple_field": tuple_schema().optional(),
   }).name("Order")
 }

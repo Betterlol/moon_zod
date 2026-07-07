@@ -6,6 +6,7 @@
 moon run examples/multiple_schemas -- ts
 moon run examples/multiple_schemas -- json
 moon run examples/multiple_schemas -- moonbit
+moon run examples/multiple_schemas -- moon_zod
 ```
 
 > 具体来说：

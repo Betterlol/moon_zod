@@ -175,3 +175,31 @@ test "schema_to_moon_zod_code covers formats and literal values" {
   @debug.assert_eq(literal_code.contains("Json::array"), true)
   @debug.assert_eq(literal_code.contains("Json::object"), true)
 }
+
+///|
+test "schema_to_moon_zod_code best effort covers pass-through schemas" {
+  let code = schema_to_moon_zod_code(
+    object({ "anything": any(), "unknown_value": unknown() }),
+  )
+  @debug.assert_eq(code.contains("@moon_zod.any()"), true)
+  @debug.assert_eq(code.contains("@moon_zod.unknown()"), true)
+}
+
+///|
+test "schema_to_moon_zod_code best effort covers tuple" {
+  let code = schema_to_moon_zod_code(tuple([string(), number().int()]))
+  @debug.assert_eq(
+    code.contains(
+      "@moon_zod.tuple([@moon_zod.string(), @moon_zod.number().int()])",
+    ),
+    true,
+  )
+}
+
+///|
+test "schema_to_moon_zod_code best effort covers preprocess placeholder" {
+  let schema = preprocess(fn(x) { Ok(x) }, string().min(1))
+  let code = schema_to_moon_zod_code(schema)
+  @debug.assert_eq(code.contains("@moon_zod.preprocess(fn(x) { Ok(x) }"), true)
+  @debug.assert_eq(code.contains("@moon_zod.string().min(1)"), true)
+}

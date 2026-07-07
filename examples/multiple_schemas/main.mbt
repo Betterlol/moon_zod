@@ -13,6 +13,7 @@ fn main {
     "json" => show_json()
     "ts" => show_ts()
     "moonbit" => show_moonbit()
+    "moon_zod" => show_moon_zod()
     _ => {
       println("ERR")
       println("1")
@@ -63,6 +64,17 @@ fn show_moonbit() -> Unit {
   println("Moonbit Struct:\n\{moonbit_struct}\n")
   println("\n======================\n")
   println("Moonbit Struct Full:\n\{moonbit_struct_full}\n")
+  println("\n======================\n")
+}
+
+///|
+/// to show MoonZod code generation with and without schema functions
+fn show_moon_zod() -> Unit {
+  let moon_zod_code = show_moon_zod_code()
+  let moon_zod_code_named = show_moon_zod_code_named()
+  println("MoonZod Code:\n\{moon_zod_code}\n")
+  println("\n======================\n")
+  println("MoonZod Code Named:\n\{moon_zod_code_named}\n")
   println("\n======================\n")
 }
 
@@ -122,4 +134,16 @@ fn show_moonbit_struct() -> String {
 fn show_moonbit_struct_full() -> String {
   let order_schema = order_schema()
   @moon_zod.schema_to_moonbit_struct_full(order_schema)
+}
+
+///|
+fn show_moon_zod_code() -> String {
+  let order_schema = order_schema()
+  @moon_zod.schema_to_moon_zod_code(order_schema)
+}
+
+///|
+fn show_moon_zod_code_named() -> String {
+  let order_schema = order_schema()
+  @moon_zod.schema_to_moon_zod_code_named(order_schema)
 }

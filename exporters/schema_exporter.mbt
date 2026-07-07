@@ -1,11 +1,13 @@
 ///|
 /// **@core.Schema → moon_zod source code**
 ///
-/// Convert @core.Schema objects to moon_zod method chain source code.
+/// Best-effort conversion from @core.Schema objects to moon_zod method chain source code.
+/// Custom closures and opaque rules cannot be faithfully serialized; unsupported
+/// runtime-only semantics are emitted as explicit placeholders where possible.
 /// Supports inline expansion and named schema references.
 
 ///|
-/// Generate moon_zod source code from a @core.Schema @core.object (inline expansion).
+/// Generate best-effort moon_zod source code from a @core.Schema @core.object (inline expansion).
 ///
 /// # Example
 /// ```mbt nocheck
@@ -29,7 +31,7 @@ pub fn schema_to_moon_zod_code(schema : @core.Schema) -> String {
 }
 
 ///|
-/// Generate inline code with optional named schema reference substitution.
+/// Generate best-effort inline code with optional named schema reference substitution.
 ///
 /// If `include_names` is None, renders all schemas inline.
 /// If `include_names` is Some(names), replaces references to named schemas with variable names.
@@ -43,7 +45,7 @@ pub fn schema_to_moon_zod_code_inline_with_refs(
 }
 
 ///|
-/// Generate separate named schema definitions and return as newline-separated list.
+/// Generate best-effort separate named schema definitions and return as newline-separated list.
 ///
 /// # Example
 /// ```
@@ -142,8 +144,8 @@ fn schema_type_to_code(
     NumberType => "@moon_zod.number()"
     BooleanType => "@moon_zod.boolean()"
     NullType => "@moon_zod.null()"
-    AnyType => abort("any code export is not implemented")
-    UnknownType => abort("unknown code export is not implemented")
+    AnyType => "@moon_zod.any()"
+    UnknownType => "@moon_zod.unknown()"
     ObjectType(fields, mode) => {
       let base = if fields.length() == 0 {
         "@moon_zod.object({})"
@@ -170,7 +172,13 @@ fn schema_type_to_code(
       let elem_code = schema_to_moon_zod_code_inline(elem, Some(defined_names))
       "@moon_zod.array(" + elem_code + ")"
     }
-    TupleType(_) => abort("tuple code export is not implemented")
+    TupleType(items) => {
+      let parts : Array[String] = []
+      for item in items {
+        parts.push(schema_to_moon_zod_code_inline(item, Some(defined_names)))
+      }
+      "@moon_zod.tuple([" + join_with(parts, ", ") + "])"
+    }
     OptionalType(inner) =>
       schema_to_moon_zod_code_inline(inner, Some(defined_names)) + ".optional()"
     DefaultType(inner, default_val) =>
@@ -199,7 +207,13 @@ fn schema_type_to_code(
       }
       "@moon_zod.intersection([" + join_with(parts, ", ") + "])"
     }
-    PreprocessType(_, _) => abort("preprocess code export is not implemented")
+    PreprocessType(_, inner) => {
+      let inner_code = schema_to_moon_zod_code_inline(
+        inner,
+        Some(defined_names),
+      )
+      "@moon_zod.preprocess(fn(x) { Ok(x) }, " + inner_code + ")" // TODO: Handle preprocess function code export
+    }
     LiteralType(val) => "@moon_zod.literal(" + json_to_literal(val) + ")"
     TransformType(inner, _) =>
       schema_to_moon_zod_code_inline(inner, Some(defined_names)) +
