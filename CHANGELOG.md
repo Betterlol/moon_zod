@@ -1,5 +1,68 @@
 # Release History
 
+## v0.8.1 (2026-07-07)
+
+**Exporter Hardening — Prompt Unification, JSON Schema Fixes, Renderer Convergence (Phase 41)**
+
+### A — Prompt Exporter Unification
+- `schema_to_prompt()` no longer uses `BasicPromptRenderer`; unified behind `NamedPromptRenderer` with empty named set for full inlining
+- `any/unknown/tuple/preprocess` now render safely (`any`, `unknown`, `[T...]`, transparent pass-through) instead of aborting
+- Named wrapper schemas (primitive, array, optional, default, transform, tuple, any, unknown, preprocess) now emit `export type X = T` definitions
+- Named object intersection outputs `export type X = A & B` when non-object branches exist; field merging no longer drops constraints
+- Object field references now preserve wrapper names (e.g., `metadata?: ProductMetadata`)
+- Removed `BasicPromptRenderer` from public API
+
+### B — JSON Schema Exporter Fixes
+- `any/unknown/tuple/preprocess` now export (`{}`, `prefixItems` + fixed length, transparent pass-through) instead of aborting
+- `optional()` / `default()` now export nullable semantics: `anyOf: [inner, {"type": "null"}]`
+- `Strip` mode now exports `additionalProperties: false` (previously `true`) — aligns with runtime hallucination defense
+- Object intersection (`allOf` of multiple closed objects) merged into a single closed object to avoid unsatifiable schemas; overlapping fields use property-level `allOf` to retain constraints
+- Named `$defs` entries no longer self-reference via `$ref`
+- Renderer types consolidated: removed `FullJsonRenderer` and `SkeletonJsonRenderer`; single `NamedJsonRenderer` with `include_annotations` flag covers all three modes
+- Schema skeleton export now properly omits constraint annotations
+
+### C — Code Exporter Fixes
+- `schema_to_moon_zod_code()` now handles `any()`, `unknown()`, `tuple()`, `preprocess()` with valid code output
+- Fixed `json_to_literal` for boolean/null values (no longer uses non-existent `Json::boolean()` / `Json::null()` constructors)
+
+**470 tests** (all passing, 0 warnings)
+
+---
+
+## v0.8.0 (2026-07-06)
+
+**MoonBit Struct Generator Rewrite + Gen-Struct CLI + Docs Migration (Phase 40)**
+
+### MoonBit Struct Generator Rewrite
+- Complete rewrite of `schema_to_moonbit_struct()` — now emits static `Type::to_schema()` functions alongside struct/enum definitions, enabling schema-from-struct round-trips
+- Dropped `from_json()` generation (`schema_to_moonbit_struct_full` no longer includes `FromJson` derive functions — use MoonBit's built-in `derive(FromJson)` instead)
+- New `schema_to_moonbit_struct_full()` generates both type definitions and `Type::to_schema()` static methods
+- Added keyword and reserved-name escaping for field names and type names (MoonBit `is_keyword()`, `escape_variable_name()`, `escape_type_name()`)
+- Unified root name fallback with `"Root"` for unnamed schemas
+- Constraint comments preserved on generated struct fields
+- ~1500 line net reduction through elimination of `from_json()` code generation
+
+### Gen-Struct CLI
+- New `cmd/gen-struct/cli.sh` for file-based input: `sh cmd/gen-struct/cli.sh --schema schema.json`
+- Inline mode: `moon run cmd/gen-struct -- --schema '<json>'`
+- Outputs standalone struct definitions + optional `Type::to_schema()` functions
+- Supports nested objects, arrays, optional fields, enums, union nullables
+
+### Documentation & Examples
+- New `examples/gen-struct/README.md` with generated struct output examples
+- Major docs restructure: `README.mbt.md`/`README_zh.mbt.md` migrated to reference `docs/` directory
+- `docs/API.md`, `docs/CLI.md`, `docs/INFO.md` (Chinese versions in `docs/zh/`) consolidated as single source of truth
+- `EXAMPLES.md` rewritten to catalog all actual examples with output snippets
+
+### Fixes
+- `value_in_array` moved from `prompt.mbt` to `shared_utils.mbt` for cross-module reuse
+- Fixed `json_to_literal()` boolean/null output to use valid MoonBit constructors
+- Fixed `moon run cmd/validate` JSON Lines — shell `\n` is now correctly interpreted as real newline
+
+**448 tests** (all passing, 0 warnings)
+
+---
+
 ## v0.7.5 (2026-07-02)
 
 **Code Review + Unified Export Design + CLI Polish (Phase 36)**
