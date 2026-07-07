@@ -16,8 +16,8 @@ jobs:
       - name: Setup MoonBit
         uses: hustcer/setup-moonbit@v1
 
-      - name: Install Dependencies
-        run: moon install
+      - name: Update Registry Index
+        run: moon update
 
       - name: Check
         run: moon check
