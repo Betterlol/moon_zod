@@ -59,7 +59,7 @@
 | `.pick(keys)` | object | **Phase 21**：仅选择指定的字段 |
 | `.omit(keys)` | object | **Phase 21**：删除指定的字段 |
 | `.partial()` | object | **Phase 21**：使所有字段可选 |
-| `.extend(Map[String, Schema])` | object | **Phase 38**：从 Map 中添加或覆盖字段 |
+| `.extend_with(Map[String, Schema])` | object | **Phase 38**：从 Map 中添加或覆盖字段 |
 | `.merge(Schema)` | object | **Phase 38**：与另一个对象 schema 合并（右侧覆盖） |
 | `.describe(text)` | any | **Phase 17**：为 LLM 提示附加描述 |
 | `.name(text)` | any | **Phase 25**：为 schema 导出指定名称 |

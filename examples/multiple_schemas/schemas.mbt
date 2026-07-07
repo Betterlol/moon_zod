@@ -79,7 +79,7 @@ fn user_schema() -> @moon_zod.Schema {
 #warnings("-unused_value")
 fn extended_user_schema() -> @moon_zod.Schema {
   let user = user_schema()
-  let extended_user = user.extend({
+  let extended_user = user.extend_with({
     "email": email_schema(),
     "profile": optional_profile_schema(),
   })
@@ -91,7 +91,7 @@ fn extended_user_schema() -> @moon_zod.Schema {
 #warnings("-unused_value")
 fn merged_user_schema() -> @moon_zod.Schema {
   let user = user_schema()
-  let extended_user = user.extend({
+  let extended_user = user.extend_with({
     "email": email_schema(),
     "profile": optional_profile_schema(),
   })

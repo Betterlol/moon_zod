@@ -169,7 +169,7 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
 - **String validators** (23+): `.min(n)`, `.max(n)`, `.nonempty()`, `.trim()`, `.to_lower()`, `.to_upper()`, `.email()` (full RFC validation), `.url()` (full structure), `.regex(pattern)` (substring match), `.startsWith()`, `.endsWith()`, `.includes()`, `.uuid()`, `.cuid()`, `.ulid()`, `.datetime()`, `.ip()`/`.ipv4()`/`.ipv6()`, `.length(n)`
 - **Number validators** (8+): `.int()`, `.positive()`, `.negative()`, `.multipleOf()`, `.finite()`, `.safe()`, `.min()`, `.max()`
 - **Object modes**: `.strip()` (default, removes unknown fields), `.passthrough()` (keeps unknown fields), `.strict()` (rejects unknown fields)
-- **Object composition**: `.pick(keys)`, `.omit(keys)`, `.partial()`, `.extend(Map)`, `.merge(Schema)`
+- **Object composition**: `.pick(keys)`, `.omit(keys)`, `.partial()`, `.extend_with(Map)`, `.merge(Schema)`
 - **Optional/Default handling**: `.optional()` and `.default(value)` with correct rule chaining through wrappers
 - **Data transformation**: `.transform(fn)` validates then transforms; `preprocess(fn, schema)` transforms then validates
 - **Custom rules**: `.refine(check, message)`, `.intersect(other)` for explicit intersection

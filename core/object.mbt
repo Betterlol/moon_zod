@@ -155,7 +155,10 @@ pub fn Schema::partial(self : Schema) -> Schema {
 ///|
 /// Extend an object schema with additional fields.
 /// Fields in `extension` override fields with the same name in the base schema.
-pub fn Schema::extend(self : Schema, extension : Map[String, Schema]) -> Schema {
+pub fn Schema::extend_with(
+  self : Schema,
+  extension : Map[String, Schema],
+) -> Schema {
   match self.schema_type {
     ObjectType(spec, mode) => {
       let new_spec : Map[String, Schema] = {}
@@ -181,7 +184,7 @@ pub fn Schema::extend(self : Schema, extension : Map[String, Schema]) -> Schema 
         brand: self.brand,
       }
     }
-    _ => abort("extend() is only valid for object schemas")
+    _ => abort("extend_with() is only valid for object schemas")
   }
 }
 

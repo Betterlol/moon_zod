@@ -59,7 +59,7 @@
 | `.pick(keys)` | object | **Phase 21**: Select only specified fields |
 | `.omit(keys)` | object | **Phase 21**: Remove specified fields |
 | `.partial()` | object | **Phase 21**: Make all fields optional |
-| `.extend(Map[String, Schema])` | object | **Phase 38**: Add or override fields from a Map |
+| `.extend_with(Map[String, Schema])` | object | **Phase 38**: Add or override fields from a Map |
 | `.merge(Schema)` | object | **Phase 38**: Merge with another object schema (right side overrides) |
 | `.describe(text)` | any | **Phase 17**: Attach description for LLM prompts |
 | `.name(text)` | any | **Phase 25**: Assign a name for schema exports |

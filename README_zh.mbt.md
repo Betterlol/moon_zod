@@ -179,7 +179,7 @@ moon run examples/json2schema                        # JSON → moon_zod Schema 
 - **字符串校验器**（23+ 个）：`.min(n)`、`.max(n)`、`.nonempty()`、`.trim()`、`.to_lower()`、`.to_upper()`、`.email()`（完整 RFC 校验）、`.url()`（完整结构）、`.regex(pattern)`（子字符串匹配）、`.startsWith()`、`.endsWith()`、`.includes()`、`.uuid()`、`.cuid()`、`.ulid()`、`.datetime()`、`.ip()`/`.ipv4()`/`.ipv6()`、`.length(n)`
 - **数字校验器**（8+ 个）：`.int()`、`.positive()`、`.negative()`、`.multipleOf()`、`.finite()`、`.safe()`、`.min()`、`.max()`
 - **对象模式**：`.strip()`（默认，删除未知字段）、`.passthrough()`（保留未知字段）、`.strict()`（拒绝未知字段）
-- **对象组合**：`.pick(keys)`、`.omit(keys)`、`.partial()`、`.extend(Map)`、`.merge(Schema)`
+- **对象组合**：`.pick(keys)`、`.omit(keys)`、`.partial()`、`.extend_with(Map)`、`.merge(Schema)`
 - **可选/默认处理**：`.optional()` 和 `.default(value)` 带正确的规则链接通过包装器
 - **数据转换**：`.transform(fn)` 先校验再转换；`preprocess(fn, schema)` 先转换再校验
 - **自定义规则**：`.refine(check, message)`、`.intersect(other)` 用于显式交集
@@ -262,7 +262,7 @@ moon run examples/json2schema                        # JSON → moon_zod Schema 
 | `.pick(keys)` | object | **Phase 21**：仅选择指定的字段 |
 | `.omit(keys)` | object | **Phase 21**：删除指定的字段 |
 | `.partial()` | object | **Phase 21**：使所有字段可选 |
-| `.extend(Map[String, Schema])` | object | **Phase 38**：从 Map 中添加或覆盖字段 |
+| `.extend_with(Map[String, Schema])` | object | **Phase 38**：从 Map 中添加或覆盖字段 |
 | `.merge(Schema)` | object | **Phase 38**：与另一个对象 schema 合并（右侧覆盖） |
 | `.describe(text)` | any | **Phase 17**：为 LLM 提示附加描述 |
 | `.name(text)` | any | **Phase 25**：为 schema 导出指定名称 |

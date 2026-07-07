@@ -324,7 +324,7 @@ test "partial preserves schema description" {
 ///|
 /// Schema composition — extend()
 test "extend adds fields" {
-  let s = object({ "a": string() }).extend({ "b": number() })
+  let s = object({ "a": string() }).extend_with({ "b": number() })
   guard s.parse(parse_json("{\"a\": \"x\", \"b\": 1}")) is Ok(_) else {
     fail("expected Ok")
   }
@@ -332,7 +332,7 @@ test "extend adds fields" {
 
 ///|
 test "extend overrides existing fields" {
-  let s = object({ "a": string() }).extend({ "a": number() })
+  let s = object({ "a": string() }).extend_with({ "a": number() })
   guard s.parse(Json::object({ "a": Json::string("x") })) is Err(_) else {
     fail("expected Err")
   }
@@ -343,7 +343,7 @@ test "extend overrides existing fields" {
 
 ///|
 test "extend preserves object mode" {
-  let s = object({ "a": string() }).strict().extend({ "b": number() })
+  let s = object({ "a": string() }).strict().extend_with({ "b": number() })
   guard s.parse(parse_json("{\"a\": \"x\", \"b\": 1, \"c\": true}")) is Err(_) else {
     fail("expected Err for strict mode")
   }
@@ -352,7 +352,7 @@ test "extend preserves object mode" {
 ///|
 test "extend preserves schema metadata" {
   let s = object({ "a": string() }).describe("base").brand("Base")
-  let e = s.extend({ "b": number() })
+  let e = s.extend_with({ "b": number() })
   @debug.assert_eq(e.description, "base")
   @debug.assert_eq(e.brand, "Base")
 }
