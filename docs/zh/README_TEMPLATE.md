@@ -8,7 +8,7 @@ MoonBit 运行时 JSON Schema 校验库，受 [Zod](https://zod.dev) 和 [Pydant
 
 ---
 
-@include "INFO.md"
+## 文档
 
 | 文档 | 说明 |
 |---|---|
@@ -16,6 +16,12 @@ MoonBit 运行时 JSON Schema 校验库，受 [Zod](https://zod.dev) 和 [Pydant
 | [CLI 参考](./docs/zh/CLI.md) | 命令行使用说明 |
 | [性能基准](./docs/zh/BENCHMARK.md) | 与其他校验库的性能对比 |
 | [使用示例](./docs/zh/EXAMPLES.md) | 实际使用示例 |
+
+---
+
+@include "INFO.md"
+
+---
 
 ## 了解更多
 

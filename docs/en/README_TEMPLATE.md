@@ -8,7 +8,7 @@ A runtime JSON schema validation library for MoonBit, inspired by [Zod](https://
 
 ---
 
-@include "INFO.md"
+## Documents
 
 | Document | Description |
 |---|---|
@@ -16,6 +16,12 @@ A runtime JSON schema validation library for MoonBit, inspired by [Zod](https://
 | [CLI Reference](./docs/en/CLI.md) | Command-line usage |
 | [Benchmark](./docs/en/BENCHMARK.md) | Performance comparison with other validation libraries |
 | [Examples](./docs/en/EXAMPLES.md) | Practical usage examples |
+
+---
+
+@include "INFO.md"
+
+---
 
 ## Learn More
 

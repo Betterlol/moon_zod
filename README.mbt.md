@@ -8,6 +8,17 @@ A runtime JSON schema validation library for MoonBit, inspired by [Zod](https://
 
 ---
 
+## Documents
+
+| Document | Description |
+|---|---|
+| [API Reference](./docs/en/API.md) | Detailed API documentation |
+| [CLI Reference](./docs/en/CLI.md) | Command-line usage |
+| [Benchmark](./docs/en/BENCHMARK.md) | Performance comparison with other validation libraries |
+| [Examples](./docs/en/EXAMPLES.md) | Practical usage examples |
+
+---
+
 ## ✨ Why MoonZod? (AI-First)
 
 | Feature | moon_zod | Typical Validation |
@@ -206,12 +217,7 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
 
 ---
 
-| Document | Description |
-|---|---|
-| [API Reference](./docs/en/API.md) | Detailed API documentation |
-| [CLI Reference](./docs/en/CLI.md) | Command-line usage |
-| [Benchmark](./docs/en/BENCHMARK.md) | Performance comparison with other validation libraries |
-| [Examples](./docs/en/EXAMPLES.md) | Practical usage examples |
+---
 
 ## Learn More
 

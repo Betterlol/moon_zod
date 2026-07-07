@@ -8,6 +8,17 @@ MoonBit 运行时 JSON Schema 校验库，受 [Zod](https://zod.dev) 和 [Pydant
 
 ---
 
+## 文档
+
+| 文档 | 说明 |
+|---|---|
+| [API 参考](./docs/zh/API.md) | 详细的 API 文档 |
+| [CLI 参考](./docs/zh/CLI.md) | 命令行使用说明 |
+| [性能基准](./docs/zh/BENCHMARK.md) | 与其他校验库的性能对比 |
+| [使用示例](./docs/zh/EXAMPLES.md) | 实际使用示例 |
+
+---
+
 ## ✨ 为什么选择 MoonZod？（AI 优先）
 
 | 特性 | moon_zod | 典型校验库 |
@@ -201,12 +212,7 @@ moon run examples/json2schema                        # JSON → moon_zod Schema 
   - `schema_to_moonbit_struct(schema)` —— 为每个对象/枚举 schema 生成 MoonBit struct/enum 定义
   - `schema_to_moonbit_struct_full(schema)` —— 生成定义并附加静态 `Type::to_schema()` 函数
 
-| 文档 | 说明 |
-|---|---|
-| [API 参考](./docs/zh/API.md) | 详细的 API 文档 |
-| [CLI 参考](./docs/zh/CLI.md) | 命令行使用说明 |
-| [性能基准](./docs/zh/BENCHMARK.md) | 与其他校验库的性能对比 |
-| [使用示例](./docs/zh/EXAMPLES.md) | 实际使用示例 |
+---
 
 ## 了解更多
 
