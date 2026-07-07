@@ -19,11 +19,16 @@ jobs:
       - name: Install Dependencies
         run: moon install
 
+      - name: Check
+        run: moon check
+
       - name: Check Formatting
-        continue-on-error: true
-        run: | 
-          moon fmt
-          moon fmt --check
+        run: moon fmt --check
+
+      - name: Check Generated Interfaces
+        run: |
+          moon info
+          git diff --exit-code
 
       - name: Build with Warnings Check
         run: |
