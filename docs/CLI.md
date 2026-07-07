@@ -8,7 +8,7 @@ moon run cmd/json2schema -- '{"hello": "world"}'
 
 Output (copy-paste ready moon_zod code):
 
-```moonbit
+```moonbit nocheck
 @moon_zod.object({
   "hello": @moon_zod.string(),
 })
@@ -46,7 +46,7 @@ moon run cmd/json2schema -- --from-json-schema --schema-file schema.json
 
 Output:
 
-```moonbit
+```moonbit nocheck
 @moon_zod.object({
   "name": @moon_zod.string().min(2),
   "age": @moon_zod.number().int().min(0).max(150),
@@ -74,12 +74,14 @@ moon run cmd/gen-struct -- --schema '{"type":"object","properties":{"name":{"typ
 
 Output:
 
-```moonbit
+```moonbit nocheck
+///|
 pub struct Root {
   name : String
-  age : Int64  // int
+  age : Int64 // int
 } derive(ToJson, FromJson)
 
+///|
 pub fn Root::to_schema() -> @moon_zod.Schema {
   let root = @moon_zod.object({
     "name": @moon_zod.string(),

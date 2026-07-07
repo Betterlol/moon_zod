@@ -13,7 +13,7 @@
 | `object(Map[String, Schema], required_error?, invalid_type_error?)` | Validates objects. **Default: Strip mode** |
 | `enum_values(Array[String], required_error?, invalid_type_error?)` | Fixed set of allowed string values |
 | `literal(Json, required_error?, invalid_type_error?)` | **Phase 32**: Constant value validation — only accepts exact JSON match |
-| `bigint(required_error?, invalid_type_error?)` | **Phase 37**: Semantic alias for `number().int()` — expresses big integer intent |
+| `bigint(required_error?, invalid_type_error?)` | **Phase 37**: Semantic alias for `number().int()` — expresses big integer intent, need to truly implement |
 | `any(required_error?, invalid_type_error?)` | **Phase 39**: Accepts any JSON value (pass-through) |
 | `unknown(required_error?, invalid_type_error?)` | **Phase 39**: Accepts any JSON value as unknown (semantic marker) |
 | `preprocess((Json) -> Result[Json, String], Schema, required_error?, invalid_type_error?)` | **Phase 39**: Transform raw input first, then validate against inner schema |
@@ -92,7 +92,7 @@
 
 ### Core Types
 
-```mbt nocheck
+```moonbit nocheck
 ///|
 pub struct ValidationError {
   path : String

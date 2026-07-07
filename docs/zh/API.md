@@ -13,7 +13,7 @@
 | `object(Map[String, Schema], required_error?, invalid_type_error?)` | 校验对象。**默认：Strip 模式** |
 | `enum_values(Array[String], required_error?, invalid_type_error?)` | 固定的允许字符串值集合 |
 | `literal(Json, required_error?, invalid_type_error?)` | **Phase 32**：常量值校验 — 仅接受完全匹配的 JSON |
-| `bigint(required_error?, invalid_type_error?)` | **Phase 37**：`number().int()` 的语义别名 — 表示大整数意图 |
+| `bigint(required_error?, invalid_type_error?)` | **Phase 37**：`number().int()` 的语义别名 — 表示大整数意图，有待真正实现 |
 | `any(required_error?, invalid_type_error?)` | **Phase 39**：接受任何 JSON 值（透传） |
 | `unknown(required_error?, invalid_type_error?)` | **Phase 39**：接受任何 JSON 值作为未知类型（语义标记） |
 | `preprocess((Json) -> Result[Json, String], Schema, required_error?, invalid_type_error?)` | **Phase 39**：先转换原始输入，再针对内部 schema 进行校验 |
@@ -92,7 +92,7 @@
 
 ### 核心类型
 
-```mbt nocheck
+```moonbit nocheck
 ///|
 pub struct ValidationError {
   path : String

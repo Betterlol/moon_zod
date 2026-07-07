@@ -15,7 +15,7 @@
 
 ## 🚀 快速开始
 
-```mbt nocheck
+```moonbit nocheck
 let schema = @moon_zod.object({
   "name": @moon_zod.string().min(2).max(50),
   "age": @moon_zod.number().int().min(0).max(150),
