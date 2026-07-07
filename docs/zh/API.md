@@ -31,7 +31,7 @@
 | `.nonempty([msg])` | string / array / tuple | 不能为空 |
 | `.email([msg])` | string | 完整邮箱校验 |
 | `.url([msg])` | string | 完整 URL 结构校验 |
-| `.regex(pattern[, msg])` | string | 必须包含 `pattern` 作为子字符串 |
+| `.regex(pattern[, msg])` | string | 必须匹配正则表达式 `pattern` |
 | `.startsWith(prefix[, msg])` | string | 必须以 `prefix` 开头 |
 | `.endsWith(suffix[, msg])` | string | 必须以 `suffix` 结尾 |
 | `.includes(substring[, msg])` | string | 必须包含 `substring` |

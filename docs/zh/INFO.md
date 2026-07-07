@@ -166,7 +166,7 @@ moon run examples/json2schema                        # JSON → moon_zod Schema 
 - **原始类型 Schema**：`string()`、`number()`、`boolean()`、`null()`、`bigint()`
 - **复合类型 Schema**：`object(Map)`、`array(Schema)`、`tuple([Schema...])`、`union(Array[Schema])`、`intersection(Array[Schema])`、`enum_values(Array[String])`、`literal(Json)`
 - **传递 Schema**：`any()` 和 `unknown()` 接受任何 JSON 值（语义区分）
-- **字符串校验器**（23+ 个）：`.min(n)`、`.max(n)`、`.nonempty()`、`.trim()`、`.to_lower()`、`.to_upper()`、`.email()`（完整 RFC 校验）、`.url()`（完整结构）、`.regex(pattern)`（子字符串匹配）、`.startsWith()`、`.endsWith()`、`.includes()`、`.uuid()`、`.cuid()`、`.ulid()`、`.datetime()`、`.ip()`/`.ipv4()`/`.ipv6()`、`.length(n)`
+- **字符串校验器**（23+ 个）：`.min(n)`、`.max(n)`、`.nonempty()`、`.trim()`、`.to_lower()`、`.to_upper()`、`.email()`（完整 RFC 校验）、`.url()`（完整结构）、`.regex(pattern)`（正则表达式匹配）、`.startsWith()`、`.endsWith()`、`.includes()`、`.uuid()`、`.cuid()`、`.ulid()`、`.datetime()`、`.ip()`/`.ipv4()`/`.ipv6()`、`.length(n)`
 - **数字校验器**（8+ 个）：`.int()`、`.positive()`、`.negative()`、`.multipleOf()`、`.finite()`、`.safe()`、`.min()`、`.max()`
 - **对象模式**：`.strip()`（默认，删除未知字段）、`.passthrough()`（保留未知字段）、`.strict()`（拒绝未知字段）
 - **对象组合**：`.pick(keys)`、`.omit(keys)`、`.partial()`、`.extend_with(Map)`、`.merge(Schema)`

@@ -31,7 +31,7 @@
 | `.nonempty([msg])` | string / array / tuple | Must not be empty |
 | `.email([msg])` | string | Full email validation |
 | `.url([msg])` | string | Full URL structure |
-| `.regex(pattern[, msg])` | string | Must contain `pattern` as substring |
+| `.regex(pattern[, msg])` | string | Must match the regular expression `pattern` |
 | `.startsWith(prefix[, msg])` | string | Must start with `prefix` |
 | `.endsWith(suffix[, msg])` | string | Must end with `suffix` |
 | `.includes(substring[, msg])` | string | Must contain `substring` |

@@ -414,8 +414,7 @@ pub fn Schema::url(self : Schema, msg? : String = "") -> Schema {
 }
 
 ///|
-/// Not implemented — MoonBit has no built-in regex.
-/// Use `includes()` for substring matching instead.
+/// Require the string to match the given regex pattern.
 pub fn Schema::regex(
   self : Schema,
   pattern : String,
@@ -430,15 +429,14 @@ pub fn Schema::regex(
   } else {
     msg
   }
-  // MoonBit has no built-in regex; this is a simple substring check.
-  println(
-    "Warning: regex() is not fully implemented; it only checks for substring match.",
-  )
+  let re = @regexp.compile(pattern) catch {
+    _ => abort("Invalid regex pattern: \{pattern}")
+  }
   append_rule_with_annotation(
     self,
     fn(json) {
       match json {
-        String(s) => s.contains(pattern)
+        String(s) => re.execute(s).matched()
         _ => false
       }
     },

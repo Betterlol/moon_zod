@@ -166,7 +166,7 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
 - **Primitive schemas**: `string()`, `number()`, `boolean()`, `null()`, `bigint()`
 - **Compound schemas**: `object(Map)`, `array(Schema)`, `tuple([Schema...])`, `union(Array[Schema])`, `intersection(Array[Schema])`, `enum_values(Array[String])`, `literal(Json)`
 - **Pass-through schemas**: `any()` and `unknown()` accept any JSON value (semantic distinction)
-- **String validators** (23+): `.min(n)`, `.max(n)`, `.nonempty()`, `.trim()`, `.to_lower()`, `.to_upper()`, `.email()` (full RFC validation), `.url()` (full structure), `.regex(pattern)` (substring match), `.startsWith()`, `.endsWith()`, `.includes()`, `.uuid()`, `.cuid()`, `.ulid()`, `.datetime()`, `.ip()`/`.ipv4()`/`.ipv6()`, `.length(n)`
+- **String validators** (23+): `.min(n)`, `.max(n)`, `.nonempty()`, `.trim()`, `.to_lower()`, `.to_upper()`, `.email()` (full RFC validation), `.url()` (full structure), `.regex(pattern)` (regular expression match), `.startsWith()`, `.endsWith()`, `.includes()`, `.uuid()`, `.cuid()`, `.ulid()`, `.datetime()`, `.ip()`/`.ipv4()`/`.ipv6()`, `.length(n)`
 - **Number validators** (8+): `.int()`, `.positive()`, `.negative()`, `.multipleOf()`, `.finite()`, `.safe()`, `.min()`, `.max()`
 - **Object modes**: `.strip()` (default, removes unknown fields), `.passthrough()` (keeps unknown fields), `.strict()` (rejects unknown fields)
 - **Object composition**: `.pick(keys)`, `.omit(keys)`, `.partial()`, `.extend_with(Map)`, `.merge(Schema)`
@@ -190,7 +190,7 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
 - **MoonBit struct generation**:
   - `schema_to_moonbit_struct(schema)` — recursively generate MoonBit struct/enum definitions for every object/enum schema
   - `schema_to_moonbit_struct_full(schema)` — generate definitions plus static `Type::to_schema()` functions
-- **Zero external dependencies**: Only core MoonBit library (`@json`, `@debug`, etc.)
+- **Lightweight dependencies**: Core MoonBit library plus official `moonbitlang/regexp` for regex validation
 - **WebAssembly-ready**: Mutable path stack for zero heap allocation on success path
 - **Performance**: ~18.5k-56k validations/second depending on schema complexity
 

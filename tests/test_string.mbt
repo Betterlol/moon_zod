@@ -743,3 +743,87 @@ test "string to_lower aborts for string.abort calls" {
   let s = string().to_lower().min(2)
   guard s.parse(Json::string("A")) is Err(_) else { fail("expected Err") }
 }
+
+///|
+/// regex() — full regex pattern matching
+test "string regex passes anchored lowercase" {
+  let s = string().regex("^[a-z]+$")
+  guard s.parse(Json::string("hello")) is Ok(_) else { fail("expected Ok") }
+}
+
+///|
+test "string regex rejects with wrong case" {
+  let s = string().regex("^[a-z]+$")
+  guard s.parse(Json::string("Hello")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "string regex passes complex pattern with groups" {
+  let s = string().regex("^\\d{4}-\\d{2}-\\d{2}$")
+  guard s.parse(Json::string("2024-03-15")) is Ok(_) else {
+    fail("expected Ok")
+  }
+}
+
+///|
+test "string regex rejects pattern mismatch" {
+  let s = string().regex("^\\d+$")
+  guard s.parse(Json::string("abc")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "string regex searches unanchored pattern" {
+  let s = string().regex("[0-9]+")
+  guard s.parse(Json::string("abc123def")) is Ok(_) else { fail("expected Ok") }
+  guard s.parse(Json::string("abcdef")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "string regex uses metacharacters instead of literal substring" {
+  let s = string().regex("a.c")
+  guard s.parse(Json::string("xxabcxx")) is Ok(_) else { fail("expected Ok") }
+  guard s.parse(Json::string("xxacxx")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "string regex passes alternation" {
+  let s = string().regex("^(cat|dog|bird)$")
+  guard s.parse(Json::string("dog")) is Ok(_) else { fail("expected Ok") }
+  guard s.parse(Json::string("fish")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "string regex passes optional pattern" {
+  let s = string().regex("^colou?r$")
+  guard s.parse(Json::string("color")) is Ok(_) else { fail("expected Ok") }
+  guard s.parse(Json::string("colour")) is Ok(_) else { fail("expected Ok") }
+  guard s.parse(Json::string("colouur")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "string regex passes with wildcard" {
+  let s = string().regex("^a.c$")
+  guard s.parse(Json::string("abc")) is Ok(_) else { fail("expected Ok") }
+  guard s.parse(Json::string("ac")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "string regex rejects empty string when pattern requires" {
+  let s = string().regex("^.+$")
+  guard s.parse(Json::string("")) is Err(_) else { fail("expected Err") }
+}
+
+///|
+test "string regex custom message" {
+  let s = string().regex("^[a-z]+$", msg="必须匹配模式")
+  guard s.parse(Json::string("123")) is Err(errors) else {
+    fail("expected Err")
+  }
+  @debug.assert_eq(errors[0].message, "必须匹配模式")
+}
+
+///|
+test "string regex rejects number input" {
+  let s = string().regex("^[a-z]+$")
+  guard s.parse(Json::number(42.0)) is Err(_) else { fail("expected Err") }
+}
