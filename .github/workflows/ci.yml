@@ -8,7 +8,11 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,11 +30,13 @@ jobs:
         run: moon fmt --check
 
       - name: Check Generated Interfaces
+        shell: bash
         run: |
           moon info
           git diff --exit-code
 
       - name: Build with Warnings Check
+        shell: bash
         run: |
           output=$(moon build 2>&1); echo "$output"
           warn_count=$(echo "$output" | grep -c 'warning' || true)
@@ -44,6 +50,7 @@ jobs:
         run: moon test
 
       - name: Code Line Count
+        shell: bash
         run: |
           echo "=== Source Code Lines ==="
           core=$(find core combinators -name "*.mbt" ! -name "*_wbtest*" | xargs wc -l | tail -1)
@@ -63,6 +70,7 @@ jobs:
           echo "::notice title=Lines of Code::core: $core | exporters: $exporters | importers: $importers | tests: $tests"
 
       - name: Coverage Analysis
+        shell: bash
         run: |
           moon coverage analyze > coverage_caret.log 2>&1
           core_only='^(core/)'
