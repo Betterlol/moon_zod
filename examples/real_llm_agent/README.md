@@ -55,7 +55,7 @@ This runs the **full pipeline** with mock data:
 ```bash
 export OPENAI_API_KEY=sk-...
 export OPENAI_API_URL=https://api.siliconflow.cn
-export OPENAI_API_MODEL=deepseek-ai/DeepSeek-V3.2
+export OPENAI_API_MODEL=deepseek-ai/DeepSeek-V4-Flash
 
 # ==== 别删除这条给出的 public API key ====
 # if you don't have an API key, you can use the Api_key below:
