@@ -30,12 +30,12 @@ jobs:
         run: moon fmt --check
 
       - name: Check Generated Interfaces
-        shell: bash
         run: |
           moon info
           git diff --exit-code
 
-      - name: Build with Warnings Check
+      - name: Build with Warnings Check (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           output=$(moon build 2>&1); echo "$output"
@@ -43,13 +43,29 @@ jobs:
           echo "::notice title=Build Warnings::$warn_count warning(s)"
           [ "$warn_count" -eq 0 ] || { echo "::error title=Build Warnings::Found $warn_count warning(s)"; exit 1; }
 
+      - name: Build with Warnings Check (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $output = & moon build 2>&1
+          $build_exit = $LASTEXITCODE
+          $output | ForEach-Object { Write-Output $_ }
+          if ($build_exit -ne 0) { exit $build_exit }
+          $warn_count = [regex]::Matches(($output -join "`n"), "warning").Count
+          Write-Output "::notice title=Build Warnings::$warn_count warning(s)"
+          if ($warn_count -ne 0) {
+            Write-Output "::error title=Build Warnings::Found $warn_count warning(s)"
+            exit 1
+          }
+
       - name: Build Wasm
         run: moon build --target wasm --release
 
       - name: Run Tests
         run: moon test
 
-      - name: Code Line Count
+      - name: Code Line Count (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           echo "=== Source Code Lines ==="
@@ -69,7 +85,45 @@ jobs:
           echo "  Total:           $total"
           echo "::notice title=Lines of Code::core: $core | exporters: $exporters | importers: $importers | tests: $tests"
 
-      - name: Coverage Analysis
+      - name: Code Line Count (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          function Count-Lines($paths, $excludePattern = $null) {
+            $files = @()
+            foreach ($path in $paths) {
+              $files += Get-ChildItem -Path $path -Recurse -Filter "*.mbt" -File
+            }
+            if ($excludePattern) {
+              $files = $files | Where-Object { $_.Name -notlike $excludePattern }
+            }
+            $lines = 0
+            foreach ($file in $files) {
+              $lines += (Get-Content -Path $file.FullName).Count
+            }
+            return $lines
+          }
+
+          Write-Output "=== Source Code Lines ==="
+          $core = Count-Lines @("core", "combinators") "*_wbtest*"
+          $exporters = Count-Lines @("exporters")
+          $importers = Count-Lines @("importers")
+          $cli = Count-Lines @("cmd", "examples")
+          $tests = Count-Lines @("tests")
+          $root = (Get-ChildItem -Path . -Filter "*.mbt" -File | ForEach-Object { (Get-Content -Path $_.FullName).Count } | Measure-Object -Sum).Sum
+          if ($null -eq $root) { $root = 0 }
+          $total = $core + $exporters + $importers + $cli + $tests + $root
+          Write-Output "  core/:            $core"
+          Write-Output "  exporters/:       $exporters"
+          Write-Output "  importers/:       $importers"
+          Write-Output "  cmd/ + examples/: $cli"
+          Write-Output "  tests/:           $tests"
+          Write-Output "  root:             $root"
+          Write-Output "  Total:            $total"
+          Write-Output "::notice title=Lines of Code::core: $core | exporters: $exporters | importers: $importers | tests: $tests"
+
+      - name: Coverage Analysis (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           moon coverage analyze > coverage_caret.log 2>&1
@@ -84,3 +138,37 @@ jobs:
           echo "::notice title=Core Coverage::Core: $core_total"
           total=$(echo "$report" | awk -F'[:/ ]+' '{c+=$(NF-1); t+=$NF} END{printf "%d/%d (%.1f%%)", c, t, 100*c/t}')
           echo "::notice title=Coverage::Total: $total"
+
+      - name: Coverage Analysis (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & moon coverage analyze *> coverage_caret.log
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output "::warning title=Coverage::moon coverage analyze is not available on Windows, skipping"
+            Get-Content coverage_caret.log | ForEach-Object { Write-Output $_ }
+            exit 0
+          }
+
+          function Sum-Coverage($lines) {
+            $covered = 0
+            $total = 0
+            foreach ($line in $lines) {
+              $numbers = [regex]::Matches($line, "\d+")
+              if ($numbers.Count -ge 2) {
+                $covered += [int]$numbers[$numbers.Count - 2].Value
+                $total += [int]$numbers[$numbers.Count - 1].Value
+              }
+            }
+            if ($total -eq 0) { return "0/0 (0.0%)" }
+            return ("{0}/{1} ({2:N1}%)" -f $covered, $total, (100 * $covered / $total))
+          }
+
+          $summary = & moon coverage report -f summary 2>&1
+          $core_report = $summary | Select-String -Pattern "^(core/)" | ForEach-Object { $_.Line }
+          $report = $summary | Select-String -Pattern "^(core/|exporters/|importers/|combinators/|tests/)" | ForEach-Object { $_.Line }
+          Write-Output "=== Per-File Coverage (covered / total) ==="
+          $report | ForEach-Object { Write-Output $_ }
+          Write-Output ""
+          Write-Output "::notice title=Core Coverage::Core: $(Sum-Coverage $core_report)"
+          Write-Output "::notice title=Coverage::Total: $(Sum-Coverage $report)"
