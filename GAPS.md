@@ -8,70 +8,15 @@
 
 | 优先级 | 功能 | 影响 | 工作量 | 状态 |
 |--------|------|------|--------|------|
-| 🔴 **高** | Tuple 类型 | 广泛使用 | 中 | ❌ |
 | 🔴 **高** | 异步 parse 支持 | API 集成 | 中 | ❌ |
 | 🟡 **中** | Lazy 类型 | 递归结构 | 中 | ❌ |
 | 🟢 **低** | Discriminated Union 优化 | 性能 | 中 | ❌ |
-| ⚪ **可选** | Date / Any | JSON 不支持 | 高 | ❌ |
 
 ---
 
 ## 🔴 高优先级缺口
 
-### 1. Tuple 类型 (`z.tuple()`)
-
-**描述:** 固定长度、异构元素的数组类型
-
-**在 Zod 中的用法:**
-```typescript
-// TS Zod
-const tupleSchema = z.tuple([
-  z.string(),
-  z.number(),
-  z.boolean().optional()
-])
-
-tupleSchema.parse(['hello', 42])           // ✓ OK
-tupleSchema.parse(['hello', 42, true])     // ✓ OK
-tupleSchema.parse(['hello'])                // ✗ 缺少 number
-```
-
-**在 Moon_Zod 中的用法 (建议):**
-```mbt nocheck
-let tuple_schema = @moon_zod.tuple([
-  @moon_zod.string(),
-  @moon_zod.number(),
-  @moon_zod.boolean().optional()
-])
-
-match tuple_schema.parse(json_array(["hello", 42])) {
-  Ok(data) => // { "0": String("hello"), "1": Number(42) }
-  Err(errors) => // 精确错误位置: [1] type mismatch
-}
-```
-
-**实现要点:**
-- [ ] 创建 `ZodTuple` 类型 (tuple.mbt)
-- [ ] 支持可变长度 `rest` 元素 (Zod 特性)
-- [ ] 验证每个元素的类型
-- [ ] 处理可选元素
-- [ ] 路径精度: `tuple[0]`, `tuple[1]` 等
-- [ ] 导出支持: JSON Schema tuple 类型
-
-**影响范围:**
-- LLM 坐标/地理数据: `[lat, lon]`
-- RGB 颜色: `[r, g, b]`
-- 键值对: `[key, value]`
-- 函数返回值
-
-**估计工作量:** 200-300 行代码 + 测试
-
-**参考文件:**
-- `zod/src/types.ts` (ZodTuple 实现)
-
----
-
-### 2. 异步 Parse 支持
+### 异步 Parse 支持
 
 **描述:** 支持异步验证和转换 (Promise-returning refine/transform)
 
@@ -137,7 +82,7 @@ match schema.parse_async(json_obj) {
 
 ## 🟡 中优先级缺口
 
-### 3. Lazy 类型 (`z.lazy()`)
+### Lazy 类型 (`z.lazy()`)
 
 **描述:** 延迟求值 Schema，支持递归和自引用
 
@@ -200,7 +145,7 @@ match tree_schema.parse(recursive_json) {
 
 ---
 
-### 4. Discriminated Union 优化
+### Discriminated Union 优化
 
 **描述:** 带判别字段的 Union 快速路径，避免尝试所有选项
 
@@ -278,7 +223,7 @@ discriminated_union("type", [...])
 
 ## ⚪ 低优先级缺口 (可选)
 
-### 5. Date 类型 (`z.date()`)
+### Date 类型 (`z.date()`)
 
 **描述:** 本机日期对象验证
 
@@ -302,29 +247,7 @@ discriminated_union("type", [...])
 
 ---
 
-### 6. Any / Unknown 类型
-
-**描述:** 接受任何值的通用类型
-
-**在 Zod 中的用法:**
-```typescript
-z.any()        // 不验证，传递任何值
-z.unknown()    // 不验证，类型为 unknown (更安全)
-```
-
-**在 Moon_Zod 中的替代方案:**
-```mbt nocheck
-@moon_zod.refine(fn(_) { true }, "Always passes")  // 任何值
-```
-
-**为什么低优先级:**
-- LLM 输出总有结构期望
-- 可通过 `refine()` 实现
-- 类型系统意义有限
-
----
-
-### 7. Promise 类型 (`z.promise()`)
+### Promise 类型 (`z.promise()`)
 
 **描述:** 验证 Promise 对象本身 (不是其解决值)
 
@@ -335,7 +258,7 @@ z.unknown()    // 不验证，类型为 unknown (更安全)
 
 ---
 
-### 8. Function 类型 (`z.function()`)
+### Function 类型 (`z.function()`)
 
 **描述:** 验证函数签名
 
@@ -346,7 +269,7 @@ z.unknown()    // 不验证，类型为 unknown (更安全)
 
 ---
 
-### 9. Map / Set 类型
+### Map / Set 类型
 
 **描述:** JSON 不原生支持的类型
 
@@ -354,63 +277,6 @@ z.unknown()    // 不验证，类型为 unknown (更安全)
 - JSON 标准不包含这些类型
 - 跨语言序列化困难
 - 使用字符串或对象表示替代
-
----
-
-## 📋 实现检查清单
-
-### 🔴 高优先级 (必做)
-
-#### Tuple 类型
-- [ ] 创建 `core/tuple.mbt`
-- [ ] 实现 `ZodTuple` 类型
-- [ ] 添加 `tuple()` 工厂函数
-- [ ] 支持可变长度 `rest` 元素
-- [ ] 路径精度: `tuple[0]`, `tuple[1]` 等
-- [ ] JSON Schema 导出
-- [ ] TypeScript 接口导出
-- [ ] 完整测试 (tests/test_tuple.mbt)
-- [ ] 文档更新 (API.md, EXAMPLES.md)
-
-#### 异步支持
-- [ ] 创建 `core/async_parse.mbt`
-- [ ] 扩展 Schema enum 支持 AsyncEffect
-- [ ] `refine_async()` 方法
-- [ ] `transform_async()` 方法
-- [ ] `parse_async()` 方法
-- [ ] `safe_parse_async()` 方法
-- [ ] 并发执行异步操作
-- [ ] 错误聚合
-- [ ] 完整测试 (tests/test_async.mbt)
-- [ ] 文档更新 + 示例 (examples/async_validation/)
-
-### 🟡 中优先级 (推荐)
-
-#### Lazy 类型
-- [ ] 创建 `core/lazy.mbt`
-- [ ] 实现 `ZodLazy` 类型
-- [ ] 添加 `lazy()` 工厂函数
-- [ ] 循环引用检测 (可选)
-- [ ] JSON Schema 自引用支持
-- [ ] 完整测试 (tests/test_lazy.mbt)
-- [ ] 文档更新 + 示例
-
-#### Discriminated Union
-- [ ] 创建 `core/discriminated_union.mbt`
-- [ ] 实现 `ZodDiscriminatedUnion` 类型
-- [ ] 添加 `discriminated_union()` 工厂函数
-- [ ] 判别字段提取和映射
-- [ ] 错误消息改进
-- [ ] 性能基准测试
-- [ ] 完整测试 (tests/test_discriminated_union.mbt)
-- [ ] 文档更新
-
-### ⚪ 低优先级 (可选)
-
-#### Date 类型
-- [ ] 创建 `core/date.mbt` (如需)
-- [ ] JSON 字符串 ↔ 日期转换
-- [ ] 日期范围验证
 
 ---
 
@@ -443,42 +309,18 @@ z.unknown()    // 不验证，类型为 unknown (更安全)
 
 ---
 
-## 💬 问题排查指南
-
-### Tuple 实现常见问题
-- Q: 如何处理可选元素?
-- A: 使用 `.optional()` 包装单个元素 schema
-
-- Q: 如何支持 rest 元素?
-- A: 参考 Zod 的 `rest?: ZodSchema` 字段
-
-### 异步实现常见问题
-- Q: 如何处理并发异步验证?
-- A: 使用 MoonBit Future API 的 `parallel()` 或 `all()`
-
-- Q: 如何在异步中保持路径精度?
-- A: 每个异步任务传递当前路径上下文
-
-### Lazy 实现常见问题
-- Q: 如何防止无限递归?
-- A: 添加深度计数器或访问集合追踪
-
----
-
 ## 其他缺口
 
-1. **全局 error map**
+**全局 error map**
 > `ZodErrorMap` 支持自定义错误消息
-2. **JSON 高级类型支持**
-> `z.date()`, `z.any()`, `z.unknown()`, `z.promise()`, `z.function()`, `z.map()`, `z.set()`
-3. **object方法增强**
-> `.deepPartial()`, `.extend()`, `.merge()`
-4. **解析增强**
+**JSON 高级类型支持**
+> `z.date()`, `z.promise()`, `z.function()`, `z.map()`, `z.set()`
+**object方法增强**
+> `.deepPartial()`
+**解析增强**
 > `.safeParse()`, `.safeParseAsync()`
-5. **转换增强**
-> `.preprocess()`
-6. **验证增强**
+**验证增强**
 > `.superRefine()`
 
-**最后更新:** 2026-07-03
-**文档版本:** 1.0
+**最后更新:** 2026-07-10
+**文档版本:** 2.0
