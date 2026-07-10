@@ -5,10 +5,6 @@
 
 > 🌏 [中文版 README](./README_zh.mbt.md)
 
-A runtime JSON schema validation library for MoonBit, inspired by [Zod](https://zod.dev) and [Pydantic](https://docs.pydantic.dev).
-
-**Designed for LLM Tool Calling** — validate structured JSON output from large language models at runtime, with precise error reporting and self-correction support.
-
 ---
 
 ## Documents
@@ -19,6 +15,70 @@ A runtime JSON schema validation library for MoonBit, inspired by [Zod](https://
 | [CLI Reference](./docs/en/CLI.md) | Command-line usage |
 | [Benchmark](./docs/en/BENCHMARK.md) | Performance comparison with other validation libraries |
 | [Examples](./docs/en/EXAMPLES.md) | Practical usage examples |
+
+---
+
+## About
+
+moon_zod is a MoonBit port of [Zod](https://zod.dev) / [Pydantic](https://docs.pydantic.dev), purpose-built for the AI era. It provides runtime JSON schema validation with a fluent chainable API, designed primarily for **LLM Tool Calling** — validating structured JSON outputs from large language models, collecting all errors in one pass, and defending against hallucinated fields by default.
+
+- **AI-first** — collect every error in a single pass for LLM self-correction loops
+- **Hallucination defense** — Strip mode silently removes unknown fields by default
+- **Full-path errors** — every error pinpoints the exact field path (`users[0].profile.age`)
+- **Multi-format export** — generate LLM prompts, JSON Schema, MoonBit structs, and moon_zod source code
+
+---
+
+## Installation
+
+```bash
+moon add Betterlol/moon_zod
+```
+
+Or add to `moon.mod`:
+
+```toml
+import {
+  "Betterlol/moon_zod",
+}
+```
+
+---
+
+## Quick Start
+
+```moonbit nocheck
+let schema = @moon_zod.object({
+  "name": @moon_zod.string().min(2).max(50),
+  "age": @moon_zod.number().int().min(0).max(150),
+  "email": @moon_zod.string().email(),
+})
+
+match schema.parse(input_json) {
+  Ok(valid) => {
+    println("Valid")
+    println(@debug.to_string(valid))
+  }
+  Err(errors) => {
+    println("Invalid")
+    println(errors.length().to_string())
+    for e in errors {
+      println(e.to_string())
+    }
+  }
+}
+```
+
+**Zero-code CLI validation:**
+```bash
+# Infer schema from sample, validate data
+moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
+# PASS
+
+# Batch validation with JSON Lines
+moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
+# Results: 2 passed, 0 failed
+```
 
 ---
 
@@ -34,34 +94,6 @@ A runtime JSON schema validation library for MoonBit, inspired by [Zod](https://
 | **Wasm-ready** | Mutable path stack — zero heap allocation on success path | String-heavy allocation per parse |
 
 In LLM Tool Calling, the model often produces **multiple errors at once** and **hallucinates extra fields**. moon_zod collects every error in a single pass (so you can send them all back for self-correction), and strips unknown fields by default (no silent data corruption from hallucinated keys).
-
----
-
-## 🚀 Quick Start
-
-```moonbit nocheck
-let schema = @moon_zod.object({
-  "name": @moon_zod.string().min(2).max(50),
-  "age": @moon_zod.number().int().min(0).max(150),
-  "email": @moon_zod.string().email(),
-})
-
-match schema.parse(input_json) {
-  Ok(valid) => // use valid
-  Err(errors) => // report all errors back to LLM
-}
-```
-
-**Zero-code CLI validation:**
-```bash
-# Infer schema from sample, validate data
-moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
-# PASS
-
-# Batch validation with JSON Lines
-moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
-# Results: 2 passed, 0 failed
-```
 
 ---
 

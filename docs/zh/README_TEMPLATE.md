@@ -5,10 +5,6 @@
 
 > 🌐 [English README](./README.mbt.md)
 
-MoonBit 运行时 JSON Schema 校验库，受 [Zod](https://zod.dev) 和 [Pydantic](https://docs.pydantic.dev) 启发。
-
-**专为 LLM Tool Calling 设计** — 对大语言模型的结构化 JSON 输出进行运行时校验，提供精确的错误报告与自修正支持。
-
 ---
 
 ## 文档
@@ -22,7 +18,24 @@ MoonBit 运行时 JSON Schema 校验库，受 [Zod](https://zod.dev) 和 [Pydant
 
 ---
 
+## 关于项目
+
+moon_zod 是 [Zod](https://zod.dev) / [Pydantic](https://docs.pydantic.dev) 的 MoonBit 移植版，专为 AI 时代而生。它提供了流畅的链式调用 API，用于运行时 JSON Schema 校验，核心场景是 **LLM Tool Calling** —— 校验大模型生成的结构化 JSON 输出，一次性收集所有错误，并默认防御幻觉字段。
+
+- **AI 优先** — 单次遍历收集所有错误，供 LLM 自我纠错
+- **幻觉防御** — Strip 模式默认静默删除未知字段
+- **完整路径错误** — 每个错误精确定位到字段路径（`users[0].profile.age`）
+- **多格式导出** — 生成 LLM Prompt、JSON Schema、MoonBit 结构体和 moon_zod 源码
+
+---
+
+@include "QUICK_START.md"
+
+---
+
 @include "INFO.md"
+
+---
 
 ## 了解更多
 

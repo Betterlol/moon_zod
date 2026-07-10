@@ -13,34 +13,6 @@ In LLM Tool Calling, the model often produces **multiple errors at once** and **
 
 ---
 
-## 🚀 Quick Start
-
-```moonbit nocheck
-let schema = @moon_zod.object({
-  "name": @moon_zod.string().min(2).max(50),
-  "age": @moon_zod.number().int().min(0).max(150),
-  "email": @moon_zod.string().email(),
-})
-
-match schema.parse(input_json) {
-  Ok(valid) => // use valid
-  Err(errors) => // report all errors back to LLM
-}
-```
-
-**Zero-code CLI validation:**
-```bash
-# Infer schema from sample, validate data
-moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
-# PASS
-
-# Batch validation with JSON Lines
-moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
-# Results: 2 passed, 0 failed
-```
-
----
-
 ## Project Layout
 
 ```
@@ -193,5 +165,3 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
 - **Lightweight dependencies**: Core MoonBit library plus official `moonbitlang/regexp` for regex validation
 - **WebAssembly-ready**: Mutable path stack for zero heap allocation on success path
 - **Performance**: ~18.5k-56k validations/second depending on schema complexity
-
----

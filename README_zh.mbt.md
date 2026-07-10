@@ -5,10 +5,6 @@
 
 > 🌐 [English README](./README.mbt.md)
 
-MoonBit 运行时 JSON Schema 校验库，受 [Zod](https://zod.dev) 和 [Pydantic](https://docs.pydantic.dev) 启发。
-
-**专为 LLM Tool Calling 设计** — 对大语言模型的结构化 JSON 输出进行运行时校验，提供精确的错误报告与自修正支持。
-
 ---
 
 ## 文档
@@ -19,6 +15,70 @@ MoonBit 运行时 JSON Schema 校验库，受 [Zod](https://zod.dev) 和 [Pydant
 | [CLI 参考](./docs/zh/CLI.md) | 命令行使用说明 |
 | [性能基准](./docs/zh/BENCHMARK.md) | 与其他校验库的性能对比 |
 | [使用示例](./docs/zh/EXAMPLES.md) | 实际使用示例 |
+
+---
+
+## 关于项目
+
+moon_zod 是 [Zod](https://zod.dev) / [Pydantic](https://docs.pydantic.dev) 的 MoonBit 移植版，专为 AI 时代而生。它提供了流畅的链式调用 API，用于运行时 JSON Schema 校验，核心场景是 **LLM Tool Calling** —— 校验大模型生成的结构化 JSON 输出，一次性收集所有错误，并默认防御幻觉字段。
+
+- **AI 优先** — 单次遍历收集所有错误，供 LLM 自我纠错
+- **幻觉防御** — Strip 模式默认静默删除未知字段
+- **完整路径错误** — 每个错误精确定位到字段路径（`users[0].profile.age`）
+- **多格式导出** — 生成 LLM Prompt、JSON Schema、MoonBit 结构体和 moon_zod 源码
+
+---
+
+## 安装
+
+```bash
+moon add Betterlol/moon_zod
+```
+
+或在 `moon.mod` 中添加依赖：
+
+```toml
+import {
+  "Betterlol/moon_zod",
+}
+```
+
+---
+
+## 快速开始
+
+```moonbit nocheck
+let schema = @moon_zod.object({
+  "name": @moon_zod.string().min(2).max(50),
+  "age": @moon_zod.number().int().min(0).max(150),
+  "email": @moon_zod.string().email(),
+})
+
+match schema.parse(input_json) {
+  Ok(valid) => {
+    println("Valid")
+    println(@debug.to_string(valid))
+  }
+  Err(errors) => {
+    println("Invalid")
+    println(errors.length().to_string())
+    for e in errors {
+      println(e.to_string())
+    }
+  }
+}
+```
+
+**零代码 CLI 校验：**
+```bash
+# 从样本推断 Schema，校验数据
+moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
+# PASS
+
+# 使用 JSON Lines 批量校验
+moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
+# 结果：2 通过，0 失败
+```
 
 ---
 
@@ -34,34 +94,6 @@ MoonBit 运行时 JSON Schema 校验库，受 [Zod](https://zod.dev) 和 [Pydant
 | **Wasm 就绪** | 可变路径栈 —— 成功路径上零堆分配 | 每次解析都进行重字符串分配 |
 
 在 LLM 工具调用中，模型经常**一次性产生多个错误**并**幻觉额外字段**。moon_zod 在一次遍历中收集每个错误（以便你可以将它们全部发回进行自我纠正），并默认剥离未知字段（不会因幻觉键而导致静默数据损坏）。
-
----
-
-## 🚀 快速开始
-
-```moonbit nocheck
-let schema = @moon_zod.object({
-  "name": @moon_zod.string().min(2).max(50),
-  "age": @moon_zod.number().int().min(0).max(150),
-  "email": @moon_zod.string().email(),
-})
-
-match schema.parse(input_json) {
-  Ok(valid) => // use valid
-  Err(errors) => // report all errors back to LLM
-}
-```
-
-**零代码 CLI 校验：**
-```bash
-# 从样本推断 Schema，校验数据
-moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
-# PASS
-
-# 使用 JSON Lines 批量校验
-moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
-# 结果：2 通过，0 失败
-```
 
 ---
 
@@ -214,6 +246,11 @@ moon run examples/json2schema                        # JSON → moon_zod Schema 
 - **MoonBit 结构生成**：
   - `schema_to_moonbit_struct(schema)` —— 为每个对象/枚举 schema 生成 MoonBit struct/enum 定义
   - `schema_to_moonbit_struct_full(schema)` —— 生成定义并附加静态 `Type::to_schema()` 函数
+- **轻量依赖**：核心 MoonBit 库加官方 `moonbitlang/regexp`，无其他外部依赖
+- **WebAssembly 就绪**：可变路径栈，成功路径上零堆分配
+- **性能**：根据 Schema 复杂度，每秒约 18.5k–56k 次校验
+
+---
 
 ## 了解更多
 
