@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/Betterlol/moon_zod/actions/workflows/ci.yml/badge.svg)](https://github.com/Betterlol/moon_zod/actions/workflows/ci.yml)
 [![Mooncakes](https://img.shields.io/badge/mooncakes-published-blue)](https://mooncakes.io/docs/Betterlol/moon_zod)
+[![doc](https://img.shields.io/badge/branch-doc-blue)](https://github.com/Betterlol/moon_zod/tree/doc)
 
 > 🌏 [中文版 README](./README_zh.mbt.md)
 
@@ -11,6 +12,7 @@
 
 | Document | Description |
 |---|---|
+| [Design Document](./DESIGN.md) | Important! Core architecture, design decisions, and future directions |
 | [API Reference](./docs/en/API.md) | Detailed API documentation |
 | [CLI Reference](./docs/en/CLI.md) | Command-line usage |
 | [Benchmark](./docs/en/BENCHMARK.md) | Performance comparison with other validation libraries |
@@ -20,12 +22,9 @@
 
 ## About
 
-moon_zod is a MoonBit port of [Zod](https://zod.dev) / [Pydantic](https://docs.pydantic.dev), purpose-built for the AI era. It provides runtime JSON schema validation with a fluent chainable API, designed primarily for **LLM Tool Calling** — validating structured JSON outputs from large language models, collecting all errors in one pass, and defending against hallucinated fields by default.
+moon_zod is a **runtime Schema intermediate representation (IR)** — a validation contract layer decoupled from input sources and output targets. It provides runtime JSON schema validation with a fluent chainable API, designed primarily for **LLM Tool Calling**, and serves as a cross-format schema interoperability bridge. See [DESIGN.md](./DESIGN.md) for details.
 
-- **AI-first** — collect every error in a single pass for LLM self-correction loops
-- **Hallucination defense** — Strip mode silently removes unknown fields by default
-- **Full-path errors** — every error pinpoints the exact field path (`users[0].profile.age`)
-- **Multi-format export** — generate LLM prompts, JSON Schema, MoonBit structs, and moon_zod source code
+A Schema IR core providing runtime validation, multi-source import, multi-format export, and LLM hallucination defense — closing the loop from JSON Schema to prompt generation.
 
 ---
 

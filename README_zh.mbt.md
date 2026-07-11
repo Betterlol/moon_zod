@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/Betterlol/moon_zod/actions/workflows/ci.yml/badge.svg)](https://github.com/Betterlol/moon_zod/actions/workflows/ci.yml)
 [![Mooncakes](https://img.shields.io/badge/mooncakes-published-blue)](https://mooncakes.io/docs/Betterlol/moon_zod)
+[![doc](https://img.shields.io/badge/branch-doc-blue)](https://github.com/Betterlol/moon_zod/tree/doc)
 
 > 🌐 [English README](./README.mbt.md)
 
@@ -11,6 +12,7 @@
 
 | 文档 | 说明 |
 |---|---|
+| [设计文档](./DESIGN.md) | 重要！核心架构、设计决策与未来方向 |
 | [API 参考](./docs/zh/API.md) | 详细的 API 文档 |
 | [CLI 参考](./docs/zh/CLI.md) | 命令行使用说明 |
 | [性能基准](./docs/zh/BENCHMARK.md) | 与其他校验库的性能对比 |
@@ -20,12 +22,9 @@
 
 ## 关于项目
 
-moon_zod 是 [Zod](https://zod.dev) / [Pydantic](https://docs.pydantic.dev) 的 MoonBit 移植版，专为 AI 时代而生。它提供了流畅的链式调用 API，用于运行时 JSON Schema 校验，核心场景是 **LLM Tool Calling** —— 校验大模型生成的结构化 JSON 输出，一次性收集所有错误，并默认防御幻觉字段。
+moon_zod 是一个**运行时 Schema 中间表示（IR）**——独立于输入来源和输出目标的校验契约层。它提供了流畅的链式调用 API 构建校验契约，核心场景是 **LLM Tool Calling**，同时也是一道跨格式的 Schema 互操作桥梁。详见[设计文档](./DESIGN.md)。
 
-- **AI 优先** — 单次遍历收集所有错误，供 LLM 自我纠错
-- **幻觉防御** — Strip 模式默认静默删除未知字段
-- **完整路径错误** — 每个错误精确定位到字段路径（`users[0].profile.age`）
-- **多格式导出** — 生成 LLM Prompt、JSON Schema、MoonBit 结构体和 moon_zod 源码
+以 Schema IR 为内核提供运行时校验、多源导入、多格式导出及 LLM 幻觉防御，支撑从 JSON Schema 到 Prompt 的闭环。
 
 ---
 

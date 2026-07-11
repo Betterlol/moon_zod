@@ -1,4 +1,4 @@
-name: MoonBit CI
+name: MoonZod CI
 
 on:
   push:

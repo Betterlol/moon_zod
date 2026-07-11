@@ -1,5 +1,9 @@
 # Release History
 
+[![doc](https://img.shields.io/badge/branch-doc-blue)](https://github.com/Betterlol/moon_zod/tree/doc)
+
+**To see the full details, please refer to docs in branch `doc`.**
+
 ## v0.8.1 (2026-07-07)
 
 **Exporter Hardening — Prompt Unification, JSON Schema Fixes, Renderer Convergence (Phase 41)**
