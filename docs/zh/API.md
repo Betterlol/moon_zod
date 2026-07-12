@@ -64,6 +64,8 @@
 | `.describe(text)` | any | **Phase 17**：为 LLM 提示附加描述 |
 | `.name(text)` | any | **Phase 25**：为 schema 导出指定名称 |
 | `.brand(text)` | any | **Phase 37**：为名义类型指定品牌标记 |
+| `.required_error(text)` | any | 覆盖必填字段缺失时的错误消息 |
+| `.invalid_type_error(text)` | any | 覆盖输入类型不匹配时的错误消息 |
 | `.message(text)` | any | **Phase 19**：覆盖最后一条规则的错误消息 |
 | `.intersect(other)` | any | **Phase 18**：交集 — 输入必须同时匹配两个 schema |
 | `.refine(check, msg)` | any | 自定义校验谓词 |
@@ -79,6 +81,7 @@
 | `to_json_schema_skeleton(Schema)` | **Phase 15**：导出轻量级 JSON Schema 骨架（仅结构） |
 | `to_json_schema_named(Schema, include_names?)` | **Phase 26, 34**：将命名 schema 导出为 `$defs` 和 `$ref` |
 | `json_schema_to_moon_zod(Json)` | **Phase 27, 36**：从 JSON Schema 反向生成 moon_zod 代码 |
+| `json_schema_to_prompt(Json)` | **Phase 41**：将 JSON Schema 转换为 TypeScript 接口提示字符串 |
 | `schema_to_moonbit_struct(Schema)` | 为每个对象/枚举 schema 生成 MoonBit struct/enum 定义 |
 | `schema_to_moonbit_struct_full(Schema)` | 生成定义并附加静态 `Type::to_schema()` 函数 |
 | `schema_to_moon_zod_code(Schema)` | 生成 moon_zod schema 源代码 |

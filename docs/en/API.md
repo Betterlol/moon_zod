@@ -64,6 +64,8 @@
 | `.describe(text)` | any | **Phase 17**: Attach description for LLM prompts |
 | `.name(text)` | any | **Phase 25**: Assign a name for schema exports |
 | `.brand(text)` | any | **Phase 37**: Assign a brand marker for nominal typing |
+| `.required_error(text)` | any | Override the error message when a required field is missing |
+| `.invalid_type_error(text)` | any | Override the error message when the input type does not match |
 | `.message(text)` | any | **Phase 19**: Override the last rule's error message |
 | `.intersect(other)` | any | **Phase 18**: Intersection — input must match both schemas |
 | `.refine(check, msg)` | any | Custom validation predicate |
@@ -79,6 +81,7 @@
 | `to_json_schema_skeleton(Schema)` | **Phase 15**: Export lightweight JSON Schema skeleton (structure only) |
 | `to_json_schema_named(Schema, include_names?)` | **Phase 26, 34**: Export named schemas as `$defs` with `$ref` |
 | `json_schema_to_moon_zod(Json)` | **Phase 27, 36**: Reverse-generate moon_zod code from JSON Schema |
+| `json_schema_to_prompt(Json)` | **Phase 41**: Convert JSON Schema to TypeScript-interface prompt string |
 | `schema_to_moonbit_struct(Schema)` | Generate MoonBit struct/enum definitions for every object/enum schema |
 | `schema_to_moonbit_struct_full(Schema)` | Generate definitions plus static `Type::to_schema()` functions |
 | `schema_to_moon_zod_code(Schema)` | Generate moon_zod schema source code |
