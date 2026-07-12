@@ -98,3 +98,40 @@ test "string invalid_type_error defaults to expected" {
   guard s.parse(Json::number(42.0)) is Err(errors) else { fail("expected Err") }
   @debug.assert_eq(errors[0].message, "Expected string")
 }
+
+///|
+/// Chainable .required_error() method
+test "schema required_error chainable method" {
+  let s = object({ "name": string().required_error("姓名是必填项") })
+  let input = parse_json("{}")
+  match s.parse(input) {
+    Err(errors) => @debug.assert_eq(errors[0].message, "姓名是必填项")
+    _ => fail("expected Err")
+  }
+}
+
+///|
+/// Chainable .invalid_type_error() method on string
+test "schema invalid_type_error chainable method string" {
+  let s = string().invalid_type_error("必须是字符串")
+  guard s.parse(Json::number(42.0)) is Err(errors) else { fail("expected Err") }
+  @debug.assert_eq(errors[0].message, "必须是字符串")
+}
+
+///|
+/// Chainable .invalid_type_error() method on number
+test "schema invalid_type_error chainable method number" {
+  let s = number().invalid_type_error("必须是数字")
+  guard s.parse(Json::string("abc")) is Err(errors) else {
+    fail("expected Err")
+  }
+  @debug.assert_eq(errors[0].message, "必须是数字")
+}
+
+///|
+/// Chainable .invalid_type_error() overrides factory default
+test "schema invalid_type_error chainable overrides factory" {
+  let s = string(invalid_type_error="factory").invalid_type_error("chain")
+  guard s.parse(Json::number(42.0)) is Err(errors) else { fail("expected Err") }
+  @debug.assert_eq(errors[0].message, "chain")
+}

@@ -80,6 +80,19 @@ pub fn Schema::brand(self : Schema, text : String) -> Schema {
 }
 
 ///|
+/// Override the error message when a required field is missing.
+/// Only effective when this schema is used as an object field value.
+pub fn Schema::required_error(self : Schema, text : String) -> Schema {
+  { ..self, required_error: text }
+}
+
+///|
+/// Override the error message when the input type does not match.
+pub fn Schema::invalid_type_error(self : Schema, text : String) -> Schema {
+  { ..self, invalid_type_error: text }
+}
+
+///|
 /// Override the error message of the last rule in the chain.
 /// Peels through OptionalType / DefaultType / TransformType wrappers
 /// to find the base schema with the rules array.

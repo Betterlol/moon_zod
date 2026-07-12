@@ -4,6 +4,17 @@
 
 **To see the full details, please refer to docs in branch `doc`.**
 
+## v0.8.2 (2026-07-12)
+
+### Add README in exporters/ and importers/ subpackages
+- `exporters/README.md` and `importers/README.md` added to document public API, file structure, and implementation details
+
+### Schema Chainable Error Methods
+- `Schema::required_error(text)` and `Schema::invalid_type_error(text)` chainable methods added to `core/schema.mbt`
+- Previously only available as factory parameters (`string(required_error?, invalid_type_error?)`), now also chainable: `string().min(2).required_error("...").invalid_type_error("...")`
+
+**479 tests** (all passing, 0 warnings)
+
 ## v0.8.1 (2026-07-07)
 
 **Exporter Hardening — Prompt Unification, JSON Schema Fixes, Renderer Convergence (Phase 41)**
@@ -29,8 +40,6 @@
 - `schema_to_moon_zod_code()` now handles `any()`, `unknown()`, `tuple()`, `preprocess()` with valid code output
 - Fixed `json_to_literal` for boolean/null values (no longer uses non-existent `Json::boolean()` / `Json::null()` constructors)
 - `schema_to_moonbit_struct_named()` and `schema_to_moonbit_struct_named_full()` removed from public API (deferred: moonbit_struct exporter not yet hardened to Phase 41 standard for tuple/any/unknown)
-
-**470 tests** (all passing, 0 warnings)
 
 ---
 
