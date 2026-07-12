@@ -60,6 +60,20 @@ pub(open) trait StringRenderer {
     indent : Int,
   ) -> String
   fn render_literal(Self, value : Json, schema : @core.Schema, indent : Int) -> String
+  fn render_any(Self, schema : @core.Schema, indent : Int) -> String
+  fn render_unknown(Self, schema : @core.Schema, indent : Int) -> String
+  fn render_tuple(
+    Self,
+    items : Array[@core.Schema],
+    schema : @core.Schema,
+    indent : Int,
+  ) -> String
+  fn render_preprocess(
+    Self,
+    inner : @core.Schema,
+    schema : @core.Schema,
+    indent : Int,
+  ) -> String
 }
 
 ///|
@@ -74,11 +88,11 @@ pub fn[R : StringRenderer] render_type(
     NumberType => renderer.render_number(schema, indent)
     BooleanType => renderer.render_boolean(schema, indent)
     NullType => renderer.render_null(schema, indent)
-    AnyType => "any"
-    UnknownType => "unknown"
+    AnyType => renderer.render_any(schema, indent)
+    UnknownType => renderer.render_unknown(schema, indent)
     ObjectType(spec, mode) => renderer.render_object(spec, mode, schema, indent)
     ArrayType(elem) => renderer.render_array(elem, schema, indent)
-    TupleType(items) => render_tuple_type(renderer, items, indent)
+    TupleType(items) => renderer.render_tuple(items, schema, indent)
     OptionalType(inner) => renderer.render_optional(inner, schema, indent)
     DefaultType(inner, default_val) =>
       renderer.render_default(inner, default_val, schema, indent)
@@ -86,24 +100,12 @@ pub fn[R : StringRenderer] render_type(
     UnionType(schemas) => renderer.render_union(schemas, schema, indent)
     IntersectionType(schemas) =>
       renderer.render_intersection(schemas, schema, indent)
-    PreprocessType(_, inner) => render_type(renderer, inner, indent)
+    PreprocessType(_, inner) =>
+      renderer.render_preprocess(inner, schema, indent)
     TransformType(inner, closure) =>
       renderer.render_transform(inner, closure, schema, indent)
     LiteralType(value) => renderer.render_literal(value, schema, indent)
   }
-}
-
-///|
-fn[R : StringRenderer] render_tuple_type(
-  renderer : R,
-  items : Array[@core.Schema],
-  indent : Int,
-) -> String {
-  let parts : Array[String] = []
-  for item in items {
-    parts.push(render_type(renderer, item, indent))
-  }
-  "[" + parts.join(", ") + "]"
 }
 
 ///|

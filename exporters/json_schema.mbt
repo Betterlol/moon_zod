@@ -184,6 +184,21 @@ fn[R : JsonSchemaRenderer] render_intersection_schema(
 }
 
 ///|
+fn[R : JsonSchemaRenderer] render_json_tuple_type(
+  renderer : R,
+  items : Array[@core.Schema],
+) -> Json {
+  Json::object({
+    "type": Json::string("array"),
+    "prefixItems": Json::array(
+      items.map(fn(item) { render_json_type(renderer, item) }),
+    ),
+    "minItems": Json::number(items.length().to_double()),
+    "maxItems": Json::number(items.length().to_double()),
+  })
+}
+
+///|
 fn can_merge_object_intersection(schemas : Array[@core.Schema]) -> Bool {
   for schema in schemas {
     match schema.schema_type {
@@ -497,6 +512,44 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_literal(
     schema.rules,
     self.include_annotations,
   )
+}
+
+///|
+#warnings("-unused_value")
+pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_any(
+  self : NamedJsonRenderer,
+  _schema : @core.Schema,
+) -> Json {
+  Json::object({})
+}
+
+///|
+#warnings("-unused_value")
+pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_unknown(
+  self : NamedJsonRenderer,
+  _schema : @core.Schema,
+) -> Json {
+  Json::object({})
+}
+
+///|
+#warnings("-unused_value")
+pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_tuple(
+  self : NamedJsonRenderer,
+  items : Array[@core.Schema],
+  _schema : @core.Schema,
+) -> Json {
+  render_json_tuple_type(self, items)
+}
+
+///|
+#warnings("-unused_value")
+pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_preprocess(
+  self : NamedJsonRenderer,
+  inner : @core.Schema,
+  _schema : @core.Schema,
+) -> Json {
+  render_json_type(self, inner)
 }
 
 // ── Public API ──

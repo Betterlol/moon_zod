@@ -28,6 +28,7 @@
 ### C — Code Exporter Fixes
 - `schema_to_moon_zod_code()` now handles `any()`, `unknown()`, `tuple()`, `preprocess()` with valid code output
 - Fixed `json_to_literal` for boolean/null values (no longer uses non-existent `Json::boolean()` / `Json::null()` constructors)
+- `schema_to_moonbit_struct_named()` and `schema_to_moonbit_struct_named_full()` removed from public API (deferred: moonbit_struct exporter not yet hardened to Phase 41 standard for tuple/any/unknown)
 
 **470 tests** (all passing, 0 warnings)
 

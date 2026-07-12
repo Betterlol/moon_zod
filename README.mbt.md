@@ -17,6 +17,7 @@
 | [CLI Reference](./docs/en/CLI.md) | Command-line usage |
 | [Benchmark](./docs/en/BENCHMARK.md) | Performance comparison with other validation libraries |
 | [Examples](./docs/en/EXAMPLES.md) | Practical usage examples |
+| [Exporters](./exporters/README.md) | moon_zod exporters documentation |
 
 ---
 
@@ -126,8 +127,7 @@ moon_zod/
 │   └── moon_zod_wbtest.mbt   # White-box tests (path stack invariants)
 │
 ├── combinators/              # Schema combinator utilities
-│   ├── schema_combinators.mbt # Schema composition helpers
-│   └── reexporter.mbt        # Re-exports
+│   └── schema_combinators.mbt # Schema composition helpers
 │
 ├── exporters/                # Code/schema export tools
 │   ├── prompt.mbt            # schema_to_prompt() / schema_to_prompt_named()
@@ -135,12 +135,10 @@ moon_zod/
 │   ├── json_schema.mbt       # to_json_schema() / to_json_schema_named()
 │   ├── json_schema_renderer.mbt # Trait-based JSON Schema rendering
 │   ├── moonbit_struct.mbt    # schema_to_moonbit_struct() + static to_schema() generation
-│   ├── schema_exporter.mbt   # Shared exporter utilities
-│   └── reexporter.mbt        # Module re-exports
+│   └── schema_exporter.mbt   # Shared exporter utilities
 │
 ├── importers/                # Schema import tools
-│   ├── from_json_schema.mbt  # json_schema_to_moon_zod() — reverse JSON Schema → moon_zod code generation
-│   └── reexporter.mbt        # Module re-exports
+│   └── from_json_schema.mbt  # json_schema_to_moon_zod() — reverse JSON Schema → moon_zod code generation
 │
 ├── tests/                    # Test suite (466 tests)
 │   ├── test_string.mbt       # string() validator tests (trim, to_lower, to_upper, nonempty)

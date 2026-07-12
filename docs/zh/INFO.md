@@ -43,8 +43,7 @@ moon_zod/
 │   └── moon_zod_wbtest.mbt   # 白盒测试（路径栈不变量）
 │
 ├── combinators/              # Schema 组合器工具
-│   ├── schema_combinators.mbt # Schema 组合辅助函数
-│   └── reexporter.mbt        # 重新导出
+│   └── schema_combinators.mbt # Schema 组合辅助函数
 │
 ├── exporters/                # 代码/Schema 导出工具
 │   ├── prompt.mbt            # schema_to_prompt() / schema_to_prompt_named()
@@ -52,12 +51,10 @@ moon_zod/
 │   ├── json_schema.mbt       # to_json_schema() / to_json_schema_named()
 │   ├── json_schema_renderer.mbt # 基于特性的 JSON Schema 渲染
 │   ├── moonbit_struct.mbt    # schema_to_moonbit_struct() + 静态 to_schema() 生成
-│   ├── schema_exporter.mbt   # 共享导出器工具
-│   └── reexporter.mbt        # 模块重新导出
+│   └── schema_exporter.mbt   # 共享导出器工具
 │
 ├── importers/                # Schema 导入工具
-│   ├── from_json_schema.mbt  # json_schema_to_moon_zod() —— 反向 JSON Schema → moon_zod 代码生成
-│   └── reexporter.mbt        # 模块重新导出
+│   └── from_json_schema.mbt  # json_schema_to_moon_zod() —— 反向 JSON Schema → moon_zod 代码生成
 │
 ├── tests/                    # 测试套件（466 个测试）
 │   ├── test_string.mbt       # string() 校验器测试（trim、to_lower、to_upper、nonempty）

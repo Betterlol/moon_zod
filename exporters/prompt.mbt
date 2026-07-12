@@ -251,6 +251,48 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_literal(
 }
 
 ///|
+#warnings("-unused_value")
+pub impl StringRenderer for NamedPromptRenderer with fn render_any(
+  self : NamedPromptRenderer,
+  _schema : @core.Schema,
+  _indent : Int,
+) -> String {
+  "any"
+}
+
+///|
+#warnings("-unused_value")
+pub impl StringRenderer for NamedPromptRenderer with fn render_unknown(
+  self : NamedPromptRenderer,
+  _schema : @core.Schema,
+  _indent : Int,
+) -> String {
+  "unknown"
+}
+
+///|
+#warnings("-unused_value")
+pub impl StringRenderer for NamedPromptRenderer with fn render_tuple(
+  self : NamedPromptRenderer,
+  items : Array[@core.Schema],
+  _schema : @core.Schema,
+  indent : Int,
+) -> String {
+  render_tuple_type(self, items, indent)
+}
+
+///|
+#warnings("-unused_value")
+pub impl StringRenderer for NamedPromptRenderer with fn render_preprocess(
+  self : NamedPromptRenderer,
+  inner : @core.Schema,
+  _schema : @core.Schema,
+  indent : Int,
+) -> String {
+  render_type(self, inner, indent)
+}
+
+///|
 /// Public API: convert a schema to a TypeScript-interface-style prompt @core.string.
 pub fn schema_to_prompt(schema : @core.Schema) -> String {
   schema_to_prompt_inline(schema, [])
@@ -549,6 +591,19 @@ fn enum_values_to_string(values : Array[String]) -> String {
     first = false
   }
   result
+}
+
+///|
+fn[R : StringRenderer] render_tuple_type(
+  renderer : R,
+  items : Array[@core.Schema],
+  indent : Int,
+) -> String {
+  let parts : Array[String] = []
+  for item in items {
+    parts.push(render_type(renderer, item, indent))
+  }
+  "[" + parts.join(", ") + "]"
 }
 
 ///|

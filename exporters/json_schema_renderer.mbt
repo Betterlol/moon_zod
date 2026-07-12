@@ -36,6 +36,10 @@ pub(open) trait JsonSchemaRenderer {
     schema : @core.Schema,
   ) -> Json
   fn render_literal(Self, value : Json, schema : @core.Schema) -> Json
+  fn render_any(Self, schema : @core.Schema) -> Json
+  fn render_unknown(Self, schema : @core.Schema) -> Json
+  fn render_tuple(Self, items : Array[@core.Schema], schema : @core.Schema) -> Json
+  fn render_preprocess(Self, inner : @core.Schema, schema : @core.Schema) -> Json
 }
 
 ///|
@@ -49,36 +53,22 @@ pub fn[R : JsonSchemaRenderer] render_json_type(
     NumberType => renderer.render_number(schema)
     BooleanType => renderer.render_boolean(schema)
     NullType => renderer.render_null(schema)
-    AnyType | UnknownType => Json::object({})
+    AnyType => renderer.render_any(schema)
+    UnknownType => renderer.render_unknown(schema)
     ObjectType(spec, mode) => renderer.render_object(spec, mode, schema)
     ArrayType(elem) => renderer.render_array(elem, schema)
-    TupleType(items) => render_json_tuple_type(renderer, items)
+    TupleType(items) => renderer.render_tuple(items, schema)
     OptionalType(inner) => renderer.render_optional(inner, schema)
     DefaultType(inner, default_val) =>
       renderer.render_default(inner, default_val, schema)
     EnumType(values) => renderer.render_enum(values, schema)
     UnionType(schemas) => renderer.render_union(schemas, schema)
     IntersectionType(schemas) => renderer.render_intersection(schemas, schema)
-    PreprocessType(_, inner) => render_json_type(renderer, inner)
+    PreprocessType(_, inner) => renderer.render_preprocess(inner, schema)
     TransformType(inner, closure) =>
       renderer.render_transform(inner, closure, schema)
     LiteralType(value) => renderer.render_literal(value, schema)
   }
-}
-
-///|
-fn[R : JsonSchemaRenderer] render_json_tuple_type(
-  renderer : R,
-  items : Array[@core.Schema],
-) -> Json {
-  Json::object({
-    "type": Json::string("array"),
-    "prefixItems": Json::array(
-      items.map(fn(item) { render_json_type(renderer, item) }),
-    ),
-    "minItems": Json::number(items.length().to_double()),
-    "maxItems": Json::number(items.length().to_double()),
-  })
 }
 
 ///|
