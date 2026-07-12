@@ -82,4 +82,4 @@ pub using @exporters {
 pub using @importers {json_schema_to_schema}
 
 ///|
-pub using @combinators {json_schema_to_moon_zod}
+pub using @combinators {json_schema_to_moon_zod, json_schema_to_prompt}
