@@ -1136,3 +1136,50 @@ test "json_schema_to_schema: $defs and $ref" {
     _ => fail("expected Err")
   }
 }
+
+///|
+/// Test json_schema_to_schema: additionalProperties true → passthrough
+test "json_schema_to_schema: additionalProperties true allows extra fields" {
+  let input = parse_json(
+    "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"additionalProperties\":true}",
+  )
+  let s = json_schema_to_schema(input)
+  // Should accept extra fields in passthrough mode
+  match
+    s.parse(
+      Json::object({
+        "name": Json::string("Alice"),
+        "extra": Json::string("allowed"),
+      }),
+    ) {
+    Ok(_) => ()
+    _ => fail("expected Ok with extra field in passthrough mode")
+  }
+}
+
+///|
+/// Test json_schema_to_schema: additionalProperties false → strip
+test "json_schema_to_schema: additionalProperties false strips extra fields" {
+  let input = parse_json(
+    "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"additionalProperties\":false}",
+  )
+  let s = json_schema_to_schema(input)
+  // Should strip extra fields (default Strip mode)
+  match
+    s.parse(
+      Json::object({
+        "name": Json::string("Alice"),
+        "extra": Json::string("stripped"),
+      }),
+    ) {
+    Ok(parsed) =>
+      match parsed {
+        Object(m) => {
+          let has_extra = m.contains("extra")
+          @debug.assert_eq(has_extra, false)
+        }
+        _ => fail("expected object")
+      }
+    Err(_) => fail("expected Ok")
+  }
+}

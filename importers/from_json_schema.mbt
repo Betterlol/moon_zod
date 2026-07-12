@@ -3,7 +3,7 @@
 ///
 /// Two functions:
 /// 1. json_schema_to_schema() - Parse JSON @core.Schema → @core.Schema @core.object (runtime-ready)
-/// 2. json_schema_to_moon_zod() - Parse JSON @core.Schema → moon_zod source code (uses layer 2)
+/// 2. json_schema_to_moon_zod() - Parse JSON @core.Schema → moon_zod source code (defined in combinators)
 
 ///|
 /// **JSON @core.Schema → @core.Schema @core.object**
@@ -108,6 +108,10 @@ fn json_to_schema_impl(
       // 3. Check enum
       match m.get("enum") {
         Some(Array(values)) => {
+          if values.length() == 0 {
+            return @core.string()
+          }
+
           let strs : Array[String] = []
           let all_numbers : Array[Double] = []
           let mut has_non_numbers = false
@@ -148,12 +152,14 @@ fn json_to_schema_impl(
             return result_schema
           }
 
-          // Otherwise, use string enum for any string values
-          if strs.length() > 0 {
+          // If all values are strings, use string enum
+          if strs.length() == values.length() {
             return @core.enum_values(strs)
-          } else {
-            return @core.string()
           }
+
+          // Mixed or non-string types: use union of literals
+          let parts = values.map(fn(v) { @core.literal(v) })
+          return @core.union(parts)
         }
         _ => ()
       }
@@ -175,7 +181,13 @@ fn json_to_schema_impl(
                   }
                   fields.set(key, field)
                 }
-                @core.object(fields)
+                let mut obj_schema = @core.object(fields)
+                obj_schema = match m.get("additionalProperties") {
+                  Some(True) => obj_schema.passthrough()
+                  Some(False) => obj_schema.strip()
+                  _ => obj_schema
+                }
+                obj_schema
               }
               _ => @core.object({})
             }

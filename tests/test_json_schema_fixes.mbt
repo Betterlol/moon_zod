@@ -206,7 +206,7 @@ test "enum_with_numbers_rejects_invalid" {
 }
 
 ///|
-/// Test mixed string+number enum: only strings are kept
+/// Test mixed string+number enum: union of literals preserves all values
 test "enum_mixed_string_number" {
   let json_schema = parse_json("{\"enum\": [\"a\", \"b\", 1, 2]}")
   let schema = json_schema_to_schema(json_schema)
@@ -222,44 +222,57 @@ test "enum_mixed_string_number" {
     fail("enum: should reject \"c\"")
   }
 
-  // Should reject number 1 (numbers dropped in mixed enum)
-  guard schema.parse(parse_json("1")) is Err(_) else {
-    fail("enum: should reject 1 when enum is mixed string+number")
+  // Should accept number 1 (preserved in mixed enum via union of literals)
+  match schema.parse(parse_json("1")) {
+    Ok(_) => ()
+    Err(_e) => fail("expected Ok for 1 in mixed enum")
+  }
+
+  // Should reject number 3 (not in enum)
+  guard schema.parse(parse_json("3")) is Err(_) else {
+    fail("enum: should reject 3")
   }
 }
 
 ///|
-/// Test boolean enum falls back to string (known limitation)
-test "enum_boolean_falls_back_to_string" {
+/// Test boolean enum: union of literals (not string fallback)
+test "enum_boolean_literals" {
   let json_schema = parse_json("{\"enum\": [true, false]}")
   let schema = json_schema_to_schema(json_schema)
 
-  // Current limitation: boolean enum falls back to string(),
-  // so it accepts any string but rejects booleans
-  guard schema.parse(parse_json("\"anything\"")) is Ok(_) else {
-    fail("boolean enum fallback: should accept any string")
+  // Should accept boolean true
+  match schema.parse(parse_json("true")) {
+    Ok(_) => ()
+    Err(_e) => fail("expected Ok for true")
   }
 
-  // Should reject boolean true (not a string)
-  guard schema.parse(parse_json("true")) is Err(_) else {
-    fail("boolean enum fallback: should reject true")
+  // Should accept boolean false
+  match schema.parse(parse_json("false")) {
+    Ok(_) => ()
+    Err(_e) => fail("expected Ok for false")
+  }
+
+  // Should reject string (not in boolean enum)
+  guard schema.parse(parse_json("\"anything\"")) is Err(_) else {
+    fail("boolean enum: should reject string")
   }
 }
 
 ///|
-/// Test null enum falls back to string (known limitation)
-test "enum_null_falls_back_to_string" {
+/// Test null enum: union of literals (not string fallback)
+test "enum_null_literal" {
   let json_schema = parse_json("{\"enum\": [null]}")
   let schema = json_schema_to_schema(json_schema)
 
-  // Current limitation: null enum falls back to string()
-  guard schema.parse(parse_json("\"any\"")) is Ok(_) else {
-    fail("null enum fallback: should accept any string")
+  // Should accept null
+  match schema.parse(parse_json("null")) {
+    Ok(_) => ()
+    Err(_e) => fail("expected Ok for null")
   }
 
-  // Should reject null (not a string)
-  guard schema.parse(parse_json("null")) is Err(_) else {
-    fail("null enum fallback: should reject null")
+  // Should reject string (not in null enum)
+  guard schema.parse(parse_json("\"any\"")) is Err(_) else {
+    fail("null enum: should reject string")
   }
 }
 

@@ -18,6 +18,7 @@
 | [性能基准](./docs/zh/BENCHMARK.md) | 与其他校验库的性能对比 |
 | [使用示例](./docs/zh/EXAMPLES.md) | 实际使用示例 |
 | [导出器说明](./exporters/README.md) | moon_zod 的导出器说明 |
+| [导入器说明](./importers/README.md) | moon_zod 的导入器说明 |
 
 ---
 
