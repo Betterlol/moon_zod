@@ -15,7 +15,7 @@
 /// // "let root = @moon_zod.string().min(3).name(\"Root\")"
 /// ```
 pub fn json_schema_to_moon_zod(schema : Json) -> String {
-  let schema_obj = json_schema_to_schema(schema)
-  let named_defs = schema_to_moon_zod_code_named(schema_obj)
+  let schema_obj = @importers.json_schema_to_schema(schema)
+  let named_defs = @exporters.schema_to_moon_zod_code_named(schema_obj)
   named_defs
 }
