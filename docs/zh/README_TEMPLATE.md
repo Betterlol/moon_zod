@@ -36,6 +36,13 @@ moon_zod 是一个**运行时 Schema 中间表示（IR）**——独立于输入
 
 ---
 
+## 相关项目
+
+- [vscode-moon-zod-schema](https://github.com/Betterlol/vscode-moon-zod-schema.git) - moon_zod 的 VSCode 插件。
+> 网站: [extension](https://marketplace.visualstudio.com/items?itemName=Betterlol.vscode-moon-zod-schema).
+
+---
+
 ## 了解更多
 
 - [架构设计文档](./DESIGN.md) — 核心架构、设计决策与未来方向

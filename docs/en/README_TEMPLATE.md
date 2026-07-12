@@ -36,6 +36,13 @@ A Schema IR core providing runtime validation, multi-source import, multi-format
 
 ---
 
+## Related Projects
+
+- [vscode-moon-zod-schema](https://github.com/Betterlol/vscode-moon-zod-schema.git) - VSCode extension for moon_zod. 
+> website: [extension](https://marketplace.visualstudio.com/items?itemName=Betterlol.vscode-moon-zod-schema).
+
+---
+
 ## Learn More
 
 - [DESIGN.md](./DESIGN.md) for architecture, design decisions, and future directions.
