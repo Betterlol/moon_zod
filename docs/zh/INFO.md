@@ -56,7 +56,7 @@ moon_zod/
 ├── importers/                # Schema 导入工具
 │   └── from_json_schema.mbt  # json_schema_to_moon_zod() —— 反向 JSON Schema → moon_zod 代码生成
 │
-├── tests/                    # 测试套件（466 个测试）
+├── tests/                    # 测试套件（479 个测试）
 │   ├── test_string.mbt       # string() 校验器测试（trim、to_lower、to_upper、nonempty）
 │   ├── test_number.mbt       # number() 校验器测试
 │   ├── test_boolean_null.mbt # boolean/null 测试
@@ -104,7 +104,7 @@ moon_zod/
 
 ```bash
 # 测试与构建
-moon test                # 运行所有测试（共 466 个，0 警告）
+moon test                # 运行所有测试（共 479 个，0 警告）
 moon build               # 构建库
 moon check               # 类型检查（0 错误，0 警告）
 moon info && moon fmt    # 更新接口 + 格式化

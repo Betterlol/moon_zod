@@ -56,7 +56,7 @@ moon_zod/
 ├── importers/                # Schema import tools
 │   └── from_json_schema.mbt  # json_schema_to_moon_zod() — reverse JSON Schema → moon_zod code generation
 │
-├── tests/                    # Test suite (466 tests)
+├── tests/                    # Test suite (479 tests)
 │   ├── test_string.mbt       # string() validator tests (trim, to_lower, to_upper, nonempty)
 │   ├── test_number.mbt       # number() validator tests
 │   ├── test_boolean_null.mbt # boolean/null tests
@@ -104,7 +104,7 @@ moon_zod/
 
 ```bash
 # Testing & Building
-moon test                # Run all tests (466 total, 0 warnings)
+moon test                # Run all tests (479 total, 0 warnings)
 moon build               # Build the library
 moon check               # Type check (0 errors, 0 warnings)
 moon info && moon fmt    # Update interface + format
