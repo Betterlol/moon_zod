@@ -62,7 +62,7 @@ pub fn Schema::strip(self : Schema) -> Schema {
 pub fn Schema::pick(self : Schema, keys : Array[String]) -> Schema {
   match self.schema_type {
     ObjectType(spec, mode) => {
-      let new_spec : Map[String, Schema] = {}
+      let new_spec : Map[String, Schema] = Map([])
       for key in keys {
         match spec.get(key) {
           Some(s) => new_spec.set(key, s)
@@ -95,7 +95,7 @@ pub fn Schema::pick(self : Schema, keys : Array[String]) -> Schema {
 pub fn Schema::omit(self : Schema, keys : Array[String]) -> Schema {
   match self.schema_type {
     ObjectType(spec, mode) => {
-      let new_spec : Map[String, Schema] = {}
+      let new_spec : Map[String, Schema] = Map([])
       for key in spec.keys() {
         if !value_in_array(key, keys) {
           match spec.get(key) {
@@ -131,7 +131,7 @@ pub fn Schema::omit(self : Schema, keys : Array[String]) -> Schema {
 pub fn Schema::partial(self : Schema) -> Schema {
   match self.schema_type {
     ObjectType(spec, mode) => {
-      let new_spec : Map[String, Schema] = {}
+      let new_spec : Map[String, Schema] = Map([])
       for key in spec.keys() {
         match spec.get(key) {
           Some(s) => new_spec.set(key, s.optional())
@@ -161,7 +161,7 @@ pub fn Schema::extend_with(
 ) -> Schema {
   match self.schema_type {
     ObjectType(spec, mode) => {
-      let new_spec : Map[String, Schema] = {}
+      let new_spec : Map[String, Schema] = Map([])
       for key in spec.keys() {
         match spec.get(key) {
           Some(s) => new_spec.set(key, s)
@@ -195,7 +195,7 @@ pub fn Schema::extend_with(
 pub fn Schema::merge(self : Schema, other : Schema) -> Schema {
   match (self.schema_type, other.schema_type) {
     (ObjectType(spec, _), ObjectType(other_spec, other_mode)) => {
-      let new_spec : Map[String, Schema] = {}
+      let new_spec : Map[String, Schema] = Map([])
       for key in spec.keys() {
         match spec.get(key) {
           Some(s) => new_spec.set(key, s)
@@ -234,7 +234,7 @@ pub fn Schema::parse_object(
   match json {
     Object(input_map) => {
       let errors : Array[ValidationError] = []
-      let parsed_fields : Map[String, Json] = {}
+      let parsed_fields : Map[String, Json] = Map([])
       for field_name in spec.keys() {
         match spec.get(field_name) {
           Some(field_schema) => {

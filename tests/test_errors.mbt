@@ -66,7 +66,7 @@ test "null invalid_type_error" {
 
 ///|
 test "object invalid_type_error" {
-  let s = object({}, invalid_type_error="必须是对象")
+  let s = object(Map([]), invalid_type_error="必须是对象")
   guard s.parse(Json::string("not-object")) is Err(errors) else {
     fail("expected Err")
   }

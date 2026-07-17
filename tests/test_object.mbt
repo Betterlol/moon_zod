@@ -248,8 +248,8 @@ test "omit removes specific fields" {
 ///|
 test "omit all fields produces empty object" {
   let o = object({ "a": string() }).omit(["a"])
-  match o.parse(Json::object({})) {
-    Ok(v) => @debug.assert_eq(v, Json::object({}))
+  match o.parse(Json::empty_object()) {
+    Ok(v) => @debug.assert_eq(v, Json::empty_object())
     Err(_) => fail("expected Ok")
   }
 }
@@ -273,7 +273,7 @@ test "omit preserves schema description" {
 /// Schema composition — partial()
 test "partial makes all fields optional" {
   let p = object({ "a": string(), "b": number() }).partial()
-  match p.parse(Json::object({})) {
+  match p.parse(Json::empty_object()) {
     Ok(_) => ()
     Err(_) => fail("expected Ok")
   }
@@ -308,7 +308,7 @@ test "partial preserves object mode" {
 ///|
 test "partial on already partial keeps all fields optional" {
   let p = object({ "a": string() }).partial().partial()
-  match p.parse(Json::object({})) {
+  match p.parse(Json::empty_object()) {
     Ok(_) => ()
     Err(_) => fail("expected Ok")
   }

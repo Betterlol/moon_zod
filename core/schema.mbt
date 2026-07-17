@@ -409,7 +409,7 @@ pub fn json_infer_schema(json : Json) -> Schema {
       array(elem_schema)
     }
     Object(map) => {
-      let fields : Map[String, Schema] = {}
+      let fields : Map[String, Schema] = Map([])
       for key, val in map {
         let field_schema = json_infer_schema(val)
         fields.set(key, field_schema)

@@ -12,7 +12,7 @@
 /// Handles $defs, $ref, enum, type constraints, and all JSON @core.Schema keywords.
 pub fn json_schema_to_schema(schema : Json) -> @core.Schema {
   let defs_json = extract_defs(schema)
-  let defs_cache : Map[String, @core.Schema] = {}
+  let defs_cache : Map[String, @core.Schema] = Map([])
   let visiting : Array[String] = []
 
   // First pass: Process all $defs to build cache
@@ -170,7 +170,7 @@ fn json_to_schema_impl(
           Some(String("object")) =>
             match m.get("properties") {
               Some(Object(props)) => {
-                let fields : Map[String, @core.Schema] = {}
+                let fields : Map[String, @core.Schema] = Map([])
                 let required_set = parse_required(m.get("required"))
                 for key, field_json in props {
                   let mut field = json_to_schema_impl(
@@ -189,7 +189,7 @@ fn json_to_schema_impl(
                 }
                 obj_schema
               }
-              _ => @core.object({})
+              _ => @core.object(Map([]))
             }
           Some(String("array")) => {
             let elem = match m.get("items") {
@@ -247,7 +247,7 @@ fn json_to_schema_impl(
 ///|
 /// Parse the "required" @core.array from JSON @core.Schema @core.object.
 fn parse_required(required_json : Json?) -> Map[String, Bool] {
-  let set : Map[String, Bool] = {}
+  let set : Map[String, Bool] = Map([])
   match required_json {
     Some(Array(reqs)) =>
       for r in reqs {
@@ -388,9 +388,9 @@ fn extract_defs(schema : Json) -> Map[String, Json] {
         Some(Object(d)) => return d
         _ => ()
       }
-      {}
+      Map([])
     }
-    _ => {}
+    _ => Map([])
   }
 }
 

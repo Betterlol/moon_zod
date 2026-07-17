@@ -366,7 +366,7 @@ test "literal complex values format expected message" {
   }
 
   let object_schema = literal(Json::object({ "ok": Json::null() }))
-  match object_schema.parse(Json::object({})) {
+  match object_schema.parse(Json::empty_object()) {
     Err(errors) => assert_true(errors[0].message.contains("\"ok\": null"))
     _ => fail("expected Err")
   }

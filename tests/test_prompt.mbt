@@ -143,7 +143,7 @@ test "schema_to_prompt transform transparent" {
 
 ///|
 test "schema_to_prompt empty object" {
-  @debug.assert_eq(schema_to_prompt(object({})), "{}")
+  @debug.assert_eq(schema_to_prompt(object(Map([]))), "{}")
 }
 
 ///|

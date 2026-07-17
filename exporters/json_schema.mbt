@@ -98,7 +98,7 @@ fn[R : JsonSchemaRenderer] render_object_schema(
   named_names : Array[String],
   include_annotations : Bool,
 ) -> Json {
-  let props : Map[String, Json] = {}
+  let props : Map[String, Json] = Map([])
   let required_arr : Array[String] = []
   for key, val in spec {
     props.set(key, render_json_child(renderer, val, named_names))
@@ -219,7 +219,7 @@ fn[R : JsonSchemaRenderer] render_merged_object_intersection_schema(
   schemas : Array[@core.Schema],
   named_names : Array[String],
 ) -> Json {
-  let props : Map[String, Json] = {}
+  let props : Map[String, Json] = Map([])
   let required_arr : Array[String] = []
   collect_object_intersection_parts(
     renderer, schemas, named_names, props, required_arr,
@@ -520,7 +520,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_any(
   self : NamedJsonRenderer,
   _schema : @core.Schema,
 ) -> Json {
-  Json::object({})
+  Json::empty_object()
 }
 
 ///|
@@ -529,7 +529,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_unknown(
   self : NamedJsonRenderer,
   _schema : @core.Schema,
 ) -> Json {
-  Json::object({})
+  Json::empty_object()
 }
 
 ///|
@@ -587,7 +587,7 @@ pub fn to_json_schema_named(
   let named_names : Array[String] = selected_schemas.map(fn(s) { s.name })
   let sorted_schemas = @core.topological_sort_schemas(selected_schemas)
 
-  let defs_map : Map[String, Json] = {}
+  let defs_map : Map[String, Json] = Map([])
   for ns in sorted_schemas {
     let ref_names = named_names.filter(fn(n) { n != ns.name })
     let renderer = NamedJsonRenderer(named_names=ref_names)
@@ -597,7 +597,7 @@ pub fn to_json_schema_named(
   let renderer = NamedJsonRenderer(named_names~)
   let root = render_json_type_ref(renderer, schema, named_names)
 
-  let result_map : Map[String, Json] = {}
+  let result_map : Map[String, Json] = Map([])
   match root {
     Object(m) =>
       for k, v in m {
