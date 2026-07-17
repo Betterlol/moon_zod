@@ -3,6 +3,4 @@ import {
   "moonbitlang/core/debug",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")
