@@ -79,6 +79,8 @@
 
 **产出**: 396/396 测试全部通过；4 处重复逻辑消除。
 
+> **后续变更（Phase 41）**: `schema_to_moonbit_struct_named` / `schema_to_moonbit_struct_named_full` 因 moonbit_struct 导出器未完成 Phase 41 硬化（tuple/any/unknown 仍为最低限度回退），从公开 API 中移除，待后续整体重构时重新评估。
+
 ---
 
 ## Special Phase — 项目结构的重组
@@ -426,6 +428,7 @@ git diff --stat 6f637ff70f00aab555b4e106cf158415b9dd00ce 914d1cda317755e55ecbe17
 - JSON Schema renderer 收敛：删除 Full/Skeleton 两个公开结构，`NamedJsonRenderer` 用 `include_annotations` 开关约束输出。
 - object intersection 合并：输出单个 closed object 而非多个闭 object 的 `allOf`（避免不可满足），同名字段用属性级 `allOf` 保留约束。
 - `schema_to_moon_zod_code` 的 `required_error` / `invalid_type_error` 链式方法仍输出，但实际不暴露在 `Schema` API 中——已知 round-trip 不安全，标记为最佳代码输出。
+- **`schema_to_moonbit_struct_named` / `schema_to_moonbit_struct_named_full` 从公开 API 中移除**：Phase 34 曾承诺这两个 named 导出函数，但 moonbit_struct 导出器整体未随 Phase 41 统一硬化（tuple/any/unknown 仍为最低限度回退），为避免不一致的公开承诺，决定搁置 named struct 导出，待后续整体重构时重新评估。
 
 **产出**: 470/470 测试全部通过（0 failed）；`moon check`, `moon info && moon fmt` 通过。
 
@@ -439,7 +442,7 @@ git diff --stat 6f637ff70f00aab555b4e106cf158415b9dd00ce 914d1cda317755e55ecbe17
 | 外部依赖 | `moonbitlang/regexp` |
 | 编译器警告 | 0 |
 | 子包数量 | 5（`core`, `exporters`, `importers`, `combinators`, `tests`）|
-| 公开导出类型 | `NamedPromptRenderer`（StringRenderer impl）、`NamedJsonRenderer`（JsonSchemaRenderer impl）— Full/Skeleton/Basic 已删除 |
+| 公开导出类型 | `NamedPromptRenderer`（StringRenderer impl）、`NamedJsonRenderer`（JsonSchemaRenderer impl）— Full/Skeleton/Basic 已删除；`schema_to_moonbit_struct_named` / `_full` 已移除（未完成 Phase 41 硬化） |
 | CLI 工具 | 4 个（`cmd/main`, `cmd/gen-struct`, `cmd/json2schema`, `cmd/validate`）|
 
 ---
@@ -859,7 +862,7 @@ pub enum SchemaType {
 
 #### ◐ 可并行推进（不阻塞核心功能）
 
-- [ ] 多平台 CI：扩展 GitHub Actions 到 macOS/Windows
+- [x] 多平台 CI：扩展 GitHub Actions 到 macOS/Windows
 - [ ] wasm-gc target：验证兼容性并优化启动开销
 - ⏳ derive 宏：需等待 MoonBit 宏系统成熟
 > 然而，MoonBit 当前缺乏稳定的宏系统，只支持内置的几个 derive (Debug/Show/Eq/FromJson/ToJson)，无法实现自定义 derive。需要等待未来 MoonBit 引入稳定的宏系统后才能开发此功能。
