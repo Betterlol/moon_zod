@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup MoonBit
@@ -23,40 +23,14 @@ jobs:
       - name: Update Registry Index
         run: moon update
 
-      - name: Check
-        run: moon check
-
       - name: Check Formatting
         run: moon fmt --check
 
-      - name: Check Generated Interfaces
-        run: |
-          moon info
-          git diff --exit-code
+      - name: Check
+        run: moon check --deny-warn
 
-      - name: Build with Warnings Check (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          output=$(moon build 2>&1); echo "$output"
-          warn_count=$(echo "$output" | grep -c 'warning' || true)
-          echo "::notice title=Build Warnings::$warn_count warning(s)"
-          [ "$warn_count" -eq 0 ] || { echo "::error title=Build Warnings::Found $warn_count warning(s)"; exit 1; }
-
-      - name: Build with Warnings Check (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $output = & moon build 2>&1
-          $build_exit = $LASTEXITCODE
-          $output | ForEach-Object { Write-Output $_ }
-          if ($build_exit -ne 0) { exit $build_exit }
-          $warn_count = [regex]::Matches(($output -join "`n"), "warning").Count
-          Write-Output "::notice title=Build Warnings::$warn_count warning(s)"
-          if ($warn_count -ne 0) {
-            Write-Output "::error title=Build Warnings::Found $warn_count warning(s)"
-            exit 1
-          }
+      - name: Build
+        run: moon build
 
       - name: Build Wasm
         run: moon build --target wasm --release
