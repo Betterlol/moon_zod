@@ -20,7 +20,7 @@ pub fn Schema::parse_optional(
   inner : Schema,
   json : Json,
   path_stack : Array[String],
-) -> SchemaResult {
+) -> RawSchemaResult {
   match json {
     Null => Ok(json)
     _ => parse_inner(inner, json, path_stack)

@@ -64,7 +64,19 @@ pub fn Schema::min(self : Schema, n : Int, msg? : String = "") -> Schema {
     ArrayType(_) => Json::object({ "minItems": Json::number(n.to_double()) })
     _ => Json::null()
   }
-  append_rule_with_annotation(self, check, message, annotation)
+  let origin = match inner_type(self.schema_type) {
+    StringType => "string"
+    NumberType => "number"
+    ArrayType(_) => "array"
+    _ => "value"
+  }
+  append_rule_with_annotation(
+    self,
+    check,
+    message,
+    IssueCode::TooSmall(origin, n.to_double(), true),
+    annotation,
+  )
 }
 
 ///|
@@ -116,7 +128,19 @@ pub fn Schema::max(self : Schema, n : Int, msg? : String = "") -> Schema {
     ArrayType(_) => Json::object({ "maxItems": Json::number(n.to_double()) })
     _ => Json::null()
   }
-  append_rule_with_annotation(self, check, message, annotation)
+  let origin = match inner_type(self.schema_type) {
+    StringType => "string"
+    NumberType => "number"
+    ArrayType(_) => "array"
+    _ => "value"
+  }
+  append_rule_with_annotation(
+    self,
+    check,
+    message,
+    IssueCode::TooBig(origin, n.to_double(), true),
+    annotation,
+  )
 }
 
 ///|
@@ -256,6 +280,7 @@ pub fn Schema::email(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::InvalidFormat("email"),
     Json::object({ "format": Json::string("email") }),
   )
 }
@@ -409,6 +434,7 @@ pub fn Schema::url(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::InvalidFormat("url"),
     Json::object({ "format": Json::string("uri") }),
   )
 }
@@ -441,6 +467,7 @@ pub fn Schema::regex(
       }
     },
     message,
+    IssueCode::InvalidFormat("regex"),
     Json::object({ "pattern": Json::string(pattern) }),
   )
 }
@@ -470,6 +497,7 @@ pub fn Schema::startsWith(
       }
     },
     message,
+    IssueCode::Custom,
     Json::object({ "pattern": Json::string("^" + prefix) }),
   )
 }
@@ -499,6 +527,7 @@ pub fn Schema::endsWith(
       }
     },
     message,
+    IssueCode::Custom,
     Json::object({ "pattern": Json::string(suffix + "$") }),
   )
 }
@@ -528,6 +557,7 @@ pub fn Schema::includes(
       }
     },
     message,
+    IssueCode::Custom,
   )
 }
 
@@ -558,18 +588,15 @@ pub fn Schema::uuid(self : Schema, msg? : String = "") -> Schema {
           if chars.length() != 36 {
             return false
           }
-          // Dashes at positions 8, 13, 18, 23
           if chars[8] != '-' ||
             chars[13] != '-' ||
             chars[18] != '-' ||
             chars[23] != '-' {
             return false
           }
-          // Version digit at position 14 must be '4'
           if chars[14] != '4' {
             return false
           }
-          // Variant at position 19 must be 8/9/a/b/A/B
           if chars[19] != '8' &&
             chars[19] != '9' &&
             chars[19] != 'a' &&
@@ -578,7 +605,6 @@ pub fn Schema::uuid(self : Schema, msg? : String = "") -> Schema {
             chars[19] != 'B' {
             return false
           }
-          // All other chars must be hex digits
           let positions = [
             0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 15, 16, 17, 20, 21, 22, 24, 25,
             26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
@@ -594,6 +620,7 @@ pub fn Schema::uuid(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::InvalidFormat("uuid"),
     Json::object({ "format": Json::string("uuid") }),
   )
 }
@@ -630,6 +657,7 @@ pub fn Schema::cuid(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::InvalidFormat("cuid"),
     Json::object({ "format": Json::string("cuid") }),
   )
 }
@@ -749,6 +777,7 @@ pub fn Schema::datetime(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::InvalidFormat("datetime"),
     Json::object({ "format": Json::string("date-time") }),
   )
 }
@@ -894,6 +923,7 @@ pub fn Schema::ipv4(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::InvalidFormat("ipv4"),
     Json::object({ "format": Json::string("ipv4") }),
   )
 }
@@ -919,6 +949,7 @@ pub fn Schema::ipv6(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::InvalidFormat("ipv6"),
     Json::object({ "format": Json::string("ipv6") }),
   )
 }
@@ -944,6 +975,7 @@ pub fn Schema::ip(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::InvalidFormat("ip"),
   )
 }
 
@@ -991,6 +1023,12 @@ pub fn Schema::nonempty(self : Schema, msg? : String = "") -> Schema {
     _ => "Array must not be empty"
   }
   let message = if msg.is_empty() { default_msg } else { msg }
+  let origin = match inner_type(self.schema_type) {
+    StringType => "string"
+    ArrayType(_) => "array"
+    TupleType(_) => "tuple"
+    _ => "value"
+  }
   append_rule(
     self,
     fn(json) {
@@ -1001,6 +1039,7 @@ pub fn Schema::nonempty(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::TooSmall(origin, 1.0, true),
   )
 }
 
@@ -1055,7 +1094,7 @@ pub fn Schema::length(self : Schema, n : Int, msg? : String = "") -> Schema {
   let check = schema_length_check(self, n)
   let message = if msg.is_empty() { schema_length_msg(self, n) } else { msg }
   // No annotation — avoids conflict with minLength/maxLength
-  append_rule(self, check, message)
+  append_rule(self, check, message, IssueCode::Custom)
 }
 
 ///|
@@ -1083,7 +1122,6 @@ pub fn Schema::ulid(self : Schema, msg? : String = "") -> Schema {
           if chars.length() != 26 {
             return false
           }
-          // First char must be 0-7 (timestamp high bits)
           if chars[0] < '0' || chars[0] > '7' {
             return false
           }
@@ -1098,6 +1136,7 @@ pub fn Schema::ulid(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::InvalidFormat("ulid"),
     Json::object({ "format": Json::string("ulid") }),
   )
 }

@@ -27,22 +27,25 @@ pub fn Schema::parse_preprocess(
   inner : Schema,
   json : Json,
   path_stack : Array[String],
-) -> SchemaResult {
+) -> RawSchemaResult {
   match (closure.f)(json) {
     Err(msg) => {
       let path = format_path(path_stack)
-      Err([ValidationError::{ path, message: msg, got: json }])
+      Err([
+        RawIssue::{ code: IssueCode::Custom, path, message: msg, input: json },
+      ])
     }
     Ok(preprocessed) =>
       match parse_inner(inner, preprocessed, path_stack) {
         Err(e) => Err(e)
         Ok(parsed) => {
-          let errors : Array[ValidationError] = []
-          collect_errors(errors, path_stack, parsed, self.rules)
-          if errors.is_empty() {
+          let raw : Array[RawIssue] = []
+          let path = format_path(path_stack)
+          collect_raw_errors(raw, path, parsed, self.rules)
+          if raw.is_empty() {
             Ok(parsed)
           } else {
-            Err(errors)
+            Err(raw)
           }
         }
       }

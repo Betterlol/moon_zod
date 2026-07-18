@@ -24,34 +24,43 @@ pub fn Schema::parse_array(
   element_schema : Schema,
   json : Json,
   path_stack : Array[String],
-) -> SchemaResult {
+) -> RawSchemaResult {
   match json {
     Array(elements) => {
-      let errors : Array[ValidationError] = []
+      let raw : Array[RawIssue] = []
       let mut i = 0
       for element in elements {
         path_stack.push("[\{i}]")
         let result = parse_inner(element_schema, element, path_stack)
         match result {
-          Err(item_errors) =>
-            for e in item_errors {
-              errors.push(e)
+          Err(item_raw) =>
+            for e in item_raw {
+              raw.push(e)
             }
           _ => ()
         }
         let _ = path_stack.pop()
         i = i + 1
       }
-      collect_errors(errors, path_stack, json, self.rules)
-      if errors.is_empty() {
+      let path = format_path(path_stack)
+      collect_raw_errors(raw, path, json, self.rules)
+      if raw.is_empty() {
         Ok(json)
       } else {
-        Err(errors)
+        Err(raw)
       }
     }
     _ => {
       let path = format_path(path_stack)
-      Err([ValidationError::{ path, message: type_error_msg(self), got: json }])
+      let message = type_msg(self)
+      Err([
+        RawIssue::{
+          code: IssueCode::InvalidType("array"),
+          path,
+          message,
+          input: json,
+        },
+      ])
     }
   }
 }

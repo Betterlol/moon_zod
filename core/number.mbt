@@ -32,6 +32,7 @@ pub fn Schema::int(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::InvalidFormat("integer"),
     Json::object({ "type": Json::string("integer") }),
   )
 }
@@ -53,6 +54,7 @@ pub fn Schema::positive(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::TooSmall("number", 0.0, false),
     Json::object({ "exclusiveMinimum": Json::number(0.0) }),
   )
 }
@@ -74,6 +76,7 @@ pub fn Schema::negative(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::TooBig("number", 0.0, false),
     Json::object({ "exclusiveMaximum": Json::number(0.0) }),
   )
 }
@@ -100,6 +103,7 @@ pub fn Schema::multipleOf(self : Schema, n : Int, msg? : String = "") -> Schema 
       }
     },
     message,
+    IssueCode::NotMultipleOf(n.to_double()),
     Json::object({ "multipleOf": Json::number(n.to_double()) }),
   )
 }
@@ -125,6 +129,7 @@ pub fn Schema::finite(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::Custom,
   )
 }
 
@@ -152,5 +157,6 @@ pub fn Schema::safe(self : Schema, msg? : String = "") -> Schema {
       }
     },
     message,
+    IssueCode::Custom,
   )
 }

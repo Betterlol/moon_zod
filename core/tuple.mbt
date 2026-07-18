@@ -24,40 +24,51 @@ pub fn Schema::parse_tuple(
   items : Array[Schema],
   json : Json,
   path_stack : Array[String],
-) -> SchemaResult {
+) -> RawSchemaResult {
   match json {
     Array(elements) => {
-      let errors : Array[ValidationError] = []
+      let raw : Array[RawIssue] = []
       if elements.length() != items.length() {
         let path = format_path(path_stack)
-        errors.push(ValidationError::{
+        let msg = "Expected tuple of length \{items.length()}"
+        raw.push(RawIssue::{
+          code: IssueCode::InvalidUnion([msg]),
           path,
-          message: "Expected tuple of length \{items.length()}",
-          got: json,
+          message: msg,
+          input: json,
         })
       } else {
         for i in 0..<items.length() {
           path_stack.push("[\{i}]")
           match parse_inner(items[i], elements[i], path_stack) {
-            Err(item_errors) =>
-              for e in item_errors {
-                errors.push(e)
+            Err(item_raw) =>
+              for e in item_raw {
+                raw.push(e)
               }
             _ => ()
           }
           let _ = path_stack.pop()
         }
       }
-      collect_errors(errors, path_stack, json, self.rules)
-      if errors.is_empty() {
+      let path = format_path(path_stack)
+      collect_raw_errors(raw, path, json, self.rules)
+      if raw.is_empty() {
         Ok(json)
       } else {
-        Err(errors)
+        Err(raw)
       }
     }
     _ => {
       let path = format_path(path_stack)
-      Err([ValidationError::{ path, message: type_error_msg(self), got: json }])
+      let message = type_msg(self)
+      Err([
+        RawIssue::{
+          code: IssueCode::InvalidType("tuple"),
+          path,
+          message,
+          input: json,
+        },
+      ])
     }
   }
 }

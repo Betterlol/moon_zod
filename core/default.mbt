@@ -21,7 +21,7 @@ pub fn Schema::parse_default(
   default_val : Json,
   json : Json,
   path_stack : Array[String],
-) -> SchemaResult {
+) -> RawSchemaResult {
   match json {
     Null => Ok(default_val)
     _ => parse_inner(inner, json, path_stack)

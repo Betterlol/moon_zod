@@ -22,7 +22,7 @@ pub fn Schema::parse_enum(
   values : Array[String],
   json : Json,
   path_stack : Array[String],
-) -> SchemaResult {
+) -> RawSchemaResult {
   let path = format_path(path_stack)
   match json {
     String(s) =>
@@ -30,15 +30,21 @@ pub fn Schema::parse_enum(
         Ok(json)
       } else {
         Err([
-          ValidationError::{ path, message: "Invalid enum value", got: json },
+          RawIssue::{
+            code: IssueCode::InvalidValue(values.map(fn(v) { Json::string(v) })),
+            path,
+            message: "Invalid enum value",
+            input: json,
+          },
         ])
       }
     _ =>
       Err([
-        ValidationError::{
+        RawIssue::{
+          code: IssueCode::InvalidType("string"),
           path,
           message: "Expected string for enum",
-          got: json,
+          input: json,
         },
       ])
   }

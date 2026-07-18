@@ -148,6 +148,7 @@ fn json_to_schema_impl(
                 }
               },
               "Value must be one of the allowed numbers",
+              @core.IssueCode::Custom,
             )
             return result_schema
           }
@@ -320,6 +321,7 @@ fn apply_json_schema_constraints(
               }
             },
             "Value must be greater than \{v}",
+            @core.IssueCode::Custom,
           )
         }
       }
@@ -344,6 +346,7 @@ fn apply_json_schema_constraints(
               }
             },
             "Value must be less than \{v}",
+            @core.IssueCode::Custom,
           )
         }
       }

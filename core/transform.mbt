@@ -38,23 +38,31 @@ pub fn Schema::parse_transform(
   closure : TransformClosure,
   json : Json,
   path_stack : Array[String],
-) -> SchemaResult {
+) -> RawSchemaResult {
   match parse_inner(inner, json, path_stack) {
     Err(e) => Err(e)
     Ok(validated) =>
       match (closure.f)(validated) {
         Ok(transformed) => {
-          let errors : Array[ValidationError] = []
-          collect_errors(errors, path_stack, transformed, _self.rules)
-          if errors.is_empty() {
+          let raw : Array[RawIssue] = []
+          let path = format_path(path_stack)
+          collect_raw_errors(raw, path, transformed, _self.rules)
+          if raw.is_empty() {
             Ok(transformed)
           } else {
-            Err(errors)
+            Err(raw)
           }
         }
         Err(msg) => {
           let path = format_path(path_stack)
-          Err([ValidationError::{ path, message: msg, got: json }])
+          Err([
+            RawIssue::{
+              code: IssueCode::Custom,
+              path,
+              message: msg,
+              input: json,
+            },
+          ])
         }
       }
   }

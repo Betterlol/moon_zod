@@ -30,7 +30,7 @@ pub fn Schema::parse_literal(
   expected : Json,
   json : Json,
   path_stack : Array[String],
-) -> SchemaResult {
+) -> RawSchemaResult {
   let path = format_path(path_stack)
   if json == expected {
     Ok(json)
@@ -41,7 +41,14 @@ pub fn Schema::parse_literal(
     } else {
       _self.invalid_type_error
     }
-    Err([ValidationError::{ path, message, got: json }])
+    Err([
+      RawIssue::{
+        code: IssueCode::InvalidValue([expected]),
+        path,
+        message,
+        input: json,
+      },
+    ])
   }
 }
 
@@ -59,7 +66,7 @@ fn json_to_literal_string(json : Json) -> String {
     False => "false"
     Null => "null"
     Array(arr) => {
-      let parts = arr.map(fn(v) { json_to_literal_string(v) })
+      let parts : Array[String] = arr.map(fn(v) { json_to_literal_string(v) })
       "[" + parts.join(", ") + "]"
     }
     Object(map) => {

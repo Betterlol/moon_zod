@@ -30,7 +30,7 @@ pub fn Schema::parse_intersection(
   schemas : Array[Schema],
   json : Json,
   path_stack : Array[String],
-) -> SchemaResult {
+) -> RawSchemaResult {
   fn merge_json(a : Json, b : Json) -> Json {
     match (a, b) {
       (Object(map_a), Object(map_b)) => {
@@ -42,20 +42,20 @@ pub fn Schema::parse_intersection(
       _ => a
     }
   }
-  let errors : Array[ValidationError] = []
+  let raw : Array[RawIssue] = []
   let mut merged = json
   for s in schemas {
     match parse_inner(s, json, path_stack) {
       Ok(result) => merged = merge_json(merged, result)
       Err(errs) =>
         for e in errs {
-          errors.push(e)
+          raw.push(e)
         }
     }
   }
-  if errors.is_empty() {
+  if raw.is_empty() {
     Ok(merged)
   } else {
-    Err(errors)
+    Err(raw)
   }
 }

@@ -39,6 +39,7 @@ pub(all) struct TransformClosure {
 pub(all) struct Rule {
   check : (Json) -> Bool
   message : String
+  code : IssueCode
   annotation : Json
 } derive(Debug)
 
@@ -176,8 +177,9 @@ pub fn append_rule(
   schema : Schema,
   check : (Json) -> Bool,
   message : String,
+  code : IssueCode,
 ) -> Schema {
-  append_rule_with_annotation(schema, check, message, Json::null())
+  append_rule_with_annotation(schema, check, message, code, Json::null())
 }
 
 ///|
@@ -188,12 +190,13 @@ pub fn append_rule_with_annotation(
   schema : Schema,
   check : (Json) -> Bool,
   message : String,
+  code : IssueCode,
   annotation : Json,
 ) -> Schema {
   match schema.schema_type {
     OptionalType(inner) => {
       let new_inner = append_rule_with_annotation(
-        inner, check, message, annotation,
+        inner, check, message, code, annotation,
       )
       {
         schema_type: OptionalType(new_inner),
@@ -207,7 +210,7 @@ pub fn append_rule_with_annotation(
     }
     DefaultType(inner, default_val) => {
       let new_inner = append_rule_with_annotation(
-        inner, check, message, annotation,
+        inner, check, message, code, annotation,
       )
       {
         schema_type: DefaultType(new_inner, default_val),
@@ -219,53 +222,24 @@ pub fn append_rule_with_annotation(
         brand: schema.brand,
       }
     }
-    _ => { ..schema, rules: schema.rules + [{ check, message, annotation }] }
+    _ =>
+      { ..schema, rules: schema.rules + [{ check, message, code, annotation }] }
   }
 }
 
 ///|
-fn type_error_msg(schema : Schema) -> String {
+
+///|
+fn type_msg(schema : Schema) -> String {
+  let default = "Expected " + type_origin(schema.schema_type)
   if !schema.invalid_type_error.is_empty() {
     schema.invalid_type_error
   } else {
-    expected_msg(schema.schema_type)
+    default
   }
 }
 
 ///|
-fn expected_msg(schema_type : SchemaType) -> String {
-  match schema_type {
-    StringType => "Expected string"
-    NumberType => "Expected number"
-    BooleanType => "Expected boolean"
-    NullType => "Expected null"
-    AnyType => "Expected any"
-    UnknownType => "Expected unknown"
-    ObjectType(_, _) => "Expected object"
-    ArrayType(_) => "Expected array"
-    TupleType(_) => "Expected tuple"
-    EnumType(_) => "Invalid enum value"
-    IntersectionType(_) => "Expected intersection match"
-    TransformType(_, _) => "Validation failed"
-    LiteralType(_) => "Expected literal value"
-    _ => "Validation failed"
-  }
-}
-
-///|
-fn collect_errors(
-  errors : Array[ValidationError],
-  path_stack : Array[String],
-  json : Json,
-  rules : Array[Rule],
-) -> Unit {
-  let path = format_path(path_stack)
-  for rule in rules {
-    if !(rule.check)(json) {
-      errors.push(ValidationError::{ path, message: rule.message, got: json })
-    }
-  }
-}
 
 ///|
 pub fn format_path(stack : Array[String]) -> String {
@@ -317,21 +291,20 @@ fn parse_inner(
   schema : Schema,
   json : Json,
   path_stack : Array[String],
-) -> SchemaResult {
-  // All parse helpers are called through this function so the same
-  // mutable path_stack is shared across the entire call tree.
+) -> RawSchemaResult {
   match schema.schema_type {
     ObjectType(spec, mode) => schema.parse_object(spec, mode, json, path_stack)
     ArrayType(element_schema) =>
       schema.parse_array(element_schema, json, path_stack)
     TupleType(items) => schema.parse_tuple(items, json, path_stack)
     AnyType | UnknownType => {
-      let errors : Array[ValidationError] = []
-      collect_errors(errors, path_stack, json, schema.rules)
-      if errors.is_empty() {
+      let raw : Array[RawIssue] = []
+      let path = format_path(path_stack)
+      collect_raw_errors(raw, path, json, schema.rules)
+      if raw.is_empty() {
         Ok(json)
       } else {
-        Err(errors)
+        Err(raw)
       }
     }
     OptionalType(inner) => schema.parse_optional(inner, json, path_stack)
@@ -356,16 +329,23 @@ fn parse_inner(
       }
       if !valid {
         let path = format_path(path_stack)
+        let message = type_msg(schema)
         return Err([
-          ValidationError::{ path, message: type_error_msg(schema), got: json },
+          RawIssue::{
+            code: IssueCode::InvalidType(type_origin(schema.schema_type)),
+            path,
+            message,
+            input: json,
+          },
         ])
       }
-      let errors : Array[ValidationError] = []
-      collect_errors(errors, path_stack, json, schema.rules)
-      if errors.is_empty() {
+      let raw : Array[RawIssue] = []
+      let path = format_path(path_stack)
+      collect_raw_errors(raw, path, json, schema.rules)
+      if raw.is_empty() {
         Ok(json)
       } else {
-        Err(errors)
+        Err(raw)
       }
     }
   }
@@ -381,8 +361,33 @@ pub fn Schema::parse(
   json : Json,
   path? : String = "",
 ) -> SchemaResult {
-  let path_stack : Array[String] = if path.is_empty() { [] } else { [path] }
-  parse_inner(self, json, path_stack)
+  Schema::safe_parse(self, json, ParseParams::{ path, error_map: None })
+}
+
+///|
+/// Validate `json` against this schema with extended parameters.
+/// Supports contextual error map override.
+///
+/// # Example
+/// ```mbt nocheck
+/// schema.safe_parse(json, { error_map: fn(code, path, input) {
+///   match code { InvalidType(expected) => Some("必须是: " + expected) _ => None }
+/// }})
+/// ```
+pub fn Schema::safe_parse(
+  self : Schema,
+  json : Json,
+  params : ParseParams,
+) -> SchemaResult {
+  let path_stack : Array[String] = if params.path.is_empty() {
+    []
+  } else {
+    [params.path]
+  }
+  match parse_inner(self, json, path_stack) {
+    Ok(v) => Ok(v)
+    Err(raw) => Err(finalize_issues(raw, params))
+  }
 }
 
 ///|
