@@ -28,11 +28,22 @@ pub fn Schema::parse_tuple(
   match json {
     Array(elements) => {
       let raw : Array[RawIssue] = []
-      if elements.length() != items.length() {
+      let actual_len = elements.length()
+      let expected_len = items.length()
+      if actual_len < expected_len {
         let path = format_path(path_stack)
-        let msg = "Expected tuple of length \{items.length()}"
+        let msg = "Expected tuple of length \{expected_len}"
         raw.push(RawIssue::{
-          code: IssueCode::InvalidUnion([msg]),
+          code: IssueCode::TooSmall("tuple", expected_len.to_double(), true),
+          path,
+          message: msg,
+          input: json,
+        })
+      } else if actual_len > expected_len {
+        let path = format_path(path_stack)
+        let msg = "Expected tuple of length \{expected_len}"
+        raw.push(RawIssue::{
+          code: IssueCode::TooBig("tuple", expected_len.to_double(), true),
           path,
           message: msg,
           input: json,
@@ -63,7 +74,7 @@ pub fn Schema::parse_tuple(
       let message = type_msg(self)
       Err([
         RawIssue::{
-          code: IssueCode::InvalidType("tuple"),
+          code: IssueCode::InvalidType(type_origin(self.schema_type)),
           path,
           message,
           input: json,

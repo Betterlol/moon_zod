@@ -588,15 +588,18 @@ pub fn Schema::uuid(self : Schema, msg? : String = "") -> Schema {
           if chars.length() != 36 {
             return false
           }
+          // Dashes at positions 8, 13, 18, 23
           if chars[8] != '-' ||
             chars[13] != '-' ||
             chars[18] != '-' ||
             chars[23] != '-' {
             return false
           }
+          // Version digit at position 14 must be '4'
           if chars[14] != '4' {
             return false
           }
+          // Variant at position 19 must be 8/9/a/b/A/B
           if chars[19] != '8' &&
             chars[19] != '9' &&
             chars[19] != 'a' &&
@@ -1122,6 +1125,7 @@ pub fn Schema::ulid(self : Schema, msg? : String = "") -> Schema {
           if chars.length() != 26 {
             return false
           }
+          // First char must be 0-7 (timestamp high bits)
           if chars[0] < '0' || chars[0] > '7' {
             return false
           }

@@ -55,7 +55,7 @@ pub fn Schema::parse_array(
       let message = type_msg(self)
       Err([
         RawIssue::{
-          code: IssueCode::InvalidType("array"),
+          code: IssueCode::InvalidType(type_origin(self.schema_type)),
           path,
           message,
           input: json,

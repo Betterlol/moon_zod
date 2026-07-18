@@ -308,7 +308,7 @@ pub fn Schema::parse_object(
       let message = type_msg(self)
       Err([
         RawIssue::{
-          code: IssueCode::InvalidType("object"),
+          code: IssueCode::InvalidType(type_origin(self.schema_type)),
           path,
           message,
           input: json,
