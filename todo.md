@@ -7,8 +7,9 @@
 ### 与 Zod/Pydantic 的差异
 - **类型级错误消息**：Zod 可在 schema 级别定制 `{ required_error, invalid_type_error }`，我们只能覆写规则错误。
 - **`msg` 只接受字符串**：Zod 可传 `{ message, code }` 对象。
-- **全局错误映射**：Zod 有 `z.setErrorMap()`，我们没有。
+- **全局错误映射**：Zod 有 `z.setErrorMap()`，我们没有（by design：MoonBit 无全局可变状态习惯，调用者显式传 fn）。
 - **缺失验证器**：`.nan()`（MoonBit Double 无 is_nan 构造函数）。
+- **递归 memoization**：Zod 的 `z.lazy()` 通过 JS 闭包共享 Schema 实例；MoonBit 的 `recursive()` 需要 `fn` 模式，每次 parse 创建新 Schema O(depth)。
 
 ### 建议下一步（实现规划）
 
@@ -334,19 +335,19 @@ pub enum SchemaType {
 > let schema_extract = schema.extract(["red"]) // 只允许 "red"
 > ```
 
-#### ☐ Schema 递归类型支持
-> 优先级较低
+#### ☑ Recursive Schema (Phase 43 已交付)
 
-**问题**: 当前无法定义自引用 Schema（树、链表等递归数据结构）。
+**问题**: 之前无法定义自引用 Schema（树、链表等递归数据结构）。
 
-**任务**:
-- [ ] 运行时递归引用机制（延迟解析，类似 `Lazy` 模式）
-- [ ] `Schema::lazy(fn() -> Schema)` — 工厂模式延迟定义
-- [ ] JSON Schema `$recursiveRef` / `$recursiveAnchor` 支持（draft 2019-09+）
-- [ ] Prompt 生成中递归类型渲染（深度限制）
-- [ ] JSON Schema 导出中递归引用导出
+**完成状态**:
+- [x] `pub fn recursive(fn() -> Schema)` — 工厂，闭包在 parse 时调用
+- [x] `LazyType(() -> Schema)` SchemaType 变体
+- [x] 支持自引用树结构（函数式模式，`let rec` 不可用）
+- [x] 导出器：解析闭包后递归渲染
+- [x] 5 个测试（正常、错误、深度嵌套、命名根、嵌套无效）
+- [x] 524/524 测试通过
 
-**价值**: 解锁树形/图形数据结构校验（LLM Agent 工具调用中的嵌套决策树）。
+**已知限制**: 无 memoization，每次 parse O(depth) 创建新 Schema 对象。MoonBit `lazy` 关键字已预留但未实现，无法做值级别惰性自引用。
 
 ---
 
@@ -371,6 +372,22 @@ pub enum SchemaType {
 | `to_formatted_string()` 多行输出 | `to_string()` 当前单行已覆盖调试需求 |
 
 **未来可选扩展**: `InvalidKey`/`InvalidElement` 变体已预留在 enum 中，但未在任何 rule 中构造，待 map key 校验等场景触发时使用。
+
+---
+
+#### ☑ Discriminated Union (Phase 43 已交付)
+
+**问题**: 之前 `union()` 需要逐一尝试每个分支，O(n)。
+
+**完成状态**:
+- [x] `pub fn discriminated_union(discriminator, options: Map[String, Schema])` 工厂
+- [x] `DiscriminatedUnionType(String, Map)` SchemaType 变体
+- [x] O(1) 分支分发（Map 直接查找，不尝试所有选项）
+- [x] 精确错误码：`MissingRequired`（缺判别字段）、`InvalidValue`（未知判别值）、`InvalidType`（非对象输入/非字符串判别值）
+- [x] 链式规则（`.refine()` 等）在 dispatch 后正确检查
+- [x] 5 个测试（分发、未知判别值、缺字段、非对象、schema 级校验+refine）
+
+**已知限制**: 导出时退化为普通 union（丢失判别信息）。完整判别式导出需 renderer trait 扩展，作为独立功能。
 
 ---
 

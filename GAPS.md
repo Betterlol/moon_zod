@@ -1,6 +1,6 @@
 # Moon_Zod API 缺口分析与实现指南
 
-**完整性评分: 85-90% (相比 Zod)**
+**完整性评分: 90-95% (相比 Zod)**
 
 ---
 
@@ -9,8 +9,8 @@
 | 优先级 | 功能 | 影响 | 工作量 | 状态 |
 |--------|------|------|--------|------|
 | 🔴 **高** | 异步 parse 支持 | API 集成 | 中 | ❌ |
-| 🟡 **中** | Lazy 类型 | 递归结构 | 中 | ❌ |
-| 🟢 **低** | Discriminated Union 优化 | 性能 | 中 | ❌ |
+| 🟡 **中** | ~~Lazy 类型~~ | 递归结构 | 中 | ✅ Phase 43 |
+| 🟢 **低** | ~~Discriminated Union~~ | 性能 | 中 | ✅ Phase 43 |
 
 ---
 
@@ -82,142 +82,37 @@ match schema.parse_async(json_obj) {
 
 ## 🟡 中优先级缺口
 
-### Lazy 类型 (`z.lazy()`)
+### ~~Lazy 类型 (`z.lazy()`)~~ ✅ Phase 43 已交付
 
 **描述:** 延迟求值 Schema，支持递归和自引用
 
-**在 Zod 中的用法:**
-```typescript
-type TreeNode = {
-  value: number
-  children?: TreeNode[]
-}
-
-const treeSchema: z.ZodType<TreeNode> = z.lazy(() =>
-  z.object({
-    value: z.number(),
-    children: z.array(treeSchema).optional()
-  })
-)
-```
-
-**在 Moon_Zod 中的用法 (建议):**
-```mbt nocheck
-let rec tree_schema : @moon_zod.Schema = 
-  @moon_zod.lazy(fn() {
-    @moon_zod.object({
-      "value": @moon_zod.number(),
-      "children": @moon_zod.array(tree_schema).optional()
-    })
-  })
-
-match tree_schema.parse(recursive_json) {
-  Ok(tree) => // ...
-  Err(errors) => // ...
-}
-```
-
 **当前状态:**
-- ❌ 无 `z.lazy()` 工厂函数
-- ❌ 无递归 Schema 支持
-- ⚠️ 可能通过 `refine()` 模拟，但不优雅
+- ✅ `pub fn recursive(fn() -> Schema)` 工厂（别名 `recursive`，因 `lazy` 是 MoonBit 保留字）
+- ✅ `LazyType(() -> Schema)` SchemaType 变体
+- ✅ 支持自引用树结构（函数式模式：`fn tree() -> Schema { recursive(fn() { object({...}) }) }`）
+- ✅ 路径精度保持
+- ✅ 导出支持（解析闭包后递归渲染）
+- ✅ 5 个测试，524/524 通过
 
-**实现要点:**
-- [ ] 创建 `ZodLazy` 类型 (lazy.mbt)
-- [ ] 延迟调用闭包直到 parse 时
-- [ ] 支持自引用 Schema
-- [ ] 循环引用检测 (可选，防止无限递归)
-- [ ] 路径精度保持
-- [ ] 导出支持 (JSON Schema 中 $ref 自引用)
-
-**实现位置:** 新文件 `core/lazy.mbt`
-
-**影响范围:**
-- 树结构 (文件系统, DOM, AST)
-- 图结构 (关系网络)
-- 递归数据 (JSON 深嵌套)
-- 语言语法定义
-
-**估计工作量:** 150-250 行代码 + 测试
-
-**参考文件:**
-- `zod/src/types.ts` (ZodLazy)
+**已知限制:**
+- 无 memoization，每次 parse O(depth) 创建新 Schema 对象（MoonBit `lazy` 关键字已预留但未实现）
+- 导出时 JSON Schema 自引用（`$ref`）需用户通过 `.name()` 手动标记
 
 ---
 
-### Discriminated Union 优化
+### ~~Discriminated Union 优化~~ ✅ Phase 43 已交付
 
 **描述:** 带判别字段的 Union 快速路径，避免尝试所有选项
 
-**在 Zod 中的用法:**
-```typescript
-const dogSchema = z.object({
-  type: z.literal("dog"),
-  bark: z.boolean()
-})
-
-const catSchema = z.object({
-  type: z.literal("cat"),
-  meow: z.boolean()
-})
-
-const petSchema = z.discriminatedUnion("type", [
-  dogSchema,
-  catSchema
-])
-
-// 直接根据 type 字段选择相应 schema，而不是尝试所有选项
-petSchema.parse({ type: "dog", bark: true })
-```
-
-**在 Moon_Zod 中的当前实现:**
-```mbt nocheck
-let pet_schema = @moon_zod.union([
-  dog_schema,
-  cat_schema
-])
-// ❌ 尝试每个选项直到成功
-```
-
-**建议的改进:**
-```mbt nocheck
-let pet_schema = @moon_zod.discriminated_union("type", [
-  ("dog", dog_schema),
-  ("cat", cat_schema)
-])
-// ✓ 根据 type 字段直接查找对应 schema
-```
-
 **当前状态:**
-- ✓ `union()` 已实现 (但无优化)
-- ❌ `discriminated_union()` 未实现
+- ✅ `pub fn discriminated_union(discriminator, options: Map[String, Schema])` 工厂
+- ✅ `DiscriminatedUnionType(String, Map)` SchemaType 变体
+- ✅ O(1) 分支分发（Map 直接查找）
+- ✅ 精确错误码：`MissingRequired` / `InvalidValue` / `InvalidType`
+- ✅ 5 个测试，524/524 通过
 
-**实现要点:**
-- [ ] 创建 `ZodDiscriminatedUnion` 类型 (discriminated_union.mbt)
-- [ ] 构建判别字段→Schema 映射
-- [ ] 在 parse 时提取判别字段
-- [ ] 根据值直接查找对应 Schema
-- [ ] 错误消息改进 (说明预期的判别值)
-- [ ] JSON Schema 导出支持
-
-**性能改进:**
-```
-union([A, B, C, D])
-  尝试数: 平均 2.5 (失败后才回退)
-  
-discriminated_union("type", [...])
-  尝试数: 恒定 1 (直接查找)
-```
-
-**影响范围:**
-- API 响应多态 (成功/错误/进度)
-- LLM 多输出格式
-- 事件流处理 (不同事件类型)
-
-**估计工作量:** 200-300 行代码 + 测试
-
-**参考文件:**
-- `zod/src/types.ts` (ZodDiscriminatedUnion)
+**已知限制:**
+- JSON Schema/Prompt 导出退化为普通 union，丢失判别信息（需 renderer trait 扩展，独立工程量）
 
 ---
 
@@ -322,5 +217,5 @@ discriminated_union("type", [...])
 **验证增强**
 > `.superRefine()`
 
-**最后更新:** 2026-07-10
-**文档版本:** 2.0
+**最后更新:** 2026-07-18
+**文档版本:** 2.1
