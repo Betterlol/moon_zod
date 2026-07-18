@@ -311,8 +311,8 @@ discriminated_union("type", [...])
 
 ## 其他缺口
 
-**全局 error map**
-> `ZodErrorMap` 支持自定义错误消息
+**☑ IssueCode + ErrorMap — Phase 42 已交付**
+> `ValidationError.code: IssueCode` (12 variants), `Schema::safe_parse(json, ParseParams)` with context `ErrorMap`. No global error map by design (MoonBit module idiom: pass fn explicitly). See `branch_doc/DECISION_ERROR_SYSTEM.md`.
 **JSON 高级类型支持**
 > `z.date()`, `z.promise()`, `z.function()`, `z.map()`, `z.set()`
 **object方法增强**

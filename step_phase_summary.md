@@ -434,11 +434,87 @@ git diff --stat 6f637ff70f00aab555b4e106cf158415b9dd00ce 914d1cda317755e55ecbe17
 
 ---
 
-## 项目当前状态（Phase 41）
+## Phase 42 — 结构化错误系统：IssueCode + ErrorMap + ParseParams
+
+**目标**: 将扁平 `ValidationError{path, message, got}` 升级为带 `IssueCode` 的机器可读错误分类，新增 `safe_parse` API 支持上下文 `ErrorMap` 覆盖，集成 `constraint_extractor`，消除错误收集管线冗余。
+
+**决策文档**: `branch_doc/DECISION_ERROR_SYSTEM.md`
+
+### 核心架构
+
+```moonbit
+parse_inner() → RawSchemaResult
+                     ↓
+Schema::safe_parse() → finalize_issues(raw, params) → SchemaResult
+Schema::parse() = safe_parse(error_map = None)
+```
+
+### Phase 42 vs phase42_zod_error_map 分支的关键改进
+
+| 决策 | phase42 分支 (已废弃) | 本实现 |
+|------|----------------------|--------|
+| `RawIssue.path` | `Array[String]` — 每条错误 copy + finalize 再 format_path | `String` — 错误源一次格式化，finalize 零分配 |
+| `RawIssue.inst` | `Schema?` — 携带完整 Schema 引用延迟消息解析 | **移除** — 消息在错误源预解析 |
+| `Issue` 中间类型 | `RawIssue → Issue → ValidationError` | **移除** — 直连 `RawIssue → ValidationError` |
+| `finalize_issue` | 4 层嵌套 if-else + 空字符串回退 | 2 层：error_map 覆盖 → 预解析消息 |
+| `collect_raw_errors` 参数 | `path: String` — 每个调用点前置 `format_path` | `path_stack: Array[String]` — 内部格式化，消除 7 处冗余 |
+
+### 变更清单
+
+| 新增文件 | 用途 |
+|---------|------|
+| `core/errors.mbt` | `IssueCode` enum (12 变体), `ErrorMap` type, `ParseParams`, `RawIssue`, `finalize_issue`/`finalize_issues`/`collect_raw_errors`/`type_origin` |
+
+| 修改文件 | 变更 |
+|---------|------|
+| `core/types.mbt` | `ValidationError` 新增 `code: IssueCode`；`RawSchemaResult` 类型别名 |
+| `core/schema.mbt` | `Rule.code` 字段；`append_rule`/`append_rule_with_annotation` 增加 `code` 参数；`type_error_msg`/`expected_msg`/`collect_errors` 移除；`parse_inner` 返回 `RawSchemaResult`；新增 `safe_parse`；`parse` 委托给 `safe_parse` |
+| `core/string.mbt` | 所有 rule 方法传入精确 IssueCode |
+| `core/number.mbt` | 同上 |
+| `core/object.mbt` | `parse_object` 返回 `RawSchemaResult`；MissingRequired/UnrecognizedKeys/InvalidType 生成 `RawIssue` |
+| `core/array.mbt` | `parse_array` 返回 `RawSchemaResult` |
+| `core/tuple.mbt` | `parse_tuple` 返回 `RawSchemaResult`；长度不匹配拆分为 `TooSmall`/`TooBig` |
+| `core/enum.mbt` | `parse_enum` 返回 `RawSchemaResult`；`InvalidValue`/`InvalidType` |
+| `core/union.mbt` | `parse_union` 返回 `RawSchemaResult`；`InvalidUnion` |
+| `core/intersection.mbt` | `parse_intersection` 返回 `RawSchemaResult` |
+| `core/literal.mbt` | `parse_literal` 返回 `RawSchemaResult`；`InvalidValue` |
+| `core/optional.mbt` | 返回类型 `RawSchemaResult` |
+| `core/default.mbt` | 返回类型 `RawSchemaResult` |
+| `core/preprocess.mbt` | `parse_preprocess` 返回 `RawSchemaResult`；`Custom` |
+| `core/transform.mbt` | `parse_transform` 返回 `RawSchemaResult`；`Custom` |
+| `core/refine.mbt` | 传入 `IssueCode::Custom` |
+| `core/constraint_extractor.mbt` | 新增 IssueCode 第一遍解析；annotation JSON 作为 Custom 规则的 fallback |
+| `importers/from_json_schema.mbt` | 所有 3 个 `append_rule` 传入 `@core.IssueCode::Custom` |
+| `tests/reexporter.mbt` | 导出新类型 |
+| `tests/test_issue_code.mbt` | **新增** — 21 个测试覆盖所有 IssueCode 变体 |
+| `tests/test_error_map.mbt` | **新增** — 15 个测试覆盖 safe_parse 和 ErrorMap 行为 |
+
+### Test Coverage
+
+| 测试文件 | 测试数 | 覆盖场景 |
+|---------|--------|---------|
+| `test_issue_code.mbt` | 21 | 所有 12 个 IssueCode 变体、嵌套路径、数组索引 |
+| `test_error_map.mbt` | 15 | 类型/必填/union 覆盖、空字符串回退、嵌套、隔离性 |
+| 已有测试 | 479 | 全部通过，零修改 |
+
+**总测试**: 513，全部通过，0 警告。
+
+### 构建产出
+
+```bash
+moon check    # 0 errors, 0 warnings
+moon test     # 513/513 pass
+moon info     # 接口文件生成
+moon fmt      # 代码格式化
+```
+
+---
+
+## 项目当前状态（Phase 42）
 
 | 指标 | 数值 |
 |------|------|
-| 测试数量 | **470** |
+| 测试数量 | **513** |
 | 外部依赖 | `moonbitlang/regexp` |
 | 编译器警告 | 0 |
 | 子包数量 | 5（`core`, `exporters`, `importers`, `combinators`, `tests`）|
@@ -799,18 +875,27 @@ pub enum SchemaType {
 
 ---
 
-#### ☐ 错误消息体系升级
+#### ☑ 错误消息体系升级 — Phase 42 已交付
 
-**问题**: 与 Zod 相比，错误消息缺乏结构化（无错误码、无全局映射、无法格式化）。
+**完成状态**:
 
-**任务**:
-- [ ] `ValidationError` 新增 `code: String` 字段（machine-readable）
-- [ ] `ValidationError::to_formatted_string()` — 多行可读输出
-- [ ] `schema.set_error_map(fn(key, params) -> String)` — 全局/局部错误消息映射
-- [ ] 错误消息国际化框架（`:i18n_key` 与现有 `msg?` 协作）
-- [ ] `msg?` 支持结构化对象（`{ message, code }`）而非仅字符串
+| 功能 | 状态 |
+|------|------|
+| `ValidationError.code: IssueCode` 结构化错误码 | ✅ `IssueCode` enum (12 变体) |
+| `Schema::safe_parse(json, ParseParams)` 上下文 error_map | ✅ 2 层优先级链 |
+| IssueCode 集成到 `constraint_extractor` | ✅ `rule.code` 作为约束提取主源 |
+| 路径精度：每个错误包含确切的字段路径 | ✅ 预格式化 String，零 finalize 额外分配 |
 
-**价值**: 让 LLM 自修正循环和开发者调试都获得更精准的反馈。
+**明确不做（设计决策）**:
+
+| 功能 | 不做的理由 |
+|------|-----------|
+| 全局 error map | MoonBit 模块系统无全局可变状态习惯；调用者自行组织 `fn my_map()` 并传入每个 `safe_parse` |
+| `msg?` 支持结构化对象 | 当前 `msg? : String = ""` 足够覆盖 LLM 场景 |
+| 错误消息国际化框架 | 暂不需要，`ParseParams.error_map` 可在调用层实现翻译 |
+| `to_formatted_string()` 多行输出 | `to_string()` 当前单行已覆盖调试需求 |
+
+**未来可选扩展**: `InvalidKey`/`InvalidElement` 变体已预留在 enum 中，但未在任何 rule 中构造，待 map key 校验等场景触发时使用。
 
 ---
 
