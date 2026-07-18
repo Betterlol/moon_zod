@@ -48,13 +48,12 @@ pub fn extract_constraints(rules : Array[Rule]) -> ConstraintInfo {
     match rule.code {
       TooSmall(_, val, _) => min_value = val
       TooBig(_, val, _) => max_value = val
-      InvalidFormat(fmt) => {
+      InvalidFormat(fmt) =>
         if fmt == "integer" {
           is_int_val = true
         } else {
           format_val = fmt
         }
-      }
       NotMultipleOf(div) => multiple_of_val = div
       _ => ()
     }
