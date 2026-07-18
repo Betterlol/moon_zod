@@ -4,11 +4,14 @@
 ///
 /// # Example
 /// ```mbt nocheck
-/// let rec tree : @moon_zod.Schema =
-///   @moon_zod.object({
-///     "value": @moon_zod.number(),
-///     "children": @moon_zod.array(@moon_zod.recursive(fn() { tree })).optional(),
+/// fn tree_schema() -> @moon_zod.Schema {
+///   @moon_zod.recursive(fn() {
+///     @moon_zod.object({
+///       "value": @moon_zod.number(),
+///       "children": @moon_zod.array(@moon_zod.recursive(tree_schema)).optional(),
+///     })
 ///   })
+/// }
 /// ```
 pub fn recursive(f : () -> Schema) -> Schema {
   {

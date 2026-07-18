@@ -27,15 +27,14 @@ pub fn discriminated_union(
 
 ///|
 pub fn Schema::parse_discriminated_union(
-  _self : Schema,
+  self : Schema,
   discriminator : String,
   options : Map[String, Schema],
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  match json {
+  let dispatch_result = match json {
     Object(map) => {
-      // Stack-allocate the discriminator path
       path_stack.push(discriminator)
       let disc_path = format_path(path_stack)
       let _ = path_stack.pop()
@@ -49,14 +48,14 @@ pub fn Schema::parse_discriminated_union(
               input: json,
             },
           ])
-        Some(String(disc_value)) => {
-          let valid_keys : Array[Json] = []
-          for k in options.keys() {
-            valid_keys.push(Json::string(k))
-          }
+        Some(String(disc_value)) =>
           match options.get(disc_value) {
             Some(schema) => parse_inner(schema, json, path_stack)
-            None =>
+            None => {
+              let valid_keys : Array[Json] = []
+              for k in options.keys() {
+                valid_keys.push(Json::string(k))
+              }
               Err([
                 RawIssue::{
                   code: IssueCode::InvalidValue(valid_keys),
@@ -65,8 +64,8 @@ pub fn Schema::parse_discriminated_union(
                   input: json,
                 },
               ])
+            }
           }
-        }
         Some(_) =>
           Err([
             RawIssue::{
@@ -88,6 +87,20 @@ pub fn Schema::parse_discriminated_union(
           input: json,
         },
       ])
+    }
+  }
+  // Check rules on the DU schema itself (for .refine() and chained rules)
+  match dispatch_result {
+    Ok(v) => {
+      let raw : Array[RawIssue] = []
+      collect_raw_errors(raw, path_stack, json, self.rules)
+      if raw.is_empty() { Ok(v) } else { Err(raw) }
+    }
+    Err(dispatch_raw) => {
+      let raw : Array[RawIssue] = []
+      for r in dispatch_raw { raw.push(r) }
+      collect_raw_errors(raw, path_stack, json, self.rules)
+      Err(raw)
     }
   }
 }

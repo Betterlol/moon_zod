@@ -51,3 +51,20 @@ test "discriminated union validates against selected schema" {
     _ => fail("expected UnrecognizedKeys")
   }
 }
+
+///|
+test "discriminated union refine rule is checked" {
+  let s = discriminated_union("type", {
+    "dog": object({ "bark": boolean() }),
+  }).refine(fn(json) {
+    match json {
+      Object(map) => map.contains("active")
+      _ => false
+    }
+  }, "active field required")
+  let input = parse_json("{\"type\": \"dog\", \"bark\": true}")
+  match s.parse(input) {
+    Err(errors) => @debug.assert_eq(errors[0].message, "active field required")
+    _ => fail("expected Err")
+  }
+}
