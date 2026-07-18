@@ -111,5 +111,6 @@ pub fn type_origin(t : SchemaType) -> String {
     DefaultType(_, _) => "default"
     LazyType(_) => "lazy"
     DiscriminatedUnionType(_, _) => "discriminated_union"
+    PipeType(_, _, _) => "pipe"
   }
 }

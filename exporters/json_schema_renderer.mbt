@@ -70,6 +70,7 @@ pub fn[R : JsonSchemaRenderer] render_json_type(
     LiteralType(value) => renderer.render_literal(value, schema)
     LazyType(f) => render_json_type(renderer, f())
     DiscriminatedUnionType(_, _) => Json::null()
+    PipeType(_, _, output) => render_json_type(renderer, output)
   }
 }
 

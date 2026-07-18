@@ -13,6 +13,7 @@ pub fn unwrap_schema(schema : Schema) -> Schema {
     DefaultType(inner, _) => unwrap_schema(inner)
     PreprocessType(_, inner) => unwrap_schema(inner)
     TransformType(inner, _) => unwrap_schema(inner)
+    PipeType(_, _, output) => unwrap_schema(output)
     _ => schema
   }
 }
@@ -100,6 +101,10 @@ pub fn collect_named_schemas_impl(
       for _key, option in options {
         collect_named_schemas_impl(option, visited, result)
       }
+    PipeType(input, _, output) => {
+      collect_named_schemas_impl(input, visited, result)
+      collect_named_schemas_impl(output, visited, result)
+    }
     UnionType(schemas) =>
       for s in schemas {
         collect_named_schemas_impl(s, visited, result)
@@ -254,6 +259,10 @@ pub fn find_schema_dependencies_impl(
       for _key, option in options {
         find_schema_dependencies_impl(option, schema_map, deps, visited_names)
       }
+    PipeType(input, _, output) => {
+      find_schema_dependencies_impl(input, schema_map, deps, visited_names)
+      find_schema_dependencies_impl(output, schema_map, deps, visited_names)
+    }
     UnionType(schemas) =>
       for s in schemas {
         if !s.name.is_empty() && name_exists_in_map(s.name) {

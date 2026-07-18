@@ -234,6 +234,17 @@ fn schema_type_to_code(
       join_with(parts, ", ") +
       "})"
     }
+    PipeType(input, _, output) => {
+      let input_code = schema_to_moon_zod_code_inline(
+        input,
+        Some(defined_names),
+      )
+      let output_code = schema_to_moon_zod_code_inline(
+        output,
+        Some(defined_names),
+      )
+      input_code + ".pipe(" + output_code + ")"
+    }
   }
 }
 

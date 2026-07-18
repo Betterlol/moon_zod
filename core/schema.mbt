@@ -28,6 +28,7 @@ pub(all) enum SchemaType {
   LiteralType(Json)
   LazyType(() -> Schema)
   DiscriminatedUnionType(String, Map[String, Schema])
+  PipeType(Schema, TransformClosure, Schema)
 } derive(Debug)
 
 ///|
@@ -142,6 +143,18 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
         brand: self.brand,
       }
     }
+    PipeType(input, bridge, output) => {
+      let new_output = output.message(text)
+      {
+        schema_type: PipeType(input, bridge, new_output),
+        rules: [],
+        description: self.description,
+        required_error: self.required_error,
+        invalid_type_error: self.invalid_type_error,
+        name: self.name,
+        brand: self.brand,
+      }
+    }
     _ => {
       let n = self.rules.length()
       if n == 0 {
@@ -169,6 +182,7 @@ pub fn inner_type(t : SchemaType) -> SchemaType {
     PreprocessType(_, inner) => inner.schema_type
     TransformType(inner, _) => inner.schema_type
     LazyType(_) | DiscriminatedUnionType(_, _) => t
+    PipeType(_, _, output) => inner_type(output.schema_type)
     LiteralType(_) => t
     other => other
   }
@@ -217,6 +231,20 @@ pub fn append_rule_with_annotation(
       )
       {
         schema_type: DefaultType(new_inner, default_val),
+        rules: [],
+        description: schema.description,
+        required_error: schema.required_error,
+        invalid_type_error: schema.invalid_type_error,
+        name: schema.name,
+        brand: schema.brand,
+      }
+    }
+    PipeType(input_schema, bridge, output_schema) => {
+      let new_output = append_rule_with_annotation(
+        output_schema, check, message, code, annotation,
+      )
+      {
+        schema_type: PipeType(input_schema, bridge, new_output),
         rules: [],
         description: schema.description,
         required_error: schema.required_error,
@@ -324,6 +352,8 @@ fn parse_inner(
     LazyType(f) => schema.parse_lazy(f, json, path_stack)
     DiscriminatedUnionType(disc, options) =>
       schema.parse_discriminated_union(disc, options, json, path_stack)
+    PipeType(input_schema, bridge, output_schema) =>
+      schema.parse_pipe(input_schema, bridge, output_schema, json, path_stack)
     _ => {
       let valid = match (schema.schema_type, json) {
         (StringType, String(_)) => true

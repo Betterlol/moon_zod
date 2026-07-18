@@ -56,6 +56,10 @@ fn collect_type_defs(
       for _key, option in options {
         collect_type_defs(option, type_hint, defs)
       }
+    PipeType(input, _, output) => {
+      collect_type_defs(input, type_hint, defs)
+      collect_type_defs(output, type_hint, defs)
+    }
     _ => ()
   }
 }
@@ -80,6 +84,10 @@ fn collect_field_defs(
       for _key, option in options {
         collect_field_defs(option, type_hint, defs)
       }
+    PipeType(input, _, output) => {
+      collect_field_defs(input, type_hint, defs)
+      collect_field_defs(output, type_hint, defs)
+    }
     ObjectType(_, _) | EnumType(_) => collect_type_defs(schema, type_hint, defs)
     _ => ()
   }
@@ -257,6 +265,7 @@ fn field_to_moonbit_type(schema : @core.Schema, type_hint : String) -> String {
       }
       union_to_moonbit_type(schemas, type_hint)
     }
+    PipeType(_, _, output) => field_to_moonbit_type(output, type_hint)
   }
 }
 
