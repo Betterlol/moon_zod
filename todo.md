@@ -317,24 +317,16 @@ pub enum SchemaType {
 
 ---
 
-#### ☐ 枚举类型的 `exclude()` 和 `extract()` 方法
-> 优先级中等
+#### ☑ 枚举类型的 `exclude()` 和 `extract()` 方法 (Phase 45 已交付)
 
-**问题**: 当前无法在枚举类型中排除某些值，也无法提取某些值的子集，导致在复杂业务规则中无法灵活组合枚举类型。
+**完成状态**:
+- [x] `Schema::exclude(self, values: Array[String])` — 返回排除指定值后的新 enum
+- [x] `Schema::extract(self, values: Array[String])` — 返回仅保留指定值后的新 enum
+- [x] 保留 metadata（name、description、brand、invalid_type_error、rules）
+- [x] 空结果产生永不匹配的 enum
+- [x] 8 个测试（exclude、extract、空结果、metadata 保留、规则保留）
 
-**任务**:
-- [ ] `Schema::exclude(self : Schema, values: Array[Json])` — 排除某些值的校验
-- [ ] `Schema::extract(self : Schema, values: Array[Json])` — 提取某些值的子集校验
-- [ ] 枚举类型支持 JSON Schema 导出、prompt 生成
-
-**价值**: 支持复杂业务规则校验，尤其是在枚举类型中灵活组合。
-> 这个功能相比于 `not()` 等来说更有实现的必要和价值。
-> 示例：
-> ```mbt
-> let schema = Schema::enum(["red", "green", "blue"])
-> let schema_exclude = schema.exclude(["green"]) // 只允许 "red" 和 "blue"
-> let schema_extract = schema.extract(["red"]) // 只允许 "red"
-> ```
+**注意**: 只接受 `Array[String]`（enum_values 本身就是 string 集合）。
 
 #### ☑ Recursive Schema (Phase 43 已交付)
 

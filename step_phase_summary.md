@@ -9,7 +9,7 @@
 
 | 指标 | 数值 |
 |------|------|
-| 测试数量 | **531** |
+| 测试数量 | **539** |
 | 外部依赖 | `moonbitlang/regexp` |
 | 编译器警告 | 0 |
 | 子包数量 | 5（`core`, `exporters`, `importers`, `combinators`, `tests`）|
@@ -79,6 +79,21 @@
 - 导出器：prompt 渲染两阶段类型链，json_schema/moonbit_struct 透明落到 output（消费层无需理解 pipe）
 
 **产出**: 531/531 测试通过，0 错误，0 警告。
+
+---
+
+## Phase 45 — 枚举 `exclude()` / `extract()`
+
+**目标**: 为 enum 类型新增 `exclude()` 和 `extract()` 方法，支持灵活的子集组合。
+
+| 新增方法 | 说明 |
+|---------|------|
+| `enum.exclude(values)` | 返回排除指定值后的新 enum |
+| `enum.extract(values)` | 返回仅保留指定值后的新 enum |
+
+两者均保留原 schema 的 metadata（name、description、brand、invalid_type_error、rules）。过滤后为空数组时产生永不匹配的 enum。
+
+**产出**: 539/539 测试通过，0 错误，0 警告。
 
 ---
 
