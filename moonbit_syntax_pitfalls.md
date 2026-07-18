@@ -68,6 +68,37 @@ MoonBit 没有 `cond ? a : b`，用 `if-else` 表达式替代：
 let label = if n > 0 { "positive" } else { "non-positive" }
 ```
 
+### `lazy` 是保留关键字
+
+MoonBit 已预留 `lazy` 关键字，不能用作函数名或变量名：
+
+```mbt
+// ❌ 警告：lazy is reserved for possible future use
+pub fn lazy(f : () -> Schema) -> Schema { ... }
+
+// ✅ 改用其他名称
+pub fn recursive(f : () -> Schema) -> Schema { ... }
+```
+
+### `let rec` 只支持函数
+
+`let rec` 只能用于递归**函数**定义，不能用于递归**值**：
+
+```mbt
+// ❌ 编译错误：The value identifier tree is unbound
+let rec tree = object({ "children": array(recursive(fn() { tree })).optional() })
+
+// ✅ 用函数模式包装
+fn tree_schema() -> Schema {
+  recursive(fn() {
+    object({
+      "value": number(),
+      "children": array(recursive(tree_schema)).optional(),
+    })
+  })
+}
+```
+
 ### `[]` 创建空数组需要类型注解
 
 ```mbt
@@ -107,6 +138,22 @@ let json = @json.parse(raw) catch {
     return
   }
 }
+```
+
+### Match 臂内联时需 `;` 分隔分支
+
+当 match 写在一行时，分支之间需要 `;` 分隔：
+
+```mbt
+// ❌ 解析错误：unexpected token `_`
+match json { Number(v, ..) => v > 0.0 _ => false }
+
+// ✅ 正确：换行或者用 ; 分隔
+match json {
+  Number(v, ..) => v > 0.0
+  _ => false
+}
+match json { Number(v, ..) => v > 0.0; _ => false }
 ```
 
 ### Match 分支返回值必须一致
@@ -178,6 +225,21 @@ match map.get("name") {
 ```mbt
 let top = stack.pop()    // Option[String]
 let _ = stack.pop()      // 忽略 None
+```
+
+### Map 方法返回 Iter，不是 Array
+
+`Map.keys()`、`Map.values()` 返回 `Iter` 类型，不能直接链式调用 `Array` 方法：
+
+```mbt
+// ❌ 类型错误：Expr Type Mismatch, has type Iter[T], wanted Array[T]
+let keys_json : Array[Json] = options.keys().map(fn(k) { Json::string(k) })
+
+// ✅ 手动收集
+let keys_json : Array[Json] = []
+for k in options.keys() {
+  keys_json.push(Json::string(k))
+}
 ```
 
 ### 有载荷的 enum 变体用 `::{}` 构造
@@ -506,6 +568,22 @@ pub struct Empty {}
 pub fn Empty::Empty() -> Empty {
   Empty::{}    // ← 不是 {}，{} 会被解析为 Map 字面量
 }
+```
+
+### Match 臂中 `{ }` 块可能引起解析歧义
+
+在返回 `Json` 等需要推断类型的 match 臂中使用 `{ let ...; expr }` 块，可能触发编译器关于表达式的歧义警告。如有歧义，可抽提为独立函数或简化 match 臂：
+
+```mbt
+// ⚠️ 可能触发 "value cannot be implicitly ignored" 级联错误
+DiscriminatedUnionType(_, options) => {
+  let schemas : Array[@core.Schema] = []
+  for _key, option in options { schemas.push(option) }
+  renderer.render_union(schemas, schema)
+}
+
+// ✅ 简化为单一表达式
+DiscriminatedUnionType(_, _) => Json::null()
 ```
 
 ### 字符串中 `\{` 永远是插值
