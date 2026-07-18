@@ -3,6 +3,7 @@
 ### 已知限制
 - Wasm 基准通过子进程 + 启动开销抵扣估算，而非进程内精确计时（MoonBit wasm target 的限制）。
 - `regex()` 仅做 substring match（MoonBit 无内建 regex 引擎）。
+- `TransformType` 和 `PipeType` 并存：`transform().pipe()` 是推荐的二阶段模式，但 `TransformType` 保留用于单阶段转换。
 
 ### 与 Zod/Pydantic 的差异
 - **类型级错误消息**：Zod 可在 schema 级别定制 `{ required_error, invalid_type_error }`，我们只能覆写规则错误。
@@ -145,7 +146,7 @@
 
 ---
 
-#### ☐ `PipeType(input, output)` — 显式二阶段转换与校验（代替当前 `TransformType` 的模糊语义）
+#### ☑ `PipeType(input, output)` — 显式二阶段转换与校验（Phase 44 已交付）
 
 **问题**: 当前 `TransformType(inner, closure)` 存在设计缺陷：
 
@@ -186,21 +187,21 @@ pub enum SchemaType {
 - 所有错误来自具体阶段：input 失败 → "input 段错误"，output 失败 → "output 段错误"
 
 **任务**:
-- [ ] `types.mbt`: 新增 `PipeType(Schema, TransformClosure, Schema)` 变体
-- [ ] `pipe.mbt`（新文件）: `Schema::pipe(self, output: Schema, bridge?: (Json) -> Result[Json, String])` 工厂
-- [ ] `schema.mbt`: `parse_inner` 新增 `PipeType` 分支 → `parse_pipe`
-- [ ] `pipe.mbt`: `parse_pipe` 实现 — input 校验 → bridge → output 校验
-- [ ] `schema.mbt`: `append_rule_with_annotation` 的 `PipeType` 分支 — **rules 追加到 output schema**（与 Zod .pipe() 语义一致）
-- [ ] `shared_utils.mbt`: `unwrap_schema` / `inner_type` / `is_optional_schema` 穿透 PipeType 到 output
-- [ ] `schema.mbt`: `message()` / `brand` 传播处理 PipeType
-- [ ] 所有 exporters 新增 `render_pipe` trait 方法（`prompt_renderer.mbt`, `json_schema_renderer.mbt`, `moonbit_renderer.mbt`）
-- [ ] prompt 导出：`PipeType(input, _, output)` → 渲染 input + ` → ` + output 类型
-- [ ] JSON Schema 导出：`PipeType` 透明落到 output（JSON Schema 无 pipe 概念）
-- [ ] struct 代码生成：`PipeType(input, _, output)` → 用 output 的类型
-- [ ] `schema_to_moon_zod_code` 适配：`.pipe(output)` 代码生成
-- [ ] 新增 `tests/test_pipe.mbt` — 完整测试覆盖
-- [ ] **迁移策略**：逐步废弃 `TransformType`，推荐用户改用 `transform().pipe()`
-- [ ] 更新 `doc/INTRODUCTION.md` 的校验流程全景图
+- [x] `types.mbt`: 新增 `PipeType(Schema, TransformClosure, Schema)` 变体
+- [x] `pipe.mbt`（新文件）: `Schema::pipe(self, output: Schema)` 工厂
+- [x] `schema.mbt`: `parse_inner` 新增 `PipeType` 分支 → `parse_pipe`
+- [x] `pipe.mbt`: `parse_pipe` 实现 — input 校验 → bridge → output 校验
+- [x] `schema.mbt`: `append_rule_with_annotation` 的 `PipeType` 分支 — **rules 追加到 output schema**
+- [x] `shared_utils.mbt`: `unwrap_schema` / `inner_type` / 穿透 PipeType 到 output
+- [x] `schema.mbt`: `message()` / `brand` 传播处理 PipeType
+- [x] 所有 exporters 新增 `render_pipe` 适配
+- [x] prompt 导出：`PipeType(input, _, output)` → 渲染 input + ` → ` + output 类型
+- [x] JSON Schema 导出：`PipeType` 透明落到 output
+- [x] struct 代码生成：`PipeType(input, _, output)` → 用 output 的类型
+- [x] `schema_to_moon_zod_code` 适配：`.pipe(output)` 代码生成
+- [x] 新增 `tests/test_pipe.mbt` — 7 个测试覆盖
+- [ ] ~~**迁移策略**：逐步废弃 `TransformType`~~ — 搁置：PipeType 和 TransformType 各有适用场景，不强制迁移
+- [ ] ~~更新 `doc/INTRODUCTION.md`~~ — docs 维护，独立任务
 
 **价值**: 解决当前 transform 的语义模糊问题，对齐 Zod `.pipe()` 设计，LLM/用户能获得精确的阶段级错误定位。
 

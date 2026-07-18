@@ -9,7 +9,7 @@
 
 | 指标 | 数值 |
 |------|------|
-| 测试数量 | **524** |
+| 测试数量 | **531** |
 | 外部依赖 | `moonbitlang/regexp` |
 | 编译器警告 | 0 |
 | 子包数量 | 5（`core`, `exporters`, `importers`, `combinators`, `tests`）|
@@ -46,6 +46,39 @@
 | 2 | `discriminated_union` 导出时丢失判别信息，退化为普通 union | 完整判别式导出需在 renderer trait 新增方法 + 实现，工程量独立 |
 
 **产出**: 524/524 测试通过，0 错误，0 警告。
+
+---
+
+## Phase 44 — PipeType 显式二阶段校验
+
+**目标**: 新增 `PipeType(input, bridge, output)` SchemaType 变体，支持显式二阶段校验管线。解决 `TransformType` 语义模糊（规则归属不清、错误定位不精确），对齐 Zod `.pipe()` 设计。
+
+### 新增文件
+
+| 文件 | 内容 |
+|------|------|
+| `core/pipe.mbt` | `Schema::pipe(output)` 工厂；`Schema::parse_pipe`（input → bridge → output） |
+
+### 修改文件
+
+| 文件 | 变更 |
+|------|------|
+| `core/schema.mbt` | `PipeType(Schema, TransformClosure, Schema)` 变体；`parse_inner` dispatch；`append_rule_with_annotation` 穿透到 output（规则链追加到二阶段）；`inner_type` 穿透；`message()` 穿透 |
+| `core/shared_utils.mbt` | `unwrap_schema` / `collect_named_schemas_impl` / `find_schema_dependencies_impl` 穿透 |
+| `core/errors.mbt` | `type_origin` 新增 `"pipe"` |
+| `exporters/prompt_renderer.mbt` | 渲染为 `input → output` |
+| `exporters/json_schema_renderer.mbt` | 透明落到 output |
+| `exporters/moonbit_struct.mbt` | `collect_type_defs` / `collect_field_defs` / `field_to_moonbit_type` 穿透到 output |
+| `exporters/schema_exporter.mbt` | `.pipe(output)` 代码生成 |
+| `tests/test_pipe.mbt` | **新增** — 7 个测试 |
+
+### 设计决策
+
+- `PipeType` 不需要单独 bridge 参数，使用 `TransformClosure` 作为内部桥接（identity 桥接为默认）
+- `append_rule` 穿透到 output：`.pipe(output).min(5)` → min(5) 作用于 output 阶段，错误定位精确
+- 导出器：prompt 渲染两阶段类型链，json_schema/moonbit_struct 透明落到 output（消费层无需理解 pipe）
+
+**产出**: 531/531 测试通过，0 错误，0 警告。
 
 ---
 
