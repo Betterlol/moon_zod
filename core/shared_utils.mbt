@@ -95,6 +95,11 @@ pub fn collect_named_schemas_impl(
       collect_named_schemas_impl(inner, visited, result)
     TransformType(inner, _) =>
       collect_named_schemas_impl(inner, visited, result)
+    LazyType(f) => collect_named_schemas_impl(f(), visited, result)
+    DiscriminatedUnionType(_, options) =>
+      for _key, option in options {
+        collect_named_schemas_impl(option, visited, result)
+      }
     UnionType(schemas) =>
       for s in schemas {
         collect_named_schemas_impl(s, visited, result)
@@ -243,6 +248,12 @@ pub fn find_schema_dependencies_impl(
       find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
     TransformType(inner, _) =>
       find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
+    LazyType(f) =>
+      find_schema_dependencies_impl(f(), schema_map, deps, visited_names)
+    DiscriminatedUnionType(_, options) =>
+      for _key, option in options {
+        find_schema_dependencies_impl(option, schema_map, deps, visited_names)
+      }
     UnionType(schemas) =>
       for s in schemas {
         if !s.name.is_empty() && name_exists_in_map(s.name) {

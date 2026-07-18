@@ -68,6 +68,8 @@ pub fn[R : JsonSchemaRenderer] render_json_type(
     TransformType(inner, closure) =>
       renderer.render_transform(inner, closure, schema)
     LiteralType(value) => renderer.render_literal(value, schema)
+    LazyType(f) => render_json_type(renderer, f())
+    DiscriminatedUnionType(_, _) => Json::null()
   }
 }
 

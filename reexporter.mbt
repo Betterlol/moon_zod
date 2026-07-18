@@ -32,6 +32,8 @@ pub using @core {
   intersection,
   preprocess,
   literal,
+  recursive,
+  discriminated_union,
   unwrap_schema,
   peel_optional,
   indent_str,

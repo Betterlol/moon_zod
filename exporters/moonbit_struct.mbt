@@ -51,6 +51,11 @@ fn collect_type_defs(
       for item in schemas {
         collect_type_defs(item, type_hint, defs)
       }
+    LazyType(f) => collect_type_defs(f(), type_hint, defs)
+    DiscriminatedUnionType(_, options) =>
+      for _key, option in options {
+        collect_type_defs(option, type_hint, defs)
+      }
     _ => ()
   }
 }
@@ -69,6 +74,11 @@ fn collect_field_defs(
     UnionType(schemas) | IntersectionType(schemas) =>
       for item in schemas {
         collect_field_defs(item, type_hint, defs)
+      }
+    LazyType(f) => collect_field_defs(f(), type_hint, defs)
+    DiscriminatedUnionType(_, options) =>
+      for _key, option in options {
+        collect_field_defs(option, type_hint, defs)
       }
     ObjectType(_, _) | EnumType(_) => collect_type_defs(schema, type_hint, defs)
     _ => ()
@@ -239,6 +249,14 @@ fn field_to_moonbit_type(schema : @core.Schema, type_hint : String) -> String {
     IntersectionType(schemas) =>
       intersection_to_moonbit_type(schemas, type_hint)
     LiteralType(value) => literal_to_moonbit_type(value)
+    LazyType(f) => field_to_moonbit_type(f(), type_hint)
+    DiscriminatedUnionType(_, options) => {
+      let schemas : Array[@core.Schema] = []
+      for _key, option in options {
+        schemas.push(option)
+      }
+      union_to_moonbit_type(schemas, type_hint)
+    }
   }
 }
 

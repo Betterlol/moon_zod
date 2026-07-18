@@ -105,6 +105,14 @@ pub fn[R : StringRenderer] render_type(
     TransformType(inner, closure) =>
       renderer.render_transform(inner, closure, schema, indent)
     LiteralType(value) => renderer.render_literal(value, schema, indent)
+    LazyType(f) => render_type(renderer, f(), indent)
+    DiscriminatedUnionType(_, options) => {
+      let schemas : Array[@core.Schema] = []
+      for _key, option in options {
+        schemas.push(option)
+      }
+      renderer.render_union(schemas, schema, indent)
+    }
   }
 }
 

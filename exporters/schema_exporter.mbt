@@ -218,6 +218,22 @@ fn schema_type_to_code(
     TransformType(inner, _) =>
       schema_to_moon_zod_code_inline(inner, Some(defined_names)) +
       ".transform(fn(x) { Ok(x) })" // TODO: Handle transform function code export
+    LazyType(f) => schema_to_moon_zod_code_inline(f(), Some(defined_names))
+    DiscriminatedUnionType(disc, options) => {
+      let parts : Array[String] = []
+      for key, option in options {
+        let opt_code = schema_to_moon_zod_code_inline(
+          option,
+          Some(defined_names),
+        )
+        parts.push("\"" + @core.escape_mbt_string(key) + "\": " + opt_code)
+      }
+      "@moon_zod.discriminated_union(\"" +
+      @core.escape_mbt_string(disc) +
+      "\", {" +
+      join_with(parts, ", ") +
+      "})"
+    }
   }
 }
 

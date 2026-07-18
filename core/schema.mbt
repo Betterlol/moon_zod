@@ -26,6 +26,8 @@ pub(all) enum SchemaType {
   PreprocessType(TransformClosure, Schema)
   TransformType(Schema, TransformClosure)
   LiteralType(Json)
+  LazyType(() -> Schema)
+  DiscriminatedUnionType(String, Map[String, Schema])
 } derive(Debug)
 
 ///|
@@ -166,6 +168,7 @@ pub fn inner_type(t : SchemaType) -> SchemaType {
     DefaultType(inner, _) => inner.schema_type
     PreprocessType(_, inner) => inner.schema_type
     TransformType(inner, _) => inner.schema_type
+    LazyType(_) | DiscriminatedUnionType(_, _) => t
     LiteralType(_) => t
     other => other
   }
@@ -318,6 +321,9 @@ fn parse_inner(
     TransformType(inner, closure) =>
       schema.parse_transform(inner, closure, json, path_stack)
     LiteralType(expected) => schema.parse_literal(expected, json, path_stack)
+    LazyType(f) => schema.parse_lazy(f, json, path_stack)
+    DiscriminatedUnionType(disc, options) =>
+      schema.parse_discriminated_union(disc, options, json, path_stack)
     _ => {
       let valid = match (schema.schema_type, json) {
         (StringType, String(_)) => true
