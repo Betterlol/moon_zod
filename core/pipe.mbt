@@ -15,7 +15,11 @@
 /// ```
 pub fn Schema::pipe(self : Schema, output : Schema) -> Schema {
   {
-    schema_type: PipeType(self, TransformClosure::{ f: fn(v) { Ok(v) } }, output),
+    schema_type: PipeType(
+      self,
+      TransformClosure::{ f: fn(v) { Ok(v) } },
+      output,
+    ),
     rules: [],
     description: self.description,
     required_error: self.required_error,

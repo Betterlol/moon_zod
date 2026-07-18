@@ -114,7 +114,9 @@ pub fn[R : StringRenderer] render_type(
       renderer.render_union(schemas, schema, indent)
     }
     PipeType(input, _, output) =>
-      render_type(renderer, input, indent) + " → " + render_type(renderer, output, indent)
+      render_type(renderer, input, indent) +
+      " → " +
+      render_type(renderer, output, indent)
   }
 }
 

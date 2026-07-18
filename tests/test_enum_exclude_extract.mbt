@@ -1,8 +1,12 @@
 ///|
 test "enum exclude removes values" {
   let s = enum_values(["red", "green", "blue"]).exclude(["green"])
-  guard s.parse(Json::string("red")) is Ok(_) else { fail("expected Ok for red") }
-  guard s.parse(Json::string("blue")) is Ok(_) else { fail("expected Ok for blue") }
+  guard s.parse(Json::string("red")) is Ok(_) else {
+    fail("expected Ok for red")
+  }
+  guard s.parse(Json::string("blue")) is Ok(_) else {
+    fail("expected Ok for blue")
+  }
   guard s.parse(Json::string("green")) is Err(_) else {
     fail("expected Err for green")
   }
@@ -60,8 +64,16 @@ test "enum extract empty list produces empty enum" {
 
 ///|
 test "enum exclude preserves rules" {
-  let s = enum_values(["a", "b"]).refine(fn(json) {
-    match json { String(v) => v.length() > 0; _ => false }
-  }, "must not be empty").exclude(["b"])
+  let s = enum_values(["a", "b"])
+    .refine(
+      fn(json) {
+        match json {
+          String(v) => v.length() > 0
+          _ => false
+        }
+      },
+      "must not be empty",
+    )
+    .exclude(["b"])
   guard s.parse(Json::string("a")) is Ok(_) else { fail("expected Ok") }
 }

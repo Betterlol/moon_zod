@@ -94,11 +94,17 @@ pub fn Schema::parse_discriminated_union(
     Ok(v) => {
       let raw : Array[RawIssue] = []
       collect_raw_errors(raw, path_stack, json, self.rules)
-      if raw.is_empty() { Ok(v) } else { Err(raw) }
+      if raw.is_empty() {
+        Ok(v)
+      } else {
+        Err(raw)
+      }
     }
     Err(dispatch_raw) => {
       let raw : Array[RawIssue] = []
-      for r in dispatch_raw { raw.push(r) }
+      for r in dispatch_raw {
+        raw.push(r)
+      }
       collect_raw_errors(raw, path_stack, json, self.rules)
       Err(raw)
     }

@@ -24,6 +24,7 @@ pub fn enum_values(
 /// # Example
 /// ```mbt nocheck
 /// let colors = enum_values(["red", "green", "blue"])
+///
 /// let no_green = colors.exclude(["green"])
 /// // now accepts only "red" and "blue"
 /// ```
@@ -50,7 +51,8 @@ pub fn Schema::exclude(self : Schema, values : Array[String]) -> Schema {
 /// # Example
 /// ```mbt nocheck
 /// let colors = enum_values(["red", "green", "blue"])
-/// let warm = colors.extract(["red", "orange"])  // "orange" ignored, only "red" kept
+///
+/// let warm = colors.extract(["red", "orange"]) // "orange" ignored, only "red" kept
 /// // now accepts only "red"
 /// ```
 pub fn Schema::extract(self : Schema, values : Array[String]) -> Schema {

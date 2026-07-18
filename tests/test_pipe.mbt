@@ -40,17 +40,33 @@ test "pipe with transform bridges types" {
 ///|
 test "pipe reports first stage error before second stage" {
   // If first stage fails, second stage is never tried
-  let s = number().refine(fn(json) {
-    match json { Number(v, ..) => v > 0.0; _ => false }
-  }, "must be positive").pipe(string())
+  let s = number()
+    .refine(
+      fn(json) {
+        match json {
+          Number(v, ..) => v > 0.0
+          _ => false
+        }
+      },
+      "must be positive",
+    )
+    .pipe(string())
   guard s.parse(Json::number(-1.0)) is Err(_) else { fail("expected Err") }
 }
 
 ///|
 test "pipe with chained rules after pipe" {
-  let s = string().pipe(number()).refine(fn(json) {
-    match json { Number(v, ..) => v > 0.0; _ => false }
-  }, "must be positive")
+  let s = string()
+    .pipe(number())
+    .refine(
+      fn(json) {
+        match json {
+          Number(v, ..) => v > 0.0
+          _ => false
+        }
+      },
+      "must be positive",
+    )
   guard s.parse(Json::string("42")) is Err(_) else { fail("expected Err") }
 }
 
