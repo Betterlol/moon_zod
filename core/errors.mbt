@@ -71,10 +71,11 @@ pub fn finalize_issues(
 /// Collect raw issues from rule failures.
 pub fn collect_raw_errors(
   out : Array[RawIssue],
-  path : String,
+  path_stack : Array[String],
   json : Json,
   rules : Array[Rule],
 ) -> Unit {
+  let path = format_path(path_stack)
   for rule in rules {
     if !(rule.check)(json) {
       out.push(RawIssue::{

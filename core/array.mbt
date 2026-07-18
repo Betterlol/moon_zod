@@ -42,8 +42,7 @@ pub fn Schema::parse_array(
         let _ = path_stack.pop()
         i = i + 1
       }
-      let path = format_path(path_stack)
-      collect_raw_errors(raw, path, json, self.rules)
+      collect_raw_errors(raw, path_stack, json, self.rules)
       if raw.is_empty() {
         Ok(json)
       } else {

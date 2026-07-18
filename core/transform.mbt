@@ -45,8 +45,7 @@ pub fn Schema::parse_transform(
       match (closure.f)(validated) {
         Ok(transformed) => {
           let raw : Array[RawIssue] = []
-          let path = format_path(path_stack)
-          collect_raw_errors(raw, path, transformed, _self.rules)
+          collect_raw_errors(raw, path_stack, transformed, _self.rules)
           if raw.is_empty() {
             Ok(transformed)
           } else {

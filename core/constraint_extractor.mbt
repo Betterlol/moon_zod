@@ -43,11 +43,32 @@ pub fn extract_constraints(rules : Array[Rule]) -> ConstraintInfo {
   let mut multiple_of_val = 0.0
   let custom_messages_val : Array[String] = []
 
-  // First pass: extract from JSON annotations
+  // First pass: extract from IssueCode (structured, fast path)
+  for rule in rules {
+    match rule.code {
+      TooSmall(_, val, _) => min_value = val
+      TooBig(_, val, _) => max_value = val
+      InvalidFormat(fmt) => {
+        if fmt == "integer" {
+          is_int_val = true
+        } else {
+          format_val = fmt
+        }
+      }
+      NotMultipleOf(div) => multiple_of_val = div
+      _ => ()
+    }
+    match rule.code {
+      TooSmall("number", 0.0, false) => is_positive_val = true
+      TooBig("number", 0.0, false) => is_negative_val = true
+      _ => ()
+    }
+  }
+
+  // Second pass: extract from JSON annotations (fallback for Custom rules)
   for rule in rules {
     match rule.annotation {
       Object(map) => {
-        // Length/Value constraints
         if map.contains("minLength") {
           match map.get("minLength") {
             Some(Number(v, ..)) => min_value = v
@@ -84,8 +105,6 @@ pub fn extract_constraints(rules : Array[Rule]) -> ConstraintInfo {
             _ => ()
           }
         }
-
-        // Format and pattern
         if map.contains("format") {
           match map.get("format") {
             Some(String(s)) => format_val = s
@@ -98,16 +117,12 @@ pub fn extract_constraints(rules : Array[Rule]) -> ConstraintInfo {
             _ => ()
           }
         }
-
-        // Type-specific flags
         if map.contains("type") {
           match map.get("type") {
             Some(String(s)) => if s == "integer" { is_int_val = true }
             _ => ()
           }
         }
-
-        // Numeric constraints
         if map.contains("exclusiveMinimum") {
           match map.get("exclusiveMinimum") {
             Some(Number(v, ..)) => if v == 0.0 { is_positive_val = true }
@@ -131,11 +146,10 @@ pub fn extract_constraints(rules : Array[Rule]) -> ConstraintInfo {
     }
   }
 
-  // Second pass: collect custom error messages
+  // Third pass: collect custom error messages
   for rule in rules {
     match rule.annotation {
       Null =>
-        // Skip certain standard messages
         if rule.message != "String must not be empty" {
           custom_messages_val.push(rule.message)
         }

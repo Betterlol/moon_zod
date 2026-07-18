@@ -40,8 +40,7 @@ pub fn Schema::parse_preprocess(
         Err(e) => Err(e)
         Ok(parsed) => {
           let raw : Array[RawIssue] = []
-          let path = format_path(path_stack)
-          collect_raw_errors(raw, path, parsed, self.rules)
+          collect_raw_errors(raw, path_stack, parsed, self.rules)
           if raw.is_empty() {
             Ok(parsed)
           } else {

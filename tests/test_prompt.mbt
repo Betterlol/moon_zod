@@ -226,10 +226,9 @@ test "schema_to_prompt refine custom message" {
 }
 
 ///|
-test "schema_to_prompt nonempty is filtered" {
-  // nonempty has no annotation and its message matches the built-in
+test "schema_to_prompt nonempty shows min constraint" {
   let s = string().nonempty()
-  @debug.assert_eq(schema_to_prompt(s), "string")
+  @debug.assert_eq(schema_to_prompt(s), "string  // [min: 1]")
 }
 
 ///|

@@ -292,8 +292,7 @@ pub fn Schema::parse_object(
           }
         _ => ()
       }
-      let path = format_path(path_stack)
-      collect_raw_errors(raw, path, json, self.rules)
+      collect_raw_errors(raw, path_stack, json, self.rules)
       if raw.is_empty() {
         match mode {
           Strip => Ok(Json::object(parsed_fields))
