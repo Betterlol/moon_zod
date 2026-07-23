@@ -434,6 +434,34 @@ schema.parse("hello") → Ok("HELLO")
 >（这个在 Phase 37 完成了修复）
 > 但是，这也意味着 transform 的 rules 只会在 transform 之后执行，而不是在原始输入上执行。这样返回的 error message 可能会让用户和llm感到疑惑，因为 transform 的过程很可能是一个闭包，用户无法直接看到它的内部逻辑。
 > 因此最好的实现是：`transform(f).min(3)` 会报错, 强制要求使用 `transform(f).pipe(z.min(3))`。但目前想要完成这个功能还需要更多的时间和精力。特别是如果要在 `exporters` 中也实现 `transform` 的导出，就相当麻烦了...
+> （在 Phase 44 初步实现）
+
+#### "`string().transform(fn).min(5)` 为什么应该报错？"
+
+**Zod 的处理**：`transform()` 返回 `ZodEffects` 类型，该类型上不定义 `.min()` 等方法，因此 `z.string().transform(fn).min(5)` 在 TypeScript 中是编译错误。
+
+**正确的 moon_zod 模式**：使用 `.pipe()` 显式分阶段：
+
+```moonbit
+string()
+  .transform(fn(s) { Ok(Json::number(s.length().to_double())) })
+  .pipe(number().int().min(5))  // min(5) 作用于输出阶段
+```
+
+未来方向：让 `TransformType` 上调用类型特定规则时 `abort()`，强制用户使用 `pipe()` 表达二阶段校验。
+
+#### "`.message()` 是 Zod 的设计吗？"
+
+不是。`.message()` 是 moon_zod 的自创设计，没有 Zod 对应物。
+
+Zod 的错误消息作为选项参数传入每条规则：
+
+```typescript
+z.string().min(3, { message: "too short" })
+//                ^^^^^^^^ 参数，不是链式方法
+```
+
+moon_zod 的 `.min(3).message("too short")` 链式语法是因为 moon_zod 采用规则链模式（规则依次追加到 `rules` 数组），而不是 Zod 的 option 参数模式。`.message()` 隧穿 TransformType/OptionalType/PipeType 是为了找到最后一条 rule 并覆盖其消息——这与 `.name()/.describe()` 的字段直接赋值不同，后者不依赖 schema_type。
 
 ---
 
