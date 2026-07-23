@@ -17,7 +17,7 @@ pub fn Schema::pipe(self : Schema, output : Schema) -> Schema {
   {
     schema_type: PipeType(
       self,
-      TransformClosure::{ f: fn(v) { Ok(v) } },
+      TransformClosure::{ f: fn(v) { Ok(v) }, is_builtin: true },
       output,
     ),
     rules: [],

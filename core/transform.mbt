@@ -21,7 +21,7 @@ pub fn Schema::transform(
   f : (Json) -> Result[Json, String],
 ) -> Schema {
   {
-    schema_type: TransformType(self, TransformClosure::{ f, }),
+    schema_type: TransformType(self, TransformClosure::{ f, is_builtin: false }),
     rules: [],
     description: self.description,
     required_error: self.required_error,

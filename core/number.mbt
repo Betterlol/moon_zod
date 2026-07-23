@@ -18,6 +18,7 @@ pub fn number(
 ///|
 /// Require the number to be an integer (no fractional part).
 pub fn Schema::int(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     NumberType => ()
     _ => abort("int() is only valid for number schemas")
@@ -40,6 +41,7 @@ pub fn Schema::int(self : Schema, msg? : String = "") -> Schema {
 ///|
 /// Require the number to be positive (> 0).
 pub fn Schema::positive(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     NumberType => ()
     _ => abort("positive() is only valid for number schemas")
@@ -62,6 +64,7 @@ pub fn Schema::positive(self : Schema, msg? : String = "") -> Schema {
 ///|
 /// Require the number to be negative (< 0).
 pub fn Schema::negative(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     NumberType => ()
     _ => abort("negative() is only valid for number schemas")
@@ -84,6 +87,7 @@ pub fn Schema::negative(self : Schema, msg? : String = "") -> Schema {
 ///|
 /// Require the number to be a multiple of `n`.
 pub fn Schema::multipleOf(self : Schema, n : Int, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     NumberType => ()
     _ => abort("multipleOf() is only valid for number schemas")
@@ -111,6 +115,7 @@ pub fn Schema::multipleOf(self : Schema, n : Int, msg? : String = "") -> Schema 
 ///|
 /// Require the number to be finite (reject Infinity and NaN).
 pub fn Schema::finite(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     NumberType => ()
     _ => abort("finite() is only valid for number schemas")
@@ -136,6 +141,7 @@ pub fn Schema::finite(self : Schema, msg? : String = "") -> Schema {
 ///|
 /// Require the number to be a safe integer (within ±2^53-1).
 pub fn Schema::safe(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     NumberType => ()
     _ => abort("safe() is only valid for number schemas")

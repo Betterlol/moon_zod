@@ -10,7 +10,10 @@ pub fn preprocess(
   invalid_type_error? : String = "",
 ) -> Schema {
   {
-    schema_type: PreprocessType(TransformClosure::{ f, }, inner),
+    schema_type: PreprocessType(
+      TransformClosure::{ f, is_builtin: false },
+      inner,
+    ),
     rules: [],
     description: inner.description,
     required_error,

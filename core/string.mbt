@@ -56,6 +56,7 @@ fn schema_min_msg(s : Schema, n : Int) -> String {
 ///|
 /// Require the string length to be at least `n`.
 pub fn Schema::min(self : Schema, n : Int, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   let check = schema_min_check(self, n)
   let message = if msg.is_empty() { schema_min_msg(self, n) } else { msg }
   let annotation = match inner_type(self.schema_type) {
@@ -120,6 +121,7 @@ fn schema_max_msg(s : Schema, n : Int) -> String {
 ///|
 /// Require the string length to be at most `n`.
 pub fn Schema::max(self : Schema, n : Int, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   let check = schema_max_check(self, n)
   let message = if msg.is_empty() { schema_max_msg(self, n) } else { msg }
   let annotation = match inner_type(self.schema_type) {
@@ -262,6 +264,7 @@ fn is_valid_email(s : String) -> Bool {
 ///|
 /// Require the string to be a valid email.
 pub fn Schema::email(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("email() is only valid for string schemas")
@@ -420,6 +423,7 @@ fn is_valid_url(s : String) -> Bool {
 ///|
 /// Require the string to be a valid URL with http:// or https:// scheme.
 pub fn Schema::url(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("url() is only valid for string schemas")
@@ -446,6 +450,7 @@ pub fn Schema::regex(
   pattern : String,
   msg? : String = "",
 ) -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("regex() is only valid for string schemas")
@@ -479,6 +484,7 @@ pub fn Schema::startsWith(
   prefix : String,
   msg? : String = "",
 ) -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("startsWith() is only valid for string schemas")
@@ -509,6 +515,7 @@ pub fn Schema::endsWith(
   suffix : String,
   msg? : String = "",
 ) -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("endsWith() is only valid for string schemas")
@@ -539,6 +546,7 @@ pub fn Schema::includes(
   substring : String,
   msg? : String = "",
 ) -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("includes() is only valid for string schemas")
@@ -570,6 +578,7 @@ fn is_hex_digit(c : Char) -> Bool {
 /// Require the string to be a valid UUID v4.
 /// Format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
 pub fn Schema::uuid(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("uuid() is only valid for string schemas")
@@ -631,6 +640,7 @@ pub fn Schema::uuid(self : Schema, msg? : String = "") -> Schema {
 ///|
 /// Require the string to be a valid CUID (25 chars, starts with 'c', alphanumeric).
 pub fn Schema::cuid(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("cuid() is only valid for string schemas")
@@ -762,6 +772,7 @@ fn is_valid_iso8601(s : String) -> Bool {
 ///|
 /// Require the string to be a valid ISO 8601 datetime.
 pub fn Schema::datetime(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("datetime() is only valid for string schemas")
@@ -908,6 +919,7 @@ fn is_valid_ipv6(s : String) -> Bool {
 ///|
 /// Require the string to be a valid IPv4 address.
 pub fn Schema::ipv4(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("ipv4() is only valid for string schemas")
@@ -934,6 +946,7 @@ pub fn Schema::ipv4(self : Schema, msg? : String = "") -> Schema {
 ///|
 /// Require the string to be a valid IPv6 address.
 pub fn Schema::ipv6(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("ipv6() is only valid for string schemas")
@@ -960,6 +973,7 @@ pub fn Schema::ipv6(self : Schema, msg? : String = "") -> Schema {
 ///|
 /// Require the string to be a valid IPv4 or IPv6 address.
 pub fn Schema::ip(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("ip() is only valid for string schemas")
@@ -1015,6 +1029,7 @@ fn schema_length_msg(s : Schema, n : Int) -> String {
 ///|
 /// Require the string to be non-empty (or array to be non-empty).
 pub fn Schema::nonempty(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     ArrayType(_) => ()
@@ -1053,12 +1068,23 @@ pub fn Schema::trim(self : Schema) -> Schema {
     StringType => ()
     _ => abort("trim() is only valid for string schemas")
   }
-  self.transform(fn(json) {
-    match json {
-      String(s) => Ok(Json::string(s.trim().to_owned()))
-      _ => Err("Expected string")
-    }
-  })
+  {
+    schema_type: TransformType(self, TransformClosure::{
+      f: fn(json) {
+        match json {
+          String(s) => Ok(Json::string(s.trim().to_owned()))
+          _ => Err("Expected string")
+        }
+      },
+      is_builtin: true,
+    }),
+    rules: [],
+    description: self.description,
+    required_error: self.required_error,
+    invalid_type_error: self.invalid_type_error,
+    name: self.name,
+    brand: self.brand,
+  }
 }
 
 ///|
@@ -1068,12 +1094,23 @@ pub fn Schema::to_lower(self : Schema) -> Schema {
     StringType => ()
     _ => abort("to_lower() is only valid for string schemas")
   }
-  self.transform(fn(json) {
-    match json {
-      String(s) => Ok(Json::string(s.to_lower()))
-      _ => Err("Expected string")
-    }
-  })
+  {
+    schema_type: TransformType(self, TransformClosure::{
+      f: fn(json) {
+        match json {
+          String(s) => Ok(Json::string(s.to_lower()))
+          _ => Err("Expected string")
+        }
+      },
+      is_builtin: true,
+    }),
+    rules: [],
+    description: self.description,
+    required_error: self.required_error,
+    invalid_type_error: self.invalid_type_error,
+    name: self.name,
+    brand: self.brand,
+  }
 }
 
 ///|
@@ -1083,12 +1120,23 @@ pub fn Schema::to_upper(self : Schema) -> Schema {
     StringType => ()
     _ => abort("to_upper() is only valid for string schemas")
   }
-  self.transform(fn(json) {
-    match json {
-      String(s) => Ok(Json::string(s.to_upper()))
-      _ => Err("Expected string")
-    }
-  })
+  {
+    schema_type: TransformType(self, TransformClosure::{
+      f: fn(json) {
+        match json {
+          String(s) => Ok(Json::string(s.to_upper()))
+          _ => Err("Expected string")
+        }
+      },
+      is_builtin: true,
+    }),
+    rules: [],
+    description: self.description,
+    required_error: self.required_error,
+    invalid_type_error: self.invalid_type_error,
+    name: self.name,
+    brand: self.brand,
+  }
 }
 
 ///|
@@ -1111,6 +1159,7 @@ fn is_crockford_base32(c : Char) -> Bool {
 ///|
 /// Require the string to be a valid ULID (26 chars, Crockford Base32).
 pub fn Schema::ulid(self : Schema, msg? : String = "") -> Schema {
+  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("ulid() is only valid for string schemas")

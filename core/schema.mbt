@@ -35,6 +35,7 @@ pub(all) enum SchemaType {
 /// Internal wrapper for a transform function stored in TransformType.
 pub(all) struct TransformClosure {
   f : (Json) -> Result[Json, String]
+  is_builtin : Bool
 } derive(Debug)
 
 ///|
@@ -259,6 +260,19 @@ pub fn append_rule_with_annotation(
 }
 
 ///|
+
+///|
+fn guard_no_user_transform(schema : Schema) -> Unit {
+  match schema.schema_type {
+    TransformType(_, cls) =>
+      if !cls.is_builtin {
+        abort(
+          "cannot chain type-specific validation after transform(); use .pipe() instead",
+        )
+      }
+    _ => ()
+  }
+}
 
 ///|
 fn type_msg(schema : Schema) -> String {
