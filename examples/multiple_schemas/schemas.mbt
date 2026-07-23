@@ -169,11 +169,50 @@ fn product_schema() -> @moon_zod.Schema {
 }
 
 ///|
-/// show how to use enum values
+/// show how to use enum values with exclude and extract
 fn order_status_schema() -> @moon_zod.Schema {
   @moon_zod.enum_values(["pending", "shipped", "delivered", "cancelled"])
   .name("OrderStatus")
   .describe("The status of an order")
+}
+
+///|
+/// show how to use exclude to remove specific enum values
+#warnings("-unused_value")
+fn active_status_schema() -> @moon_zod.Schema {
+  order_status_schema()
+  .exclude(["cancelled"])
+  .name("ActiveStatus")
+  .describe("Order statuses that are still active")
+}
+
+///|
+/// show how to use extract to keep only specific enum values
+#warnings("-unused_value")
+fn completed_status_schema() -> @moon_zod.Schema {
+  order_status_schema()
+  .extract(["delivered", "cancelled"])
+  .name("CompletedStatus")
+  .describe("Order statuses that are no longer active")
+}
+
+///|
+/// show how to use pipe for explicit two-stage validation.
+/// The input is first validated against the first schema, transformed, then
+/// validated against the second schema. Errors from each stage are reported
+/// independently.
+#warnings("-unused_value")
+fn pipe_schema() -> @moon_zod.Schema {
+  @moon_zod.string()
+  .transform(fn(json) {
+    match json {
+      String(v) => Ok(Json::number(v.length().to_double()))
+      _ => Err("expected string")
+    }
+  })
+  .pipe(@moon_zod.number().int().min(3).max(10))
+  .name("StringLength")
+  .describe("Validates string length is between 3 and 10")
 }
 
 ///|
