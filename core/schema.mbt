@@ -64,7 +64,7 @@ pub(all) struct Schema {
 /// The description is rendered by `schema_to_prompt()` alongside type and constraints,
 /// helping LLMs understand the semantic meaning of each field.
 pub fn Schema::describe(self : Schema, text : String) -> Schema {
-  { ..self, description: text }
+  { ..self, description: text, }
 }
 
 ///|
@@ -72,7 +72,7 @@ pub fn Schema::describe(self : Schema, text : String) -> Schema {
 /// When used with `schema_to_prompt_named()`, named schemas are extracted as separate
 /// interface/type definitions in the generated prompt, supporting Object and Enum types.
 pub fn Schema::name(self : Schema, text : String) -> Schema {
-  { ..self, name: text }
+  { ..self, name: text, }
 }
 
 ///|
@@ -81,20 +81,20 @@ pub fn Schema::name(self : Schema, text : String) -> Schema {
 /// structurally identical schemas (e.g., `UserId` vs `string`).
 /// The brand is rendered in prompt and JSON Schema exports.
 pub fn Schema::brand(self : Schema, text : String) -> Schema {
-  { ..self, brand: text }
+  { ..self, brand: text, }
 }
 
 ///|
 /// Override the error message when a required field is missing.
 /// Only effective when this schema is used as an object field value.
 pub fn Schema::required_error(self : Schema, text : String) -> Schema {
-  { ..self, required_error: text }
+  { ..self, required_error: text, }
 }
 
 ///|
 /// Override the error message when the input type does not match.
 pub fn Schema::invalid_type_error(self : Schema, text : String) -> Schema {
-  { ..self, invalid_type_error: text }
+  { ..self, invalid_type_error: text, }
 }
 
 ///|
@@ -164,12 +164,12 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
       let new_rules : Array[Rule] = []
       for i = 0; i < n; i = i + 1 {
         if i == n - 1 {
-          new_rules.push({ ..self.rules[i], message: text })
+          new_rules.push({ ..self.rules[i], message: text, })
         } else {
           new_rules.push(self.rules[i])
         }
       }
-      { ..self, rules: new_rules }
+      { ..self, rules: new_rules, }
     }
   }
 }
@@ -255,7 +255,10 @@ pub fn append_rule_with_annotation(
       }
     }
     _ =>
-      { ..schema, rules: schema.rules + [{ check, message, code, annotation }] }
+      {
+        ..schema,
+        rules: schema.rules + [{ check, message, code, annotation, }],
+      }
   }
 }
 
@@ -409,7 +412,7 @@ pub fn Schema::parse(
   json : Json,
   path? : String = "",
 ) -> SchemaResult {
-  Schema::safe_parse(self, json, ParseParams::{ path, error_map: None })
+  Schema::safe_parse(self, json, ParseParams::{ path, error_map: None, })
 }
 
 ///|

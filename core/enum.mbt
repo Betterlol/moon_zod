@@ -37,7 +37,7 @@ pub fn Schema::exclude(self : Schema, values : Array[String]) -> Schema {
           filtered.push(v)
         }
       }
-      { ..self, schema_type: EnumType(filtered) }
+      { ..self, schema_type: EnumType(filtered), }
     }
     _ => abort("exclude() is only valid for enum schemas")
   }
@@ -64,7 +64,7 @@ pub fn Schema::extract(self : Schema, values : Array[String]) -> Schema {
           filtered.push(v)
         }
       }
-      { ..self, schema_type: EnumType(filtered) }
+      { ..self, schema_type: EnumType(filtered), }
     }
     _ => abort("extract() is only valid for enum schemas")
   }

@@ -11,7 +11,7 @@ pub fn preprocess(
 ) -> Schema {
   {
     schema_type: PreprocessType(
-      TransformClosure::{ f, is_builtin: false },
+      TransformClosure::{ f, is_builtin: false, },
       inner,
     ),
     rules: [],
@@ -35,7 +35,7 @@ pub fn Schema::parse_preprocess(
     Err(msg) => {
       let path = format_path(path_stack)
       Err([
-        RawIssue::{ code: IssueCode::Custom, path, message: msg, input: json },
+        RawIssue::{ code: IssueCode::Custom, path, message: msg, input: json, },
       ])
     }
     Ok(preprocessed) =>

@@ -29,7 +29,7 @@ pub(all) struct ParseParams {
 
 ///|
 pub fn ParseParams::default() -> ParseParams {
-  ParseParams::{ path: "", error_map: None }
+  ParseParams::{ path: "", error_map: None, }
 }
 
 ///|
@@ -55,7 +55,7 @@ pub fn finalize_issue(raw : RawIssue, params : ParseParams) -> ValidationError {
       }
     None => raw.message
   }
-  ValidationError::{ code: raw.code, path: raw.path, message, got: raw.input }
+  ValidationError::{ code: raw.code, path: raw.path, message, got: raw.input, }
 }
 
 ///|

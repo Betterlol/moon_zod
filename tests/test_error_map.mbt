@@ -243,7 +243,7 @@ test "error_map priority over type error inline" {
 ///|
 test "safe_parse with path prefix" {
   let s = string().min(3)
-  let params = ParseParams::{ path: "user.name", error_map: None }
+  let params = ParseParams::{ path: "user.name", error_map: None, }
   match s.safe_parse(Json::string("ab"), params) {
     Err(errors) => @debug.assert_eq(errors[0].path, "user.name")
     Ok(_) => fail("expected Err")

@@ -24,7 +24,7 @@ pub fn object(
 /// Reject fields not defined in the schema spec.
 pub fn Schema::strict(self : Schema) -> Schema {
   match self.schema_type {
-    ObjectType(spec, _) => { ..self, schema_type: ObjectType(spec, Strict) }
+    ObjectType(spec, _) => { ..self, schema_type: ObjectType(spec, Strict), }
     _ => abort("strict() is only valid for object schemas")
   }
 }
@@ -34,7 +34,7 @@ pub fn Schema::strict(self : Schema) -> Schema {
 pub fn Schema::passthrough(self : Schema) -> Schema {
   match self.schema_type {
     ObjectType(spec, _) =>
-      { ..self, schema_type: ObjectType(spec, Passthrough) }
+      { ..self, schema_type: ObjectType(spec, Passthrough), }
     _ => abort("passthrough() is only valid for object schemas")
   }
 }
@@ -44,7 +44,7 @@ pub fn Schema::passthrough(self : Schema) -> Schema {
 /// This is the default mode.
 pub fn Schema::strip(self : Schema) -> Schema {
   match self.schema_type {
-    ObjectType(spec, _) => { ..self, schema_type: ObjectType(spec, Strip) }
+    ObjectType(spec, _) => { ..self, schema_type: ObjectType(spec, Strip), }
     _ => abort("strip() is only valid for object schemas")
   }
 }

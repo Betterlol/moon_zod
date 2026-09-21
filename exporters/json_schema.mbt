@@ -329,7 +329,7 @@ pub fn NamedJsonRenderer::NamedJsonRenderer(
   named_names~ : Array[String],
   include_annotations? : Bool = true,
 ) -> NamedJsonRenderer {
-  { named_names, include_annotations }
+  { named_names, include_annotations, }
 }
 
 ///|
