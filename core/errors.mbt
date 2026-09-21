@@ -16,6 +16,14 @@ pub(all) enum IssueCode {
 } derive(Debug, Eq)
 
 ///|
+#deprecated
+pub extend IssueCode with @debug.Debug::{to_repr}
+
+///|
+#deprecated
+pub extend IssueCode with Eq::{not_equal, equal}
+
+///|
 /// Error map function: contextual override for error messages.
 /// Returns `Some(msg)` to override, `None` to fall through to the pre-resolved message.
 pub type ErrorMap = (IssueCode, String, Json) -> String?

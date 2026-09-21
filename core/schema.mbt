@@ -7,6 +7,10 @@ pub(all) enum ObjectMode {
 } derive(Debug)
 
 ///|
+#deprecated
+pub extend ObjectMode with @debug.Debug::{to_repr}
+
+///|
 /// Internal tag for runtime type dispatch.
 pub(all) enum SchemaType {
   StringType
@@ -32,11 +36,19 @@ pub(all) enum SchemaType {
 } derive(Debug)
 
 ///|
+#deprecated
+pub extend SchemaType with @debug.Debug::{to_repr}
+
+///|
 /// Internal wrapper for a transform function stored in TransformType.
 pub(all) struct TransformClosure {
   f : (Json) -> Result[Json, String]
   is_builtin : Bool
 } derive(Debug)
+
+///|
+#deprecated
+pub extend TransformClosure with @debug.Debug::{to_repr}
 
 ///|
 /// A single validation rule: a predicate + error message + optional JSON Schema annotation.
@@ -46,6 +58,10 @@ pub(all) struct Rule {
   code : IssueCode
   annotation : Json
 } derive(Debug)
+
+///|
+#deprecated
+pub extend Rule with @debug.Debug::{to_repr}
 
 ///|
 /// A schema defines the shape and constraints of JSON data.
@@ -58,6 +74,10 @@ pub(all) struct Schema {
   name : String
   brand : String
 } derive(Debug)
+
+///|
+#deprecated
+pub extend Schema with @debug.Debug::{to_repr}
 
 ///|
 /// Attach a human-readable description to a schema.

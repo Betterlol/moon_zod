@@ -1,0 +1,29 @@
+# Build artifacts
+_build/
+target/
+.mooncakes/
+
+# Generated interfaces
+**/pkg.generated.mbti
+
+# Tooling / agent files
+.moonagent/
+.claude/
+
+# Docs and development files
+branch_doc/
+doc/
+doc_utils/
+bench_cross_lang/
+moonbit_syntax_pitfalls.md
+AGENTS.md
+
+# Python / Node artifacts
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/node_modules/
+**/package-lock.json
+**/package.json
+tmp/

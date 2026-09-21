@@ -26,19 +26,3 @@ description = "A runtime JSON schema validation library for MoonBit, inspired by
 import {
   "moonbitlang/regexp@0.3.5",
 }
-
-options(
-  exclude: [
-    "branch_doc/",
-    "doc/",
-    "doc_utils/",
-    "bench_cross_lang/",
-    "moonbit_syntax_pitfalls.md",
-    "AGENTS.md",
-    "_build/",
-    "target/",
-    ".mooncakes/",
-    ".moonagent/",
-    ".claude/",
-  ],
-)

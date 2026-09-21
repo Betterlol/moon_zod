@@ -333,6 +333,28 @@ pub fn NamedJsonRenderer::NamedJsonRenderer(
 }
 
 ///|
+#deprecated
+pub extend NamedJsonRenderer with JsonSchemaRenderer::{
+  render_string,
+  render_number,
+  render_boolean,
+  render_null,
+  render_object,
+  render_array,
+  render_optional,
+  render_default,
+  render_enum,
+  render_union,
+  render_intersection,
+  render_transform,
+  render_literal,
+  render_any,
+  render_unknown,
+  render_tuple,
+  render_preprocess,
+}
+
+///|
 /// The named renderer's methods call render_json_type_ref for sub-elements,
 /// which emits $ref for named schemas in the named_names list.
 #warnings("-unused_value")

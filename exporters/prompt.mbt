@@ -18,6 +18,28 @@ pub fn NamedPromptRenderer::NamedPromptRenderer(
 }
 
 ///|
+#deprecated
+pub extend NamedPromptRenderer with StringRenderer::{
+  render_string,
+  render_number,
+  render_boolean,
+  render_null,
+  render_object,
+  render_array,
+  render_optional,
+  render_default,
+  render_enum,
+  render_union,
+  render_intersection,
+  render_transform,
+  render_literal,
+  render_any,
+  render_unknown,
+  render_tuple,
+  render_preprocess,
+}
+
+///|
 #warnings("-unused_value")
 pub impl StringRenderer for NamedPromptRenderer with fn render_string(
   self : NamedPromptRenderer,

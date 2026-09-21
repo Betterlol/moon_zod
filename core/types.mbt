@@ -13,6 +13,10 @@ pub(all) struct ValidationError {
 } derive(Debug)
 
 ///|
+#deprecated
+pub extend ValidationError with @debug.Debug::{to_repr}
+
+///|
 /// Format a validation error as a human-readable string.
 /// Uses Debug for the received value to avoid Show deprecation.
 pub fn ValidationError::to_string(self : ValidationError) -> String {
