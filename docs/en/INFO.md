@@ -45,6 +45,10 @@ moon_zod/
 ├── combinators/              # Schema combinator utilities
 │   └── schema_combinators.mbt # Schema composition helpers
 │
+├── async/                    # Optional async extensions
+│   ├── schema.mbt            # Async post-parse refinements
+│   └── jsonl.mbt             # Backpressure-aware JSON Lines validation
+│
 ├── exporters/                # Code/schema export tools
 │   ├── prompt.mbt            # schema_to_prompt() / schema_to_prompt_named()
 │   ├── prompt_renderer.mbt   # Trait-based prompt rendering
@@ -146,6 +150,7 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
 - **Custom error messages**: `msg?` parameter on all validators, `.message(text)` override method, type-level `required_error` / `invalid_type_error`
 - **Error collection**: Collects **all** validation errors in one pass, perfect for LLM self-correction loops
 - **Full-path error reporting**: Every error includes exact field path (`users[0].profile.age`)
+- **Optional async extensions**: `Betterlol/moon_zod/async` adds async refinements and incremental JSON Lines validation while keeping the core API synchronous
 - **LLM prompt generation**:
   - `schema_to_prompt(schema)` — inline TypeScript-interface with constraint comments
   - `schema_to_prompt_named(schema, include_names?)` — modular interfaces with topological sorting and type name references
