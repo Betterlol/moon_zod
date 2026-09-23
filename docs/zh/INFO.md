@@ -45,6 +45,10 @@ moon_zod/
 ├── combinators/              # Schema 组合器工具
 │   └── schema_combinators.mbt # Schema 组合辅助函数
 │
+├── async/                    # 可选异步扩展
+│   ├── schema.mbt            # 解析后的异步 refine
+│   └── jsonl.mbt             # 带背压的 JSON Lines 校验
+│
 ├── exporters/                # 代码/Schema 导出工具
 │   ├── prompt.mbt            # schema_to_prompt() / schema_to_prompt_named()
 │   ├── prompt_renderer.mbt   # 基于特性的提示渲染
@@ -146,6 +150,7 @@ moon run examples/json2schema                        # JSON → moon_zod Schema 
 - **自定义错误消息**：所有校验器上的 `msg?` 参数、`.message(text)` 覆盖方法、类型级别的 `required_error` / `invalid_type_error`
 - **错误收集**：在一次遍历中收集**所有**校验错误，非常适合 LLM 自我纠正循环
 - **完整路径错误报告**：每个错误都包含确切的字段路径（`users[0].profile.age`）
+- **可选异步扩展**：`Betterlol/moon_zod/async` 提供异步 refine 和增量 JSON Lines 校验，同时保持核心 API 同步
 - **LLM 提示生成**：
   - `schema_to_prompt(schema)` —— 内联 TypeScript 接口，带约束注释
   - `schema_to_prompt_named(schema, include_names?)` —— 模块化接口，带拓扑排序和类型名称引用
