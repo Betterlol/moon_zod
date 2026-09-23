@@ -1,0 +1,9 @@
+import {
+  "Betterlol/moon_zod/core",
+  "moonbitlang/async/io",
+  "moonbitlang/core/json",
+}
+
+import {
+  "moonbitlang/async" @moon_async,
+} for "test"

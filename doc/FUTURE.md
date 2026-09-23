@@ -48,8 +48,20 @@ flowchart TB
 | **生态角色** | MoonBit 生态中的**基础校验设施**，对标 TypeScript 生态的 Zod / Python 生态的 Pydantic |
 | **核心场景** | **LLM Tool Calling** 的结构化输出校验，兼顾通用 JSON 校验 |
 | **能力边界** | 运行时动态校验（parse）、多格式导出（Export）、多源导入（Import）、代码生成（Code Gen） |
-| **非目标** | 不取代 MoonBit 编译期类型系统；不做异步校验；不做 ORM / 序列化框架 |
+| **非目标** | 不取代 MoonBit 编译期类型系统；核心包不承担异步运行时；不做 ORM / 序列化框架 |
 | **未来方向** | 通过 derive 宏连接**编译期类型**与**运行时校验**，实现 `struct` 定义即 Schema |
+
+---
+
+## 可选异步扩展
+
+`Betterlol/moon_zod/async` 将异步运行时隔离在独立子包中，不改变核心
+`Schema::parse()` 的同步语义。它先以同步 schema 完成校验、转换与 Strip
+清洗，再允许 `AsyncSchema` 执行异步 refine；失败会以 `IssueCode::Custom`
+聚合返回。`validate_jsonl()` 通过 `@io.Reader` 逐行读取 JSON Lines，并等待
+事件处理完成后再读取下一行，提供自然背压。
+
+核心库因此无需依赖异步运行时，普通用户仍可只使用原有同步 API。
 
 ---
 
