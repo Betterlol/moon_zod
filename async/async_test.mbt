@@ -156,3 +156,83 @@ async test "JSONL validation runs asynchronous refinements" {
     _ => fail("expected async refinement failure")
   }
 }
+
+///|
+async test "SSE reader follows frame boundaries and preserves event metadata" {
+  let events : Array[@async.SseEvent] = []
+  let reader = @io.MemoryReader() <| writer => {
+    writer.write(
+      ": heartbeat\r\nid: 42\r\nevent: update\r\ndata: {\"name\":\"Ada\"",
+    )
+    writer.write("\r\ndata: }\r\n\r\ndata: [DONE]\r\n\r\n")
+  }
+  defer reader.close()
+  let summary = @async.read_sse(reader, event => events.push(event))
+
+  assert_eq(summary.lines_read, 8)
+  assert_eq(summary.events, 2)
+  assert_eq(summary.comments, 1)
+  assert_eq(events[0].event, "update")
+  assert_eq(events[0].data, "{\"name\":\"Ada\"\n}")
+  assert_eq(events[0].id, Some("42"))
+  assert_eq(events[1].event, "message")
+  assert_eq(events[1].data, "[DONE]")
+  assert_eq(events[1].id, Some("42"))
+}
+
+///|
+async test "SSE JSON validation reports valid malformed invalid and done frames" {
+  let events : Array[@async.SseValidationEvent] = []
+  let reader = @io.MemoryReader() <| writer => {
+    writer.write(
+      "data: {\"name\":\"Ada\"}\n\ndata: {\"name\":1}\n\ndata: nope\n\ndata: [DONE]\n\n",
+    )
+  }
+  defer reader.close()
+  let schema = @core.object({ "name": @core.string() })
+  let summary = @async.validate_sse_json(reader, schema, event => {
+    events.push(event)
+  })
+
+  assert_eq(summary.events, 4)
+  assert_true(summary.done)
+  assert_eq(summary.valid, 1)
+  assert_eq(summary.invalid_schema, 1)
+  assert_eq(summary.invalid_json, 1)
+  match events[0] {
+    @async.SseValid(_, value) => assert_true(value is Object(_))
+    _ => fail("expected valid SSE JSON payload")
+  }
+  match events[1] {
+    @async.SseInvalidSchema(_, errors) => assert_eq(errors[0].path, "name")
+    _ => fail("expected schema failure")
+  }
+  match events[2] {
+    @async.SseInvalidJson(event) => assert_eq(event.data, "nope")
+    _ => fail("expected malformed JSON failure")
+  }
+  assert_true(events[3] is @async.SseDone(_))
+}
+
+///|
+async test "SSE JSON validation runs asynchronous refinements" {
+  let events : Array[@async.SseValidationEvent] = []
+  let reader = @io.MemoryReader() <| writer => {
+    writer.write("data: {\"name\":\"Ada\",\"role\":\"admin\"}\n\n")
+  }
+  defer reader.close()
+  let schema = @async.async_schema(
+    @core.object({ "name": @core.string(), "role": @core.string() }),
+  ).refine_async(reject_admin_role)
+  let summary = schema.validate_sse_json(reader, event => events.push(event))
+
+  assert_eq(summary.events, 1)
+  assert_eq(summary.invalid_schema, 1)
+  match events[0] {
+    @async.SseInvalidSchema(_, errors) => {
+      assert_eq(errors[0].path, "role")
+      assert_eq(errors[0].message, "admin role is not permitted")
+    }
+    _ => fail("expected asynchronous refinement failure")
+  }
+}
