@@ -70,6 +70,24 @@ match schema.parse(input_json) {
 }
 ```
 
+## 单个 JSON 的 Token 流
+
+`parse_stream()` 可以在文本逐段到达时校验一个 JSON 文档。同步地喂入任意大小的
+LLM token 分片；它会立刻发现结构性 JSON 错误，并在根文档完整时执行正常的 Schema
+校验。token 流结束时请调用 `finish()`，标量根值尤其需要这一步。
+
+```mbt nocheck
+let parser = @moon_zod.object({ "name": @moon_zod.string().min(2) }).parse_stream()
+
+parser.feed("{\"na") // StreamPending
+match parser.feed("me\":\"Ada\"}") {
+  StreamValid(value) => println("有效：" + @debug.to_string(value))
+  StreamInvalidSchema(errors) => // 处理 Schema 校验错误
+  StreamInvalidJson(message) => // 处理 JSON 格式错误
+  StreamPending => ()
+}
+```
+
 **零代码 CLI 校验：**
 ```bash
 # 从样本推断 Schema，校验数据

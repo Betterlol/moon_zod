@@ -70,6 +70,25 @@ match schema.parse(input_json) {
 }
 ```
 
+## Single-JSON token streams
+
+`parse_stream()` validates one JSON document as text arrives. Feed it arbitrary
+LLM token chunks synchronously; it detects structural JSON errors immediately
+and runs normal schema validation once the root document is complete. Call
+`finish()` when the token source ends, especially for scalar roots.
+
+```mbt nocheck
+let parser = @moon_zod.object({ "name": @moon_zod.string().min(2) }).parse_stream()
+
+parser.feed("{\"na") // StreamPending
+match parser.feed("me\":\"Ada\"}") {
+  StreamValid(value) => println("valid: " + @debug.to_string(value))
+  StreamInvalidSchema(errors) => // report validation errors
+  StreamInvalidJson(message) => // report malformed JSON
+  StreamPending => ()
+}
+```
+
 **Zero-code CLI validation:**
 ```bash
 # Infer schema from sample, validate data
