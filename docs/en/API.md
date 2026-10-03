@@ -25,6 +25,7 @@
 | Method | Applies To | Description |
 |---|---|---|
 | `.parse(Json, path?)` | All | Validate, returns `Ok(Json)` or `Err(Array[ValidationError])` |
+| `.parse_stream(path?)` | All | Create a synchronous parser for one tokenized JSON document |
 | `.min(n[, msg])` | string / number / array | Minimum length / value |
 | `.max(n[, msg])` | string / number / array | Maximum length / value |
 | `.length(n[, msg])` | string / array / tuple | Exact length |
@@ -70,6 +71,15 @@
 | `.intersect(other)` | any | **Phase 18**: Intersection — input must match both schemas |
 | `.refine(check, msg)` | any | Custom validation predicate |
 | `.transform(fn)` | any | **Phase 13**: Validate then transform output |
+
+### Single-JSON Streaming
+
+Call `schema.parse_stream()` and pass each text chunk to `parser.feed(chunk)`.
+It returns `StreamPending` until the root document completes, then either
+`StreamValid(Json)`, `StreamInvalidJson(String)`, or
+`StreamInvalidSchema(Array[ValidationError])`. Call `parser.finish()` at end of
+input to resolve scalar roots and unfinished JSON. The parser is synchronous
+and accepts one JSON document only.
 
 ### Standalone Functions
 
