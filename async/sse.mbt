@@ -244,3 +244,175 @@ fn parse_sse_json(source : String) -> Json? {
   let json = @json.parse(source) catch { _ => return None }
   Some(json)
 }
+
+///|
+/// An outcome from assembling one JSON value across multiple SSE `data:` frames.
+///
+/// `SseStreamPending` is emitted for each accepted fragment until the JSON root
+/// value completes. `SseStreamDone` is emitted after the `[DONE]` sentinel has
+/// finished the parser, so a scalar root can become valid immediately before it.
+pub(all) enum SseStreamValidationEvent {
+  SseStreamPending(SseEvent)
+  SseStreamDone(SseEvent)
+  SseStreamValid(SseEvent, Json)
+  SseStreamInvalidJson(SseEvent, String)
+  SseStreamInvalidSchema(SseEvent, Array[@core.ValidationError])
+}
+
+///|
+/// Callback invoked while validating one JSON value assembled from SSE frames.
+///
+/// The next SSE frame is not consumed until this callback finishes, preserving
+/// backpressure to the source reader.
+pub type SseStreamValidationHandler = async (SseStreamValidationEvent) -> Unit
+
+///|
+/// Counts produced by `validate_sse_json_stream`.
+pub(all) struct SseStreamValidationSummary {
+  lines_read : Int
+  events : Int
+  comments : Int
+  fragments : Int
+  done : Bool
+  valid : Int
+  invalid_json : Int
+  invalid_schema : Int
+}
+
+///|
+/// Internal category used to update an SSE stream validation summary.
+priv enum SseStreamResultKind {
+  Pending
+  Valid
+  InvalidJson
+  InvalidSchema
+}
+
+///|
+/// Emit the public event for a completed incremental parser step.
+async fn emit_sse_stream_result(
+  result : @core.StreamParseResult,
+  event : SseEvent,
+  on_event : SseStreamValidationHandler,
+) -> SseStreamResultKind {
+  match result {
+    StreamPending => {
+      on_event(SseStreamPending(event))
+      Pending
+    }
+    StreamValid(value) => {
+      on_event(SseStreamValid(event, value))
+      Valid
+    }
+    StreamInvalidJson(message) => {
+      on_event(SseStreamInvalidJson(event, message))
+      InvalidJson
+    }
+    StreamInvalidSchema(errors) => {
+      on_event(SseStreamInvalidSchema(event, errors))
+      InvalidSchema
+    }
+  }
+}
+
+///|
+/// Update counters after one incremental parser result.
+fn apply_sse_stream_result(
+  kind : SseStreamResultKind,
+  valid : Int,
+  invalid_json : Int,
+  invalid_schema : Int,
+) -> (Int, Int, Int, Bool) {
+  match kind {
+    Pending => (valid, invalid_json, invalid_schema, false)
+    Valid => (valid + 1, invalid_json, invalid_schema, true)
+    InvalidJson => (valid, invalid_json + 1, invalid_schema, true)
+    InvalidSchema => (valid, invalid_json, invalid_schema + 1, true)
+  }
+}
+
+///|
+/// Assemble and validate one JSON document whose raw text is split across SSE
+/// `data:` frames.
+///
+/// Each non-`[DONE]` frame contributes its `data` payload directly to the
+/// parser, so a fragment may end in the middle of a JSON string or escape
+/// sequence. `[DONE]` and end-of-file finalize the parser. Once the parser
+/// returns a valid or invalid terminal result, later data frames are ignored.
+///
+/// This accepts raw JSON fragments. Protocols such as OpenAI's chat-completion
+/// SSE, whose frames contain JSON envelopes around a delta, should call
+/// `read_sse()` and extract the delta before feeding it to a stream parser.
+pub async fn validate_sse_json_stream(
+  reader : &@io.Reader,
+  schema : @core.Schema,
+  on_event : SseStreamValidationHandler,
+  root_path? : String = "",
+) -> SseStreamValidationSummary {
+  let parser = schema.parse_stream(path=root_path)
+  let mut fragments = 0
+  let mut done = false
+  let mut valid = 0
+  let mut invalid_json = 0
+  let mut invalid_schema = 0
+  let mut terminal = false
+  let mut last_fragment : SseEvent? = None
+
+  let sse_summary = read_sse(reader, event => {
+    if event.data == "[DONE]" {
+      done = true
+      if !terminal {
+        let kind = emit_sse_stream_result(parser.finish(), event, on_event)
+        let (next_valid, next_invalid_json, next_invalid_schema, next_terminal) = apply_sse_stream_result(
+          kind, valid, invalid_json, invalid_schema,
+        )
+        valid = next_valid
+        invalid_json = next_invalid_json
+        invalid_schema = next_invalid_schema
+        terminal = next_terminal
+      }
+      on_event(SseStreamDone(event))
+    } else if !terminal {
+      fragments = fragments + 1
+      last_fragment = Some(event)
+      let kind = emit_sse_stream_result(
+        parser.feed(event.data),
+        event,
+        on_event,
+      )
+      let (next_valid, next_invalid_json, next_invalid_schema, next_terminal) = apply_sse_stream_result(
+        kind, valid, invalid_json, invalid_schema,
+      )
+      valid = next_valid
+      invalid_json = next_invalid_json
+      invalid_schema = next_invalid_schema
+      terminal = next_terminal
+    }
+  })
+
+  if !done && !terminal {
+    match last_fragment {
+      Some(event) => {
+        let kind = emit_sse_stream_result(parser.finish(), event, on_event)
+        let (next_valid, next_invalid_json, next_invalid_schema, _) = apply_sse_stream_result(
+          kind, valid, invalid_json, invalid_schema,
+        )
+        valid = next_valid
+        invalid_json = next_invalid_json
+        invalid_schema = next_invalid_schema
+      }
+      None => ()
+    }
+  }
+
+  {
+    lines_read: sse_summary.lines_read,
+    events: sse_summary.events,
+    comments: sse_summary.comments,
+    fragments,
+    done,
+    valid,
+    invalid_json,
+    invalid_schema,
+  }
+}
