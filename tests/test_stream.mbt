@@ -48,6 +48,15 @@ test "parse_stream reports malformed JSON without waiting for finish" {
 }
 
 ///|
+test "parse_stream rejects a closing delimiter after a scalar" {
+  let parser = number().parse_stream()
+  guard parser.feed("1]") is StreamInvalidJson(message) else {
+    fail("expected invalid JSON")
+  }
+  @debug.assert_eq(message, "Unexpected closing delimiter after a JSON scalar")
+}
+
+///|
 test "parse_stream finishes a scalar root and rejects incomplete input" {
   let scalar = number().parse_stream()
   guard scalar.feed("42") is StreamPending else { fail("expected pending") }

@@ -111,6 +111,12 @@ pub fn StreamParser::feed(
         if self.root_scalar && self.stack.is_empty() {
           if is_json_whitespace(c) {
             self.complete = true
+          } else if c == '}' || c == ']' {
+            let result = StreamInvalidJson(
+              "Unexpected closing delimiter after a JSON scalar",
+            )
+            self.result = Some(result)
+            return result
           }
           continue
         }
