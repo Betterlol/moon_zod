@@ -236,3 +236,114 @@ async test "SSE JSON validation runs asynchronous refinements" {
     _ => fail("expected asynchronous refinement failure")
   }
 }
+
+///|
+async test "SSE JSON stream assembles object fragments" {
+  let events : Array[@async.SseStreamValidationEvent] = []
+  let reader = @io.MemoryReader() <| writer => {
+    writer.write("data: {\"na\n\ndata: me\":\"Ada\"}\n\ndata: [DONE]\n\n")
+  }
+  defer reader.close()
+  let schema = @core.object({ "name": @core.string() })
+  let summary = @async.validate_sse_json_stream(reader, schema, event => {
+    events.push(event)
+  })
+
+  assert_eq(summary.fragments, 2)
+  assert_true(summary.done)
+  assert_eq(summary.valid, 1)
+  assert_eq(events.length(), 3)
+  assert_true(events[0] is @async.SseStreamPending(_))
+  match events[1] {
+    @async.SseStreamValid(_, Object(value)) =>
+      assert_eq(value.get("name"), Some(Json::string("Ada")))
+    _ => fail("expected assembled SSE JSON to be valid")
+  }
+  assert_true(events[2] is @async.SseStreamDone(_))
+}
+
+///|
+async test "SSE JSON stream finalizes a scalar root on DONE" {
+  let events : Array[@async.SseStreamValidationEvent] = []
+  let reader = @io.MemoryReader() <| writer => {
+    writer.write("data: 4\n\ndata: 2\n\ndata: [DONE]\n\n")
+  }
+  defer reader.close()
+  let summary = @async.validate_sse_json_stream(reader, @core.number(), event => {
+    events.push(event)
+  })
+
+  assert_true(summary.done)
+  assert_eq(summary.valid, 1)
+  assert_eq(events.length(), 4)
+  assert_true(events[0] is @async.SseStreamPending(_))
+  assert_true(events[1] is @async.SseStreamPending(_))
+  match events[2] {
+    @async.SseStreamValid(_, Number(value, ..)) => assert_eq(value, 42.0)
+    _ => fail("expected scalar root to complete on DONE")
+  }
+  assert_true(events[3] is @async.SseStreamDone(_))
+}
+
+///|
+async test "SSE JSON stream finalizes an incomplete document at EOF" {
+  let events : Array[@async.SseStreamValidationEvent] = []
+  let reader = @io.MemoryReader() <| writer => {
+    writer.write("data: {\"name\":\"Ada\"\n\n")
+  }
+  defer reader.close()
+  let summary = @async.validate_sse_json_stream(
+    reader,
+    @core.object({ "name": @core.string() }),
+    event => events.push(event),
+  )
+
+  assert_true(!summary.done)
+  assert_eq(summary.invalid_json, 1)
+  assert_eq(events.length(), 2)
+  assert_true(events[0] is @async.SseStreamPending(_))
+  assert_true(events[1] is @async.SseStreamInvalidJson(_, _))
+}
+
+///|
+async test "SSE JSON stream stops reading after DONE" {
+  let events : Array[@async.SseStreamValidationEvent] = []
+  let reader = @io.MemoryReader() <| writer => {
+    writer.write("data: 4\n\ndata: [DONE]\n\ndata: 2\n\n")
+  }
+  defer reader.close()
+  let summary = @async.validate_sse_json_stream(reader, @core.number(), event => {
+    events.push(event)
+  })
+
+  assert_eq(summary.events, 2)
+  assert_eq(summary.fragments, 1)
+  assert_true(summary.done)
+  assert_eq(events.length(), 3)
+  assert_true(events[0] is @async.SseStreamPending(_))
+  assert_true(events[1] is @async.SseStreamValid(_, Number(4.0, ..)))
+  assert_true(events[2] is @async.SseStreamDone(_))
+}
+
+///|
+async test "SSE JSON stream reports an empty response at EOF" {
+  let events : Array[@async.SseStreamValidationEvent] = []
+  let reader = @io.MemoryReader() <| _writer => {  }
+  defer reader.close()
+  let summary = @async.validate_sse_json_stream(
+    reader,
+    @core.object({ "name": @core.string() }),
+    event => events.push(event),
+  )
+
+  assert_eq(summary.events, 0)
+  assert_eq(summary.invalid_json, 1)
+  assert_eq(events.length(), 1)
+  match events[0] {
+    @async.SseStreamInvalidJson(event, message) => {
+      assert_eq(event.data, "")
+      assert_eq(message, "Expected a JSON value")
+    }
+    _ => fail("expected empty stream to be invalid JSON")
+  }
+}

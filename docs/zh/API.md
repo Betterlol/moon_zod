@@ -25,6 +25,7 @@
 | 方法 | 适用范围 | 描述 |
 |---|---|---|
 | `.parse(Json, path?)` | 全部 | 校验，返回 `Ok(Json)` 或 `Err(Array[ValidationError])` |
+| `.parse_stream(path?)` | 全部 | 为一个 token 化的 JSON 文档创建同步解析器 |
 | `.min(n[, msg])` | string / number / array | 最小长度 / 值 |
 | `.max(n[, msg])` | string / number / array | 最大长度 / 值 |
 | `.length(n[, msg])` | string / array / tuple | 精确长度 |
@@ -70,6 +71,13 @@
 | `.intersect(other)` | any | **Phase 18**：交集 — 输入必须同时匹配两个 schema |
 | `.refine(check, msg)` | any | 自定义校验谓词 |
 | `.transform(fn)` | any | **Phase 13**：校验后转换输出 |
+
+### 单 JSON 流式校验
+
+调用 `schema.parse_stream()`，再将每个文本分片传给 `parser.feed(chunk)`。
+在根文档完整前，它返回 `StreamPending`；完成后返回 `StreamValid(Json)`、
+`StreamInvalidJson(String)` 或 `StreamInvalidSchema(Array[ValidationError])`。
+输入结束时调用 `parser.finish()`，以处理标量根值和未完成 JSON。解析器为同步接口，且只接受一个 JSON 文档。
 
 ### 独立函数
 

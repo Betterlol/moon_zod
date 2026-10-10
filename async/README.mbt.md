@@ -37,3 +37,27 @@ emits `Valid`, `InvalidJson`, or `InvalidSchema`, followed by a `JsonlSummary`.
 
 Call `async_schema.validate_jsonl(reader, handler)` when each record must also
 run asynchronous refinements.
+
+## Multi-frame SSE JSON
+
+`validate_sse_json_stream(reader, schema, handler)` assembles one raw JSON
+document from multiple SSE `data:` frames. It emits `SseStreamPending` for
+incomplete fragments and finishes when it receives `data: [DONE]` or EOF.
+The final outcome is `SseStreamValid`, `SseStreamInvalidJson`, or
+`SseStreamInvalidSchema`.
+
+```mbt nocheck
+let reader = @io.MemoryReader() <| writer => {
+  writer.write("data: {\\\"na\\n\\ndata: me\\\":\\\"Ada\\\"}\\n\\n")
+  writer.write("data: [DONE]\\n\\n")
+}
+let summary = @moon_zod_async.validate_sse_json_stream(
+  reader,
+  @moon_zod.object({ "name": @moon_zod.string() }),
+  event => { /* handle SseStreamValidationEvent */ },
+)
+```
+
+This API expects raw JSON fragments. If an SSE protocol wraps each token in a
+JSON envelope, use `read_sse()` and extract the token before feeding it to the
+core `parse_stream()` parser.
