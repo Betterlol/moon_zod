@@ -18,6 +18,10 @@ pub(all) struct SseEvent {
 pub type SseHandler = async (SseEvent) -> Unit
 
 ///|
+/// Callback that can stop SSE consumption after the current frame.
+type SseControlHandler = async (SseEvent) -> Bool
+
+///|
 /// Counts produced by `read_sse`.
 pub(all) struct SseSummary {
   lines_read : Int
@@ -36,6 +40,18 @@ pub async fn read_sse(
   reader : &@io.Reader,
   on_event : SseHandler,
 ) -> SseSummary {
+  read_sse_until(reader, event => {
+    on_event(event)
+    true
+  })
+}
+
+///|
+/// Read SSE frames until EOF or a callback asks to stop after its frame.
+async fn read_sse_until(
+  reader : &@io.Reader,
+  on_event : SseControlHandler,
+) -> SseSummary {
   let mut lines_read = 0
   let mut events = 0
   let mut comments = 0
@@ -47,8 +63,15 @@ pub async fn read_sse(
     lines_read = lines_read + 1
     let line = raw_line.trim_end(chars="\r").to_owned()
     if line.is_empty() {
-      if emit_sse_event(event_type, data_lines, last_event_id, on_event) {
-        events = events + 1
+      match
+        emit_sse_event_until(event_type, data_lines, last_event_id, on_event) {
+        None => ()
+        Some(keep_reading) => {
+          events = events + 1
+          if !keep_reading {
+            return { lines_read, events, comments, }
+          }
+        }
       }
       data_lines = []
       event_type = ""
@@ -68,8 +91,9 @@ pub async fn read_sse(
     }
   }
 
-  if emit_sse_event(event_type, data_lines, last_event_id, on_event) {
-    events = events + 1
+  match emit_sse_event_until(event_type, data_lines, last_event_id, on_event) {
+    Some(_) => events = events + 1
+    None => ()
   }
   { lines_read, events, comments, }
 }
@@ -91,23 +115,24 @@ fn split_sse_field(line : String) -> (String, String) {
 }
 
 ///|
-/// Emit an event if its frame contains data.
-async fn emit_sse_event(
+/// Emit an event if its frame contains data and report whether reading continues.
+async fn emit_sse_event_until(
   event_type : String,
   data_lines : Array[String],
   last_event_id : String?,
-  on_event : SseHandler,
-) -> Bool {
+  on_event : SseControlHandler,
+) -> Bool? {
   if data_lines.is_empty() {
-    false
+    None
   } else {
     let event = if event_type.is_empty() { "message" } else { event_type }
-    on_event(SseEvent::{
-      event,
-      data: data_lines.join("\n"),
-      id: last_event_id,
-    })
-    true
+    Some(
+      on_event(SseEvent::{
+        event,
+        data: data_lines.join("\n"),
+        id: last_event_id,
+      }),
+    )
   }
 }
 
@@ -156,10 +181,11 @@ pub async fn validate_sse_json(
   let mut valid = 0
   let mut invalid_json = 0
   let mut invalid_schema = 0
-  let sse_summary = read_sse(reader, event => {
+  let sse_summary = read_sse_until(reader, event => {
     if event.data == "[DONE]" {
       done = true
       on_event(SseDone(event))
+      false
     } else {
       match parse_sse_json(event.data) {
         None => {
@@ -178,6 +204,7 @@ pub async fn validate_sse_json(
             }
           }
       }
+      true
     }
   })
   {
@@ -203,10 +230,11 @@ pub async fn AsyncSchema::validate_sse_json(
   let mut valid = 0
   let mut invalid_json = 0
   let mut invalid_schema = 0
-  let sse_summary = read_sse(reader, event => {
+  let sse_summary = read_sse_until(reader, event => {
     if event.data == "[DONE]" {
       done = true
       on_event(SseDone(event))
+      false
     } else {
       match parse_sse_json(event.data) {
         None => {
@@ -225,6 +253,7 @@ pub async fn AsyncSchema::validate_sse_json(
             }
           }
       }
+      true
     }
   })
   {
@@ -358,7 +387,7 @@ pub async fn validate_sse_json_stream(
   let mut terminal = false
   let mut last_fragment : SseEvent? = None
 
-  let sse_summary = read_sse(reader, event => {
+  let sse_summary = read_sse_until(reader, event => {
     if event.data == "[DONE]" {
       done = true
       if !terminal {
@@ -372,6 +401,7 @@ pub async fn validate_sse_json_stream(
         terminal = next_terminal
       }
       on_event(SseStreamDone(event))
+      false
     } else if !terminal {
       fragments = fragments + 1
       last_fragment = Some(event)
@@ -387,22 +417,24 @@ pub async fn validate_sse_json_stream(
       invalid_json = next_invalid_json
       invalid_schema = next_invalid_schema
       terminal = next_terminal
+      true
+    } else {
+      true
     }
   })
 
   if !done && !terminal {
-    match last_fragment {
-      Some(event) => {
-        let kind = emit_sse_stream_result(parser.finish(), event, on_event)
-        let (next_valid, next_invalid_json, next_invalid_schema, _) = apply_sse_stream_result(
-          kind, valid, invalid_json, invalid_schema,
-        )
-        valid = next_valid
-        invalid_json = next_invalid_json
-        invalid_schema = next_invalid_schema
-      }
-      None => ()
+    let event = match last_fragment {
+      Some(event) => event
+      None => empty_sse_event()
     }
+    let kind = emit_sse_stream_result(parser.finish(), event, on_event)
+    let (next_valid, next_invalid_json, next_invalid_schema, _) = apply_sse_stream_result(
+      kind, valid, invalid_json, invalid_schema,
+    )
+    valid = next_valid
+    invalid_json = next_invalid_json
+    invalid_schema = next_invalid_schema
   }
 
   {
@@ -415,4 +447,10 @@ pub async fn validate_sse_json_stream(
     invalid_json,
     invalid_schema,
   }
+}
+
+///|
+/// Create the synthetic event used to report an empty SSE response at EOF.
+fn empty_sse_event() -> SseEvent {
+  { event: "message", data: "", id: None, }
 }
