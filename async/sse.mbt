@@ -298,14 +298,14 @@ pub type SseStreamValidationHandler = async (SseStreamValidationEvent) -> Unit
 ///|
 /// Counts produced by `validate_sse_json_stream`.
 pub(all) struct SseStreamValidationSummary {
-  lines_read : Int
-  events : Int
-  comments : Int
-  fragments : Int
+  lines_read : Int32
+  events : Int32
+  comments : Int32
+  fragments : Int32
   done : Bool
-  valid : Int
-  invalid_json : Int
-  invalid_schema : Int
+  valid : Int32
+  invalid_json : Int32
+  invalid_schema : Int32
 }
 
 ///|
@@ -348,10 +348,10 @@ async fn emit_sse_stream_result(
 /// Update counters after one incremental parser result.
 fn apply_sse_stream_result(
   kind : SseStreamResultKind,
-  valid : Int,
-  invalid_json : Int,
-  invalid_schema : Int,
-) -> (Int, Int, Int, Bool) {
+  valid : Int32,
+  invalid_json : Int32,
+  invalid_schema : Int32,
+) -> (Int32, Int32, Int32, Bool) {
   match kind {
     Pending => (valid, invalid_json, invalid_schema, false)
     Valid => (valid + 1, invalid_json, invalid_schema, true)
@@ -376,7 +376,7 @@ pub async fn validate_sse_json_stream(
   reader : &@io.Reader,
   schema : @core.Schema,
   on_event : SseStreamValidationHandler,
-  root_path? : String = "",
+  root_path~ : String = "",
 ) -> SseStreamValidationSummary {
   let parser = schema.parse_stream(path=root_path)
   let mut fragments = 0

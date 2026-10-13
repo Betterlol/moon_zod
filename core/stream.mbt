@@ -35,7 +35,7 @@ pub(all) struct StreamParser {
 /// token, or multiple tokens. JSON strings and escape sequences may cross
 /// chunk boundaries. Schema rules run as soon as the complete root value is
 /// available; use `finish()` to report an unfinished or scalar-root document.
-pub fn Schema::parse_stream(self : Schema, path? : String = "") -> StreamParser {
+pub fn Schema::parse_stream(self : Schema, path~ : String = "") -> StreamParser {
   {
     schema: self,
     root_path: path,
