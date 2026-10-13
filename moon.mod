@@ -24,6 +24,6 @@ keywords = [ "json", "schema", "validation", "zod", "llm", "tool-calling" ]
 description = "A runtime JSON schema validation library for MoonBit, inspired by Zod and Pydantic"
 
 import {
-  "moonbitlang/regexp@0.3.5",
-  "moonbitlang/async@0.20.5",
+  "moonbitlang/regexp@0.3.6",
+  "moonbitlang/async@0.22.4",
 }
