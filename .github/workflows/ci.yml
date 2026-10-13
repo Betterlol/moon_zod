@@ -2,9 +2,8 @@ name: MoonZod CI
 
 on:
   push:
-    branches: [ master, develop ]
-  pull_request:
-    branches: [ master, develop ]
+    branches: [ main, develop ]
+  pull_request: {}
 
 jobs:
   build-and-test:
