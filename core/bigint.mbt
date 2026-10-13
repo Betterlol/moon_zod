@@ -6,8 +6,8 @@
 /// other scenarios where the semantic type is "big integer" rather
 /// than "number that is an integer".
 pub fn bigint(
-  required_error? : String = "",
-  invalid_type_error? : String = "",
+  required_error~ : String = "",
+  invalid_type_error~ : String = "",
 ) -> Schema {
   number(required_error~, invalid_type_error~).int()
 }

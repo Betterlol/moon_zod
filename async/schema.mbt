@@ -16,8 +16,8 @@ pub(all) struct AsyncIssue {
 /// such as `"email"` or `"items[0]"` for a more precise error location.
 pub fn async_issue(
   message : String,
-  path? : String = "",
-  got? : Json = Json::null(),
+  path~ : String = "",
+  got~ : Json = Json::null(),
 ) -> AsyncIssue {
   { path, message, got, }
 }
@@ -68,7 +68,7 @@ pub fn AsyncSchema::refine_async(
 pub async fn AsyncSchema::parse_async(
   self : AsyncSchema,
   json : Json,
-  root_path? : String = "",
+  root_path~ : String = "",
 ) -> @core.SchemaResult {
   match self.schema.parse(json, path=root_path) {
     Err(errors) => Err(errors)

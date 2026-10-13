@@ -4,75 +4,75 @@
 /// Each method corresponds to one @core.SchemaType variant.
 /// The `indent` parameter controls nesting level for formatted output.
 pub(open) trait StringRenderer {
-  fn render_string(Self, schema : @core.Schema, indent : Int) -> String
-  fn render_number(Self, schema : @core.Schema, indent : Int) -> String
-  fn render_boolean(Self, schema : @core.Schema, indent : Int) -> String
-  fn render_null(Self, schema : @core.Schema, indent : Int) -> String
+  fn render_string(Self, schema : @core.Schema, indent : Int32) -> String
+  fn render_number(Self, schema : @core.Schema, indent : Int32) -> String
+  fn render_boolean(Self, schema : @core.Schema, indent : Int32) -> String
+  fn render_null(Self, schema : @core.Schema, indent : Int32) -> String
   fn render_object(
     Self,
     spec : Map[String, @core.Schema],
     mode : @core.ObjectMode,
     schema : @core.Schema,
-    indent : Int,
+    indent : Int32,
   ) -> String
   fn render_array(
     Self,
     elem : @core.Schema,
     schema : @core.Schema,
-    indent : Int,
+    indent : Int32,
   ) -> String
   fn render_optional(
     Self,
     inner : @core.Schema,
     schema : @core.Schema,
-    indent : Int,
+    indent : Int32,
   ) -> String
   fn render_default(
     Self,
     inner : @core.Schema,
     default_val : Json,
     schema : @core.Schema,
-    indent : Int,
+    indent : Int32,
   ) -> String
   fn render_enum(
     Self,
     values : Array[String],
     schema : @core.Schema,
-    indent : Int,
+    indent : Int32,
   ) -> String
   fn render_union(
     Self,
     schemas : Array[@core.Schema],
     schema : @core.Schema,
-    indent : Int,
+    indent : Int32,
   ) -> String
   fn render_intersection(
     Self,
     schemas : Array[@core.Schema],
     schema : @core.Schema,
-    indent : Int,
+    indent : Int32,
   ) -> String
   fn render_transform(
     Self,
     inner : @core.Schema,
     closure : @core.TransformClosure,
     schema : @core.Schema,
-    indent : Int,
+    indent : Int32,
   ) -> String
-  fn render_literal(Self, value : Json, schema : @core.Schema, indent : Int) -> String
-  fn render_any(Self, schema : @core.Schema, indent : Int) -> String
-  fn render_unknown(Self, schema : @core.Schema, indent : Int) -> String
+  fn render_literal(Self, value : Json, schema : @core.Schema, indent : Int32) -> String
+  fn render_any(Self, schema : @core.Schema, indent : Int32) -> String
+  fn render_unknown(Self, schema : @core.Schema, indent : Int32) -> String
   fn render_tuple(
     Self,
     items : Array[@core.Schema],
     schema : @core.Schema,
-    indent : Int,
+    indent : Int32,
   ) -> String
   fn render_preprocess(
     Self,
     inner : @core.Schema,
     schema : @core.Schema,
-    indent : Int,
+    indent : Int32,
   ) -> String
 }
 
@@ -81,7 +81,7 @@ pub(open) trait StringRenderer {
 pub fn[R : StringRenderer] render_type(
   renderer : R,
   schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
 ) -> String {
   match schema.schema_type {
     StringType => renderer.render_string(schema, indent)
@@ -126,7 +126,7 @@ pub fn[R : StringRenderer] render_type(
 pub fn[R : StringRenderer] render_type_named(
   renderer : R,
   schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
   named_schemas : Array[@core.Schema],
 ) -> String {
   if !schema.name.is_empty() {

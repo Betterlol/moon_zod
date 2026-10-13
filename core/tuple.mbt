@@ -4,8 +4,8 @@
 /// Each item in `items` validates the array element at the same index.
 pub fn tuple(
   items : Array[Schema],
-  required_error? : String = "",
-  invalid_type_error? : String = "",
+  required_error~ : String = "",
+  invalid_type_error~ : String = "",
 ) -> Schema {
   {
     schema_type: TupleType(items),

@@ -6,8 +6,8 @@
 /// Use `.passthrough()` to allow extra fields, or `.strict()` to reject them.
 pub fn object(
   spec : Map[String, Schema],
-  required_error? : String = "",
-  invalid_type_error? : String = "",
+  required_error~ : String = "",
+  invalid_type_error~ : String = "",
 ) -> Schema {
   {
     schema_type: ObjectType(spec, Strip),

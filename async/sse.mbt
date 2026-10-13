@@ -20,9 +20,9 @@ pub type SseHandler = async (SseEvent) -> Unit
 ///|
 /// Counts produced by `read_sse`.
 pub(all) struct SseSummary {
-  lines_read : Int
-  events : Int
-  comments : Int
+  lines_read : Int32
+  events : Int32
+  comments : Int32
 }
 
 ///|
@@ -130,13 +130,13 @@ pub type SseValidationHandler = async (SseValidationEvent) -> Unit
 ///|
 /// Counts produced by SSE JSON validation.
 pub(all) struct SseValidationSummary {
-  lines_read : Int
-  events : Int
-  comments : Int
+  lines_read : Int32
+  events : Int32
+  comments : Int32
   done : Bool
-  valid : Int
-  invalid_json : Int
-  invalid_schema : Int
+  valid : Int32
+  invalid_json : Int32
+  invalid_schema : Int32
 }
 
 ///|
@@ -150,7 +150,7 @@ pub async fn validate_sse_json(
   reader : &@io.Reader,
   schema : @core.Schema,
   on_event : SseValidationHandler,
-  root_path? : String = "",
+  root_path~ : String = "",
 ) -> SseValidationSummary {
   let mut done = false
   let mut valid = 0
@@ -197,7 +197,7 @@ pub async fn AsyncSchema::validate_sse_json(
   self : AsyncSchema,
   reader : &@io.Reader,
   on_event : SseValidationHandler,
-  root_path? : String = "",
+  root_path~ : String = "",
 ) -> SseValidationSummary {
   let mut done = false
   let mut valid = 0

@@ -3,8 +3,8 @@
 /// Schemas are tried in order; the first match succeeds.
 pub fn union(
   schemas : Array[Schema],
-  required_error? : String = "",
-  invalid_type_error? : String = "",
+  required_error~ : String = "",
+  invalid_type_error~ : String = "",
 ) -> Schema {
   {
     schema_type: UnionType(schemas),

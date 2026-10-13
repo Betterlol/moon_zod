@@ -2,8 +2,8 @@
 /// Create a schema that accepts one of a fixed set of string values.
 pub fn enum_values(
   values : Array[String],
-  required_error? : String = "",
-  invalid_type_error? : String = "",
+  required_error~ : String = "",
+  invalid_type_error~ : String = "",
 ) -> Schema {
   {
     schema_type: EnumType(values),

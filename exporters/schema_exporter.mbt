@@ -57,7 +57,7 @@ pub fn schema_to_moon_zod_code_inline_with_refs(
 /// If root schema has no name, it is assigned the name "Root".
 pub fn schema_to_moon_zod_code_named(
   schema : @core.Schema,
-  include_names? : Array[String]? = None,
+  include_names~ : Array[String]? = None,
 ) -> String {
   let mut schema = schema
   if schema.name.is_empty() {

@@ -1,8 +1,8 @@
 ///|
 /// Wrapper: null() factory can't be re-exported via pub using (keyword conflict)
 pub fn null(
-  required_error? : String = "",
-  invalid_type_error? : String = "",
+  required_error~ : String = "",
+  invalid_type_error~ : String = "",
 ) -> Schema {
   @core.null(required_error~, invalid_type_error~)
 }

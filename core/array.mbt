@@ -4,8 +4,8 @@
 /// Each element in the array is validated against `element_schema`.
 pub fn array(
   element_schema : Schema,
-  required_error? : String = "",
-  invalid_type_error? : String = "",
+  required_error~ : String = "",
+  invalid_type_error~ : String = "",
 ) -> Schema {
   {
     schema_type: ArrayType(element_schema),

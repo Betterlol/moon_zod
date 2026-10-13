@@ -44,7 +44,7 @@ pub extend NamedPromptRenderer with StringRenderer::{
 pub impl StringRenderer for NamedPromptRenderer with fn render_string(
   self : NamedPromptRenderer,
   schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
     schema.name
@@ -58,7 +58,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_string(
 pub impl StringRenderer for NamedPromptRenderer with fn render_number(
   self : NamedPromptRenderer,
   schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
     schema.name
@@ -72,7 +72,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_number(
 pub impl StringRenderer for NamedPromptRenderer with fn render_boolean(
   self : NamedPromptRenderer,
   schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
     schema.name
@@ -86,7 +86,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_boolean(
 pub impl StringRenderer for NamedPromptRenderer with fn render_null(
   self : NamedPromptRenderer,
   schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
     schema.name
@@ -100,7 +100,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_optional(
   self : NamedPromptRenderer,
   inner : @core.Schema,
   _schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
 ) -> String {
   render_type_named(self, inner, indent, self.named_schemas) + " | null"
 }
@@ -111,7 +111,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_default(
   inner : @core.Schema,
   _default_val : Json,
   _schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
 ) -> String {
   render_type_named(self, inner, indent, self.named_schemas) + " | null"
 }
@@ -122,7 +122,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_transform(
   inner : @core.Schema,
   _closure : @core.TransformClosure,
   _schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
 ) -> String {
   render_type_named(self, inner, indent, self.named_schemas)
 }
@@ -132,7 +132,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_enum(
   self : NamedPromptRenderer,
   values : Array[String],
   schema : @core.Schema,
-  _indent : Int,
+  _indent : Int32,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
     return schema.name
@@ -155,7 +155,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_array(
   self : NamedPromptRenderer,
   elem : @core.Schema,
   _schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
 ) -> String {
   render_type_named(self, elem, indent, self.named_schemas) + "[]"
 }
@@ -165,7 +165,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_union(
   self : NamedPromptRenderer,
   schemas : Array[@core.Schema],
   schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
     return schema.name
@@ -190,7 +190,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_intersection(
   self : NamedPromptRenderer,
   schemas : Array[@core.Schema],
   schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
     return schema.name
@@ -216,7 +216,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_object(
   spec : Map[String, @core.Schema],
   _mode : @core.ObjectMode,
   schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
     return schema.name
@@ -263,7 +263,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_literal(
   self : NamedPromptRenderer,
   value : Json,
   schema : @core.Schema,
-  _indent : Int,
+  _indent : Int32,
 ) -> String {
   if has_name_in(schema, self.named_schemas) {
     schema.name
@@ -277,7 +277,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_literal(
 pub impl StringRenderer for NamedPromptRenderer with fn render_any(
   self : NamedPromptRenderer,
   _schema : @core.Schema,
-  _indent : Int,
+  _indent : Int32,
 ) -> String {
   "any"
 }
@@ -287,7 +287,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_any(
 pub impl StringRenderer for NamedPromptRenderer with fn render_unknown(
   self : NamedPromptRenderer,
   _schema : @core.Schema,
-  _indent : Int,
+  _indent : Int32,
 ) -> String {
   "unknown"
 }
@@ -298,7 +298,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_tuple(
   self : NamedPromptRenderer,
   items : Array[@core.Schema],
   _schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
 ) -> String {
   render_tuple_type(self, items, indent)
 }
@@ -309,7 +309,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_preprocess(
   self : NamedPromptRenderer,
   inner : @core.Schema,
   _schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
 ) -> String {
   render_type(self, inner, indent)
 }
@@ -344,7 +344,7 @@ fn schema_to_prompt_inline(
 /// If root schema has no name, it is assigned the name "Root".
 pub fn schema_to_prompt_named(
   schema : @core.Schema,
-  include_names? : Array[String]? = None,
+  include_names~ : Array[String]? = None,
 ) -> String {
   let mut schema = schema
   if schema.name.is_empty() {
@@ -502,7 +502,7 @@ fn render_object_prompt(
   renderer : NamedPromptRenderer,
   spec : Map[String, @core.Schema],
   named_schemas : Array[@core.Schema],
-  indent : Int,
+  indent : Int32,
 ) -> String {
   if spec.length() == 0 {
     return "{}"
@@ -536,7 +536,7 @@ fn render_object_prompt(
 fn field_type_with_names(
   renderer : NamedPromptRenderer,
   schema : @core.Schema,
-  indent : Int,
+  indent : Int32,
   named_schemas : Array[@core.Schema],
 ) -> String {
   if has_name_in(schema, named_schemas) {
@@ -559,7 +559,7 @@ fn union_to_prompt_inline_str(
   renderer : NamedPromptRenderer,
   schemas : Array[@core.Schema],
   named_schemas : Array[@core.Schema],
-  indent : Int,
+  indent : Int32,
 ) -> String {
   let mut result = ""
   let mut first = true
@@ -582,7 +582,7 @@ fn intersection_to_prompt_inline_str(
   renderer : NamedPromptRenderer,
   schemas : Array[@core.Schema],
   named_schemas : Array[@core.Schema],
-  indent : Int,
+  indent : Int32,
 ) -> String {
   let mut result = ""
   let mut first = true
@@ -619,7 +619,7 @@ fn enum_values_to_string(values : Array[String]) -> String {
 fn[R : StringRenderer] render_tuple_type(
   renderer : R,
   items : Array[@core.Schema],
-  indent : Int,
+  indent : Int32,
 ) -> String {
   let parts : Array[String] = []
   for item in items {

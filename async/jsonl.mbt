@@ -4,9 +4,9 @@
 /// Events are delivered in input order. `line` is one-based and counts blank
 /// lines too, so it can be used directly in diagnostics.
 pub(all) enum JsonlEvent {
-  Valid(Int, Json)
-  InvalidJson(Int, String)
-  InvalidSchema(Int, Array[@core.ValidationError])
+  Valid(Int32, Json)
+  InvalidJson(Int32, String)
+  InvalidSchema(Int32, Array[@core.ValidationError])
 }
 
 ///|
@@ -19,12 +19,12 @@ pub type JsonlHandler = async (JsonlEvent) -> Unit
 ///|
 /// Counts produced by `validate_jsonl`.
 pub(all) struct JsonlSummary {
-  lines_read : Int
-  records : Int
-  valid : Int
-  invalid_json : Int
-  invalid_schema : Int
-  skipped : Int
+  lines_read : Int32
+  records : Int32
+  valid : Int32
+  invalid_json : Int32
+  invalid_schema : Int32
+  skipped : Int32
 }
 
 ///|
@@ -41,7 +41,7 @@ pub async fn validate_jsonl(
   reader : &@io.Reader,
   schema : @core.Schema,
   on_event : JsonlHandler,
-  root_path? : String = "",
+  root_path~ : String = "",
 ) -> JsonlSummary {
   let mut lines_read = 0
   let mut records = 0
@@ -91,7 +91,7 @@ pub async fn AsyncSchema::validate_jsonl(
   self : AsyncSchema,
   reader : &@io.Reader,
   on_event : JsonlHandler,
-  root_path? : String = "",
+  root_path~ : String = "",
 ) -> JsonlSummary {
   let mut lines_read = 0
   let mut records = 0

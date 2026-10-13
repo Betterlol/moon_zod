@@ -336,7 +336,7 @@ pub fn sub_path(path : String, name : String) -> String {
 }
 
 ///|
-pub fn sub_index(path : String, i : Int) -> String {
+pub fn sub_index(path : String, i : Int32) -> String {
   if path.is_empty() {
     "[\{i}]"
   } else {
@@ -430,7 +430,7 @@ fn parse_inner(
 pub fn Schema::parse(
   self : Schema,
   json : Json,
-  path? : String = "",
+  path~ : String = "",
 ) -> SchemaResult {
   Schema::safe_parse(self, json, ParseParams::{ path, error_map: None, })
 }

@@ -327,7 +327,7 @@ pub struct NamedJsonRenderer {
 ///|
 pub fn NamedJsonRenderer::NamedJsonRenderer(
   named_names~ : Array[String],
-  include_annotations? : Bool = true,
+  include_annotations~ : Bool = true,
 ) -> NamedJsonRenderer {
   { named_names, include_annotations, }
 }
@@ -598,7 +598,7 @@ pub fn to_json_schema_skeleton(schema : @core.Schema) -> Json {
 /// If root schema has no name, it is assigned the name "Root".
 pub fn to_json_schema_named(
   schema : @core.Schema,
-  include_names? : Array[String]? = None,
+  include_names~ : Array[String]? = None,
 ) -> Json {
   let mut schema = schema
   if schema.name.is_empty() {

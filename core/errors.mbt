@@ -10,7 +10,7 @@ pub(all) enum IssueCode {
   InvalidUnion(Array[String])
   MissingRequired(String)
   InvalidKey(String)
-  InvalidElement(String, Int)
+  InvalidElement(String, Int32)
   InvalidValue(Array[Json])
   Custom
 } derive(Debug, Eq)

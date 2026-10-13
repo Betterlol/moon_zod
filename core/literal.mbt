@@ -10,8 +10,8 @@
 /// ```
 pub fn literal(
   value : Json,
-  required_error? : String = "",
-  invalid_type_error? : String = "",
+  required_error~ : String = "",
+  invalid_type_error~ : String = "",
 ) -> Schema {
   {
     schema_type: LiteralType(value),

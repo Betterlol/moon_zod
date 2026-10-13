@@ -1,8 +1,8 @@
 ///|
 /// Create a schema that validates JSON strings.
 pub fn string(
-  required_error? : String = "",
-  invalid_type_error? : String = "",
+  required_error~ : String = "",
+  invalid_type_error~ : String = "",
 ) -> Schema {
   {
     schema_type: StringType,
@@ -16,7 +16,7 @@ pub fn string(
 }
 
 ///|
-fn schema_min_check(s : Schema, n : Int) -> (Json) -> Bool {
+fn schema_min_check(s : Schema, n : Int32) -> (Json) -> Bool {
   match inner_type(s.schema_type) {
     StringType =>
       fn(json) {
@@ -44,7 +44,7 @@ fn schema_min_check(s : Schema, n : Int) -> (Json) -> Bool {
 }
 
 ///|
-fn schema_min_msg(s : Schema, n : Int) -> String {
+fn schema_min_msg(s : Schema, n : Int32) -> String {
   match inner_type(s.schema_type) {
     StringType => "String must contain at least \{n} character(s)"
     NumberType => "Value must be >= \{n}"
@@ -55,7 +55,7 @@ fn schema_min_msg(s : Schema, n : Int) -> String {
 
 ///|
 /// Require the string length to be at least `n`.
-pub fn Schema::min(self : Schema, n : Int, msg? : String = "") -> Schema {
+pub fn Schema::min(self : Schema, n : Int32, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   let check = schema_min_check(self, n)
   let message = if msg.is_empty() { schema_min_msg(self, n) } else { msg }
@@ -81,7 +81,7 @@ pub fn Schema::min(self : Schema, n : Int, msg? : String = "") -> Schema {
 }
 
 ///|
-fn schema_max_check(s : Schema, n : Int) -> (Json) -> Bool {
+fn schema_max_check(s : Schema, n : Int32) -> (Json) -> Bool {
   match inner_type(s.schema_type) {
     StringType =>
       fn(json) {
@@ -109,7 +109,7 @@ fn schema_max_check(s : Schema, n : Int) -> (Json) -> Bool {
 }
 
 ///|
-fn schema_max_msg(s : Schema, n : Int) -> String {
+fn schema_max_msg(s : Schema, n : Int32) -> String {
   match inner_type(s.schema_type) {
     StringType => "String must contain at most \{n} character(s)"
     NumberType => "Value must be <= \{n}"
@@ -120,7 +120,7 @@ fn schema_max_msg(s : Schema, n : Int) -> String {
 
 ///|
 /// Require the string length to be at most `n`.
-pub fn Schema::max(self : Schema, n : Int, msg? : String = "") -> Schema {
+pub fn Schema::max(self : Schema, n : Int32, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   let check = schema_max_check(self, n)
   let message = if msg.is_empty() { schema_max_msg(self, n) } else { msg }
@@ -146,7 +146,7 @@ pub fn Schema::max(self : Schema, n : Int, msg? : String = "") -> Schema {
 }
 
 ///|
-fn find_unquoted_at(chars : Array[Char]) -> Int {
+fn find_unquoted_at(chars : Array[Char]) -> Int32 {
   let mut i = 0
   let n = chars.length()
   while i < n {
@@ -169,7 +169,7 @@ fn find_unquoted_at(chars : Array[Char]) -> Int {
 }
 
 ///|
-fn chars_to_string(chars : Array[Char], start : Int, end : Int) -> String {
+fn chars_to_string(chars : Array[Char], start : Int32, end : Int32) -> String {
   let mut result = ""
   for i = start; i < end; i = i + 1 {
     result = result + chars[i].to_string()
@@ -263,7 +263,7 @@ fn is_valid_email(s : String) -> Bool {
 
 ///|
 /// Require the string to be a valid email.
-pub fn Schema::email(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::email(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
@@ -422,7 +422,7 @@ fn is_valid_url(s : String) -> Bool {
 
 ///|
 /// Require the string to be a valid URL with http:// or https:// scheme.
-pub fn Schema::url(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::url(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
@@ -448,7 +448,7 @@ pub fn Schema::url(self : Schema, msg? : String = "") -> Schema {
 pub fn Schema::regex(
   self : Schema,
   pattern : String,
-  msg? : String = "",
+  msg~ : String = "",
 ) -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
@@ -482,7 +482,7 @@ pub fn Schema::regex(
 pub fn Schema::startsWith(
   self : Schema,
   prefix : String,
-  msg? : String = "",
+  msg~ : String = "",
 ) -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
@@ -513,7 +513,7 @@ pub fn Schema::startsWith(
 pub fn Schema::endsWith(
   self : Schema,
   suffix : String,
-  msg? : String = "",
+  msg~ : String = "",
 ) -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
@@ -544,7 +544,7 @@ pub fn Schema::endsWith(
 pub fn Schema::includes(
   self : Schema,
   substring : String,
-  msg? : String = "",
+  msg~ : String = "",
 ) -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
@@ -577,7 +577,7 @@ fn is_hex_digit(c : Char) -> Bool {
 ///|
 /// Require the string to be a valid UUID v4.
 /// Format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
-pub fn Schema::uuid(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::uuid(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
@@ -639,7 +639,7 @@ pub fn Schema::uuid(self : Schema, msg? : String = "") -> Schema {
 
 ///|
 /// Require the string to be a valid CUID (25 chars, starts with 'c', alphanumeric).
-pub fn Schema::cuid(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::cuid(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
@@ -676,7 +676,7 @@ pub fn Schema::cuid(self : Schema, msg? : String = "") -> Schema {
 }
 
 ///|
-fn is_leap_year(year : Int) -> Bool {
+fn is_leap_year(year : Int32) -> Bool {
   year % 400 == 0 || (year % 4 == 0 && year % 100 != 0)
 }
 
@@ -771,7 +771,7 @@ fn is_valid_iso8601(s : String) -> Bool {
 
 ///|
 /// Require the string to be a valid ISO 8601 datetime.
-pub fn Schema::datetime(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::datetime(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
@@ -918,7 +918,7 @@ fn is_valid_ipv6(s : String) -> Bool {
 
 ///|
 /// Require the string to be a valid IPv4 address.
-pub fn Schema::ipv4(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::ipv4(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
@@ -945,7 +945,7 @@ pub fn Schema::ipv4(self : Schema, msg? : String = "") -> Schema {
 
 ///|
 /// Require the string to be a valid IPv6 address.
-pub fn Schema::ipv6(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::ipv6(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
@@ -972,7 +972,7 @@ pub fn Schema::ipv6(self : Schema, msg? : String = "") -> Schema {
 
 ///|
 /// Require the string to be a valid IPv4 or IPv6 address.
-pub fn Schema::ip(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::ip(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
@@ -997,7 +997,7 @@ pub fn Schema::ip(self : Schema, msg? : String = "") -> Schema {
 }
 
 ///|
-fn schema_length_check(s : Schema, n : Int) -> (Json) -> Bool {
+fn schema_length_check(s : Schema, n : Int32) -> (Json) -> Bool {
   match inner_type(s.schema_type) {
     StringType =>
       fn(json) {
@@ -1018,7 +1018,7 @@ fn schema_length_check(s : Schema, n : Int) -> (Json) -> Bool {
 }
 
 ///|
-fn schema_length_msg(s : Schema, n : Int) -> String {
+fn schema_length_msg(s : Schema, n : Int32) -> String {
   match inner_type(s.schema_type) {
     StringType => "String must contain exactly \{n} character(s)"
     ArrayType(_) => "Array must contain exactly \{n} item(s)"
@@ -1028,7 +1028,7 @@ fn schema_length_msg(s : Schema, n : Int) -> String {
 
 ///|
 /// Require the string to be non-empty (or array to be non-empty).
-pub fn Schema::nonempty(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::nonempty(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
@@ -1141,7 +1141,7 @@ pub fn Schema::to_upper(self : Schema) -> Schema {
 
 ///|
 /// Require the string or array to have exactly `n` items.
-pub fn Schema::length(self : Schema, n : Int, msg? : String = "") -> Schema {
+pub fn Schema::length(self : Schema, n : Int32, msg~ : String = "") -> Schema {
   let check = schema_length_check(self, n)
   let message = if msg.is_empty() { schema_length_msg(self, n) } else { msg }
   // No annotation — avoids conflict with minLength/maxLength
@@ -1158,7 +1158,7 @@ fn is_crockford_base32(c : Char) -> Bool {
 
 ///|
 /// Require the string to be a valid ULID (26 chars, Crockford Base32).
-pub fn Schema::ulid(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::ulid(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()

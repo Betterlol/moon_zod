@@ -1,8 +1,8 @@
 ///|
 /// Create a schema that validates JSON numbers.
 pub fn number(
-  required_error? : String = "",
-  invalid_type_error? : String = "",
+  required_error~ : String = "",
+  invalid_type_error~ : String = "",
 ) -> Schema {
   {
     schema_type: NumberType,
@@ -17,7 +17,7 @@ pub fn number(
 
 ///|
 /// Require the number to be an integer (no fractional part).
-pub fn Schema::int(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::int(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     NumberType => ()
@@ -40,7 +40,7 @@ pub fn Schema::int(self : Schema, msg? : String = "") -> Schema {
 
 ///|
 /// Require the number to be positive (> 0).
-pub fn Schema::positive(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::positive(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     NumberType => ()
@@ -63,7 +63,7 @@ pub fn Schema::positive(self : Schema, msg? : String = "") -> Schema {
 
 ///|
 /// Require the number to be negative (< 0).
-pub fn Schema::negative(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::negative(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     NumberType => ()
@@ -86,7 +86,11 @@ pub fn Schema::negative(self : Schema, msg? : String = "") -> Schema {
 
 ///|
 /// Require the number to be a multiple of `n`.
-pub fn Schema::multipleOf(self : Schema, n : Int, msg? : String = "") -> Schema {
+pub fn Schema::multipleOf(
+  self : Schema,
+  n : Int32,
+  msg~ : String = "",
+) -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     NumberType => ()
@@ -114,7 +118,7 @@ pub fn Schema::multipleOf(self : Schema, n : Int, msg? : String = "") -> Schema 
 
 ///|
 /// Require the number to be finite (reject Infinity and NaN).
-pub fn Schema::finite(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::finite(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     NumberType => ()
@@ -140,7 +144,7 @@ pub fn Schema::finite(self : Schema, msg? : String = "") -> Schema {
 
 ///|
 /// Require the number to be a safe integer (within ±2^53-1).
-pub fn Schema::safe(self : Schema, msg? : String = "") -> Schema {
+pub fn Schema::safe(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     NumberType => ()

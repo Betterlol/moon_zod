@@ -29,7 +29,7 @@ pub fn peel_optional(schema : Schema) -> Schema {
 
 ///|
 /// Generate n * 2 spaces.
-pub fn indent_str(n : Int) -> String {
+pub fn indent_str(n : Int32) -> String {
   let mut s = ""
   for i = 0; i < n; i = i + 1 {
     s = s + "  "
@@ -130,7 +130,7 @@ pub fn topological_sort_schemas(named_schemas : Array[Schema]) -> Array[Schema] 
     deps_list.push((schema.name, deps))
   }
 
-  let visited_list : Array[(String, Int)] = []
+  let visited_list : Array[(String, Int32)] = []
   let sorted : Array[Schema] = []
 
   for schema in named_schemas {
@@ -145,7 +145,7 @@ pub fn topological_sort_schemas(named_schemas : Array[Schema]) -> Array[Schema] 
 ///|
 /// Helper: check if a name is in visited list
 pub fn visited_contains(
-  visited_list : Array[(String, Int)],
+  visited_list : Array[(String, Int32)],
   name : String,
 ) -> Bool {
   for i = 0; i < visited_list.length(); i = i + 1 {
@@ -160,9 +160,9 @@ pub fn visited_contains(
 ///|
 /// Helper: get status from visited list (0 = unvisited by default)
 pub fn visited_get_status(
-  visited_list : Array[(String, Int)],
+  visited_list : Array[(String, Int32)],
   name : String,
-) -> Int {
+) -> Int32 {
   for i = 0; i < visited_list.length(); i = i + 1 {
     let (n, status) = visited_list[i]
     if n == name {
@@ -175,9 +175,9 @@ pub fn visited_get_status(
 ///|
 /// Helper: set status in visited list
 pub fn visited_set_status(
-  visited_list : Array[(String, Int)],
+  visited_list : Array[(String, Int32)],
   name : String,
-  status : Int,
+  status : Int32,
 ) -> Unit {
   for i = 0; i < visited_list.length(); i = i + 1 {
     let (n, _) = visited_list[i]
@@ -290,7 +290,7 @@ pub fn find_schema_dependencies_impl(
 pub fn dfs_topo_sort(
   name : String,
   deps_list : Array[(String, Array[String])],
-  visited : Array[(String, Int)],
+  visited : Array[(String, Int32)],
   sorted : Array[Schema],
   schema_map : Array[Schema],
 ) -> Unit {

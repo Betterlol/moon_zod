@@ -6,8 +6,8 @@
 pub fn preprocess(
   f : (Json) -> Result[Json, String],
   inner : Schema,
-  required_error? : String = "",
-  invalid_type_error? : String = "",
+  required_error~ : String = "",
+  invalid_type_error~ : String = "",
 ) -> Schema {
   {
     schema_type: PreprocessType(
