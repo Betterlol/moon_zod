@@ -4,6 +4,31 @@
 
 **To see the full details, please refer to docs in branch `doc`.**
 
+## Unreleased — Core correctness and Zod 4 migration
+
+Breaking changes and examples are documented in [CORE_MIGRATION.md](docs/CORE_MIGRATION.md).
+
+- Distinguish absence from null: optional/default handle missing values, with
+  nullable/nullish/prefault and parse_missing for explicit control.
+- Run refinements at every node; retain parsed container children, isolate branch
+  input and recursively merge intersection outputs without mutating callers.
+- Enforce finite numbers and safe integers, decimal numeric bounds/multiples,
+  complete datetime/IPv6/email/URI validation and ordered built-in effects.
+- Add structured constraint/effect metadata, checked source export and structural
+  input/output JSON Schema views. Unsupported custom callbacks fail explicitly.
+- Traverse every schema kind with node identities; cache lazy resolution, check
+  names and emit recursive JSON references and compilable recursive source.
+- Preserve escaped field paths, structured union issues and explicit Schema error
+  precedence. Guard shape edits on refined objects and retain discriminator tags.
+- Verify emitted schemas and recursive structs by compiling and running them on
+  Wasm GC and JS in CI. Historical allocation/performance claims are withdrawn.
+
+Follow-up review fixes: recursively merged checked intersection outputs, typed
+large numeric source bounds, pipeline output defaults under optional/partial,
+structured errors for interior tuple absence, recursive JsonNullable codecs and
+component-specific URI/percent-encoding checks. Independent output-contract and
+generated-type codec tests cover these combinations; README throughput is historical.
+
 ## v0.8.2 (2026-07-12)
 
 ### Add README in exporters/ and importers/ subpackages

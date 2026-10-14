@@ -46,14 +46,18 @@
 | `.ipv4([msg])` | string | 必须是有效的 IPv4 |
 | `.ipv6([msg])` | string | 必须是有效的 IPv6 |
 | `.ulid([msg])` | string | 必须是有效的 ULID |
-| `.int([msg])` | number | 必须是整数 |
+| `.int([msg])` | number | 必须是 ±(2^53−1) 范围内的安全整数 |
 | `.positive([msg])` | number | 必须 > 0 |
 | `.negative([msg])` | number | 必须 < 0 |
 | `.multipleOf(n[, msg])` | number | 必须是 `n` 的倍数 |
 | `.finite([msg])` | number | 必须是有限数 |
 | `.safe([msg])` | number | 必须是安全整数 |
-| `.optional()` | any | Null 或缺失值跳过校验 |
-| `.default(value)` | any | 用默认值替换 null |
+| `.optional()` | any | 允许缺失；显式 null 正常校验 |
+| `.default(value)` | any | 缺失字段使用输出默认值，跳过内层校验与转换 |
+| `.prefault(value)` | any | 缺失时校验并转换输入默认值 |
+| `.nullable()` | any | 接受显式 null，字段仍必填 |
+| `.nullish()` | any | 接受缺失或 null |
+| `.parse_missing()` | any | 解析根值缺失，返回 `Result[Json?, Array[ValidationError]]` |
 | `.strict()` | object | 拒绝未定义的字段 |
 | `.passthrough()` | object | 保持未定义的字段不变 |
 | `.strip()` | object | 无声地删除未定义的字段（默认） |
@@ -64,7 +68,7 @@
 | `.merge(Schema)` | object | **Phase 38**：与另一个对象 schema 合并（右侧覆盖） |
 | `.describe(text)` | any | **Phase 17**：为 LLM 提示附加描述 |
 | `.name(text)` | any | **Phase 25**：为 schema 导出指定名称 |
-| `.brand(text)` | any | **Phase 37**：为名义类型指定品牌标记 |
+| `.brand(text)` | any | **Phase 37**：附加导出元数据，不创建 MoonBit 名义类型 |
 | `.required_error(text)` | any | 覆盖必填字段缺失时的错误消息 |
 | `.invalid_type_error(text)` | any | 覆盖输入类型不匹配时的错误消息 |
 | `.message(text)` | any | **Phase 19**：覆盖最后一条规则的错误消息 |
@@ -123,3 +127,7 @@ pub enum ObjectMode {
 ```
 
 ---
+
+See [core migration](../CORE_MIGRATION.md) for nullable(), nullish(), prefault() and parse_missing().
+
+生成类型的可空值使用 `JsonNullable[T]`（`JsonNull` / `JsonValue(T)`），按 JSON 的 null 或值编解码；字段缺失另加外层 Option。参见 [迁移说明](../CORE_MIGRATION.md)。
