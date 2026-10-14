@@ -336,7 +336,7 @@ fn input_optional_impl(
       input_optional_impl(inner, visited, depth + 1)
     LazyType(resolve) => input_optional_impl(resolve(), visited, depth + 1)
     PipeType(input, _, output) =>
-      has_missing_default(input) ||
+      missing_default_impl(input, visited.copy(), depth + 1) ||
       (
         input_optional_impl(input, visited.copy(), depth + 1) &&
         input_optional_impl(output, visited, depth + 1)

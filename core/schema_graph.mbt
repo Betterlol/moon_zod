@@ -184,7 +184,7 @@ fn output_optional_impl(
   visited.set(schema.id, true)
   match schema.schema_type {
     OptionalType(inner) =>
-      !has_missing_default(inner) ||
+      !missing_default_impl(inner, visited.copy(), depth + 1) ||
       output_optional_impl(inner, visited, depth + 1)
     NullableType(inner) | TransformType(inner, _) | PreprocessType(_, inner) =>
       output_optional_impl(inner, visited, depth + 1)

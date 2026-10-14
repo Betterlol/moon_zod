@@ -558,7 +558,12 @@ fn missing_default_impl(
     | PreprocessType(_, inner) =>
       missing_default_impl(inner, visited, depth + 1)
     LazyType(resolve) => missing_default_impl(resolve(), visited, depth + 1)
-    PipeType(input, _, _) => missing_default_impl(input, visited, depth + 1)
+    PipeType(input, _, output) =>
+      missing_default_impl(input, visited.copy(), depth + 1) ||
+      (
+        input_optional_impl(input, visited.copy(), depth + 1) &&
+        missing_default_impl(output, visited, depth + 1)
+      )
     UnionType(branches) | IntersectionType(branches) =>
       branches.any(fn(child) {
         missing_default_impl(child, visited.copy(), depth + 1)
