@@ -62,14 +62,14 @@ async test "async refinements receive cleaned schema output and collect failures
   })
 
   match schema.parse_async(input, root_path="request") {
-    Err(errors) => {
+    Err(@async.Validation(errors)) => {
       assert_eq(errors.length(), 2)
       assert_eq(errors[0].path, "request.role")
       assert_eq(errors[0].message, "admin role is not permitted")
       assert_eq(errors[1].path, "request.name")
       assert_eq(errors[1].message, "Ada requires approval")
     }
-    Ok(_) => fail("expected asynchronous refinements to fail")
+    _ => fail("expected asynchronous refinements to fail")
   }
 }
 
@@ -80,12 +80,12 @@ async test "synchronous failures skip asynchronous refinements" {
   let input = Json::object({ "role": Json::string("admin") })
 
   match schema.parse_async(input) {
-    Err(errors) => {
+    Err(@async.Validation(errors)) => {
       assert_eq(errors.length(), 1)
       assert_eq(errors[0].path, "name")
       assert_eq(errors[0].message, "Required")
     }
-    Ok(_) => fail("expected synchronous schema failure")
+    _ => fail("expected synchronous schema failure")
   }
 }
 
@@ -252,14 +252,15 @@ async test "SSE JSON stream assembles object fragments" {
   assert_eq(summary.fragments, 2)
   assert_true(summary.done)
   assert_eq(summary.valid, 1)
-  assert_eq(events.length(), 3)
+  assert_eq(events.length(), 4)
   assert_true(events[0] is @async.SseStreamPending(_))
-  match events[1] {
+  assert_true(events[1] is @async.SseStreamPending(_))
+  match events[2] {
     @async.SseStreamValid(_, Object(value)) =>
       assert_eq(value.get("name"), Some(Json::string("Ada")))
     _ => fail("expected assembled SSE JSON to be valid")
   }
-  assert_true(events[2] is @async.SseStreamDone(_))
+  assert_true(events[3] is @async.SseStreamDone(_))
 }
 
 ///|
