@@ -263,7 +263,7 @@ test "to_json_schema object intersection merges closed object fields" {
     ]),
   )
   let expected = parse_json(
-    "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"integer\",\"exclusiveMinimum\":0},\"created_at\":{\"type\":\"string\",\"format\":\"date-time\"}},\"additionalProperties\":false,\"required\":[\"id\",\"created_at\"]}",
+    "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"integer\",\"exclusiveMinimum\":0},\"created_at\":{\"type\":\"string\",\"format\":\"date-time\",\"x-moon-zod-datetime\":{\"offset\":false,\"allow_local\":false,\"precision\":-2}}},\"additionalProperties\":false,\"required\":[\"id\",\"created_at\"]}",
   )
   @debug.assert_eq(result, expected)
 }

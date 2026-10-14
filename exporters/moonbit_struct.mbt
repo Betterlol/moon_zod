@@ -5,6 +5,7 @@
 /// Schema names are treated only as type-name hints; anonymous nested objects are
 /// named from their owner and field path.
 pub fn schema_to_moonbit_struct(schema : @core.Schema) -> String {
+  let _ = @core.collect_named_schemas(schema)
   let root_name = schema_type_name(schema, "Root")
   let defs : Array[StructDef] = []
   collect_type_defs(schema, root_name, defs)
@@ -15,6 +16,7 @@ pub fn schema_to_moonbit_struct(schema : @core.Schema) -> String {
 /// Convert a moon_zod schema into MoonBit type definitions plus static
 /// `Type::to_schema() -> @moon_zod.Schema` functions for each generated type.
 pub fn schema_to_moonbit_struct_full(schema : @core.Schema) -> String {
+  let _ = @core.collect_named_schemas(schema)
   let root_name = schema_type_name(schema, "Root")
   let defs : Array[StructDef] = []
   collect_type_defs(schema, root_name, defs)
@@ -36,10 +38,13 @@ fn collect_type_defs(
   match schema.schema_type {
     ObjectType(spec, _) => {
       let type_name = schema_type_name(schema, type_hint)
+      if def_exists(defs, type_name) {
+        return
+      }
+      push_struct_def(defs, type_name, schema)
       for key, field_schema in spec {
         collect_field_defs(field_schema, child_type_name(type_name, key), defs)
       }
-      push_struct_def(defs, type_name, schema)
     }
     EnumType(values) =>
       push_enum_def(defs, schema_type_name(schema, type_hint), values)
@@ -54,7 +59,8 @@ fn collect_type_defs(
       for item in schemas {
         collect_type_defs(item, type_hint, defs)
       }
-    LazyType(f) => collect_type_defs(f(), type_hint, defs)
+    LazyType(f) =>
+      collect_type_defs(f(), schema_type_name(schema, type_hint), defs)
     DiscriminatedUnionType(_, options) =>
       for _key, option in options {
         collect_type_defs(option, type_hint, defs)
@@ -85,7 +91,8 @@ fn collect_field_defs(
       for item in schemas {
         collect_field_defs(item, type_hint, defs)
       }
-    LazyType(f) => collect_field_defs(f(), type_hint, defs)
+    LazyType(f) =>
+      collect_field_defs(f(), schema_type_name(schema, type_hint), defs)
     DiscriminatedUnionType(_, options) =>
       for _key, option in options {
         collect_field_defs(option, type_hint, defs)
@@ -265,7 +272,8 @@ fn field_to_moonbit_type(schema : @core.Schema, type_hint : String) -> String {
     IntersectionType(schemas) =>
       intersection_to_moonbit_type(schemas, type_hint)
     LiteralType(value) => literal_to_moonbit_type(value)
-    LazyType(f) => field_to_moonbit_type(f(), type_hint)
+    LazyType(f) =>
+      field_to_moonbit_type(f(), schema_type_name(schema, type_hint))
     DiscriminatedUnionType(_, options) => {
       let schemas : Array[@core.Schema] = []
       for _key, option in options {

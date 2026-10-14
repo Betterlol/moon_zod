@@ -453,6 +453,7 @@ pub fn Schema::startsWith(
     IssueCode::Custom,
     Json::object({ "pattern": Json::string("^" + escape_regex_literal(prefix)) }),
     explicit_message=!msg.is_empty(),
+    constraint=Some(Prefix(prefix)),
   )
 }
 
@@ -485,6 +486,7 @@ pub fn Schema::endsWith(
     IssueCode::Custom,
     Json::object({ "pattern": Json::string(escape_regex_literal(suffix) + "$") }),
     explicit_message=!msg.is_empty(),
+    constraint=Some(Suffix(suffix)),
   )
 }
 
@@ -517,6 +519,7 @@ pub fn Schema::includes(
     IssueCode::Custom,
     Json::object({ "pattern": Json::string(escape_regex_literal(substring)) }),
     explicit_message=!msg.is_empty(),
+    constraint=Some(Contains(substring)),
   )
 }
 
@@ -775,7 +778,14 @@ pub fn Schema::datetime(
     },
     message,
     IssueCode::InvalidFormat("datetime"),
-    Json::object({ "format": Json::string("date-time") }),
+    Json::object({
+      "format": Json::string("date-time"),
+      "x-moon-zod-datetime": Json::object({
+        "offset": Json::boolean(offset),
+        "allow_local": Json::boolean(allow_local),
+        "precision": Json::number(precision.to_double()),
+      }),
+    }),
     explicit_message=!msg.is_empty(),
   )
 }
@@ -958,7 +968,7 @@ pub fn Schema::ip(self : Schema, msg~ : String = "") -> Schema {
   } else {
     msg
   }
-  append_rule(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -968,6 +978,14 @@ pub fn Schema::ip(self : Schema, msg~ : String = "") -> Schema {
     },
     message,
     IssueCode::InvalidFormat("ip"),
+    Json::object({
+      "anyOf": Json::array([
+        Json::object({ "format": Json::string("ipv4") }),
+        Json::object({ "format": Json::string("ipv6") }),
+      ]),
+    }),
+    constraint=Some(Format("ip")),
+    explicit_message=!msg.is_empty(),
   )
 }
 

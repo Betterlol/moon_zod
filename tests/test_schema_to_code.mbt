@@ -191,9 +191,7 @@ test "schema_to_moon_zod_code best effort covers tuple" {
 }
 
 ///|
-test "schema_to_moon_zod_code best effort covers preprocess placeholder" {
+test "checked source export rejects unserializable preprocess callbacks" {
   let schema = preprocess(fn(x) { Ok(x) }, string().min(1))
-  let code = schema_to_moon_zod_code(schema)
-  @debug.assert_eq(code.contains("@moon_zod.preprocess(fn(x) { Ok(x) }"), true)
-  @debug.assert_eq(code.contains("@moon_zod.string().min(1)"), true)
+  assert_true(@exporters.try_schema_to_moon_zod_code(schema) is Err(_))
 }

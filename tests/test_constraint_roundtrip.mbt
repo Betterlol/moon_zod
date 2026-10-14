@@ -20,3 +20,10 @@ test "exact length survives JSON Schema export" {
   assert_true(imported.parse(Json::string("ab")) is Err(_))
   assert_true(imported.parse(Json::string("abc")) is Ok(_))
 }
+
+///|
+test "source export preserves builtin transforms and exclusive bounds" {
+  let code = schema_to_moon_zod_code(string().trim().to_lower().min(3))
+  assert_true(code.contains(".trim().to_lower().min(3)"))
+  assert_true(schema_to_moon_zod_code(number().gt(5.5)).contains(".gt(5.5)"))
+}

@@ -56,11 +56,12 @@ pub fn extract_constraints(rules : Array[Rule]) -> ConstraintInfo {
         info.multiples.push(value)
         info = { ..info, multiple_of: value, }
       }
-      Integer => info = { ..info, is_int: true, }
+      Integer | SafeInteger => info = { ..info, is_int: true, }
       Format(value) => {
         info.formats.push(value)
         info = { ..info, format: value, }
       }
+      Finite | Prefix(_) | Suffix(_) | Contains(_) => ()
       Pattern(value) => {
         info.patterns.push(value)
         info = { ..info, pattern: value, }

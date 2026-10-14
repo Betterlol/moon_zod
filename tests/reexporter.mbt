@@ -104,3 +104,19 @@ pub using @core {
   type TransformKind,
   effective_rules,
 }
+
+///|
+/// Checked schema graph and stage-specific export helpers.
+pub using @core {
+  schema_children,
+  try_collect_named_schemas,
+  try_schema_nodes,
+  output_is_optional,
+}
+
+///|
+pub using @exporters {
+  type SchemaView,
+  try_to_json_schema,
+  try_schema_to_moon_zod_code,
+}

@@ -40,6 +40,7 @@ pub(open) trait JsonSchemaRenderer {
   fn render_unknown(Self, schema : @core.Schema) -> Json
   fn render_tuple(Self, items : Array[@core.Schema], schema : @core.Schema) -> Json
   fn render_preprocess(Self, inner : @core.Schema, schema : @core.Schema) -> Json
+  fn render_lazy(Self, resolved : @core.Schema, schema : @core.Schema) -> Json
 }
 
 ///|
@@ -76,9 +77,10 @@ pub fn[R : JsonSchemaRenderer] render_json_type(
     TransformType(inner, closure) =>
       renderer.render_transform(inner, closure, schema)
     LiteralType(value) => renderer.render_literal(value, schema)
-    LazyType(f) => render_json_type(renderer, f())
-    DiscriminatedUnionType(_, _) => Json::null()
-    PipeType(_, _, output) => render_json_type(renderer, output)
+    LazyType(f) => renderer.render_lazy(f(), schema)
+    DiscriminatedUnionType(_, options) =>
+      renderer.render_union(options.values().collect(), schema)
+    PipeType(input, _, _) => render_json_type(renderer, input)
   }
 }
 

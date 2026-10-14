@@ -223,7 +223,7 @@ pub fn Schema::finite(self : Schema, msg~ : String = "") -> Schema {
   } else {
     msg
   }
-  append_rule(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -233,6 +233,9 @@ pub fn Schema::finite(self : Schema, msg~ : String = "") -> Schema {
     },
     message,
     IssueCode::Custom,
+    Json::null(),
+    constraint=Some(Finite),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -267,6 +270,7 @@ pub fn Schema::safe(self : Schema, msg~ : String = "") -> Schema {
       "maximum": Json::number(max_safe),
     }),
     explicit_message=!msg.is_empty(),
+    constraint=Some(SafeInteger),
   )
 }
 

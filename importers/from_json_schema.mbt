@@ -286,7 +286,19 @@ fn apply_json_schema_constraints(
   match m.get("format") {
     Some(String("email")) => result = result.email()
     Some(String("uri")) => result = result.url()
-    Some(String("date-time")) => result = result.datetime(offset=true)
+    Some(String("date-time")) =>
+      match m.get("x-moon-zod-datetime") {
+        Some(Object(params)) => {
+          let offset = params.get("offset") is Some(True)
+          let allow_local = params.get("allow_local") is Some(True)
+          let precision = match params.get("precision") {
+            Some(Number(value, ..)) => value.to_int()
+            _ => -2
+          }
+          result = result.datetime(offset~, allow_local~, precision~)
+        }
+        _ => result = result.datetime(offset=true)
+      }
     Some(String("ipv4")) => result = result.ipv4()
     Some(String("ipv6")) => result = result.ipv6()
     Some(String("uuid")) => result = result.uuid()

@@ -74,6 +74,12 @@ pub(open) trait StringRenderer {
     schema : @core.Schema,
     indent : Int32,
   ) -> String
+  fn render_lazy(
+    Self,
+    resolved : @core.Schema,
+    schema : @core.Schema,
+    indent : Int32,
+  ) -> String
 }
 
 ///|
@@ -108,7 +114,7 @@ pub fn[R : StringRenderer] render_type(
     TransformType(inner, closure) =>
       renderer.render_transform(inner, closure, schema, indent)
     LiteralType(value) => renderer.render_literal(value, schema, indent)
-    LazyType(f) => render_type(renderer, f(), indent)
+    LazyType(f) => renderer.render_lazy(f(), schema, indent)
     DiscriminatedUnionType(_, options) => {
       let schemas : Array[@core.Schema] = []
       for _key, option in options {

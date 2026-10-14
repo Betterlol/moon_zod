@@ -22,6 +22,7 @@ fn append_builtin_rule(
   code : IssueCode,
   annotation : Json,
   explicit_message~ : Bool = false,
+  constraint~ : Constraint? = None,
 ) -> Schema {
   append_typed_rule(schema, {
     check,
@@ -29,7 +30,7 @@ fn append_builtin_rule(
     code,
     annotation,
     explicit_message,
-    constraint: builtin_constraint(code, annotation),
+    constraint: constraint.unwrap_or(builtin_constraint(code, annotation)),
   })
 }
 

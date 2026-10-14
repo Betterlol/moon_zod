@@ -36,7 +36,7 @@ pub fn try_collect_named_schemas(
   let names : Map[String, Schema] = Map([])
   let nodes : Map[Int32, Bool] = Map([])
   let result : Array[Schema] = []
-  match walk_named(schema, "", false, 0, names, nodes, result) {
+  match walk_named(schema, "", false, 0, names, nodes, result, []) {
     Ok(_) => Ok(result)
     Err(message) => Err(message)
   }
@@ -51,6 +51,7 @@ fn walk_named(
   names : Map[String, Schema],
   nodes : Map[Int32, Bool],
   result : Array[Schema],
+  all_nodes : Array[Schema],
 ) -> Result[Unit, String] {
   if depth > 256 {
     return Err(
@@ -75,6 +76,7 @@ fn walk_named(
     return Ok(())
   }
   nodes.set(schema.id, true)
+  all_nodes.push(schema)
   let transparent = match schema.schema_type {
     OptionalType(_)
     | NullableType(_)
@@ -96,6 +98,7 @@ fn walk_named(
         names,
         nodes,
         result,
+        all_nodes,
       ) {
       Ok(_) => ()
       Err(message) => return Err(message)
@@ -138,5 +141,31 @@ fn gather_dependencies(
     } else {
       gather_dependencies(child, available, deps, nodes, depth + 1)
     }
+  }
+}
+
+///|
+/// Checked complete graph traversal for exporters and other schema consumers.
+pub fn try_schema_nodes(schema : Schema) -> Result[Array[Schema], String] {
+  let result : Array[Schema] = []
+  match walk_named(schema, "", false, 0, Map([]), Map([]), [], result) {
+    Ok(_) => Ok(result)
+    Err(message) => Err(message)
+  }
+}
+
+///|
+/// Whether a successful parse of a missing field can leave that field absent.
+pub fn output_is_optional(schema : Schema) -> Bool {
+  match schema.schema_type {
+    OptionalType(inner) => !has_missing_default(inner)
+    NullableType(inner) | TransformType(inner, _) | PreprocessType(_, inner) =>
+      output_is_optional(inner)
+    DefaultType(_, _) | PrefaultType(_, _) => false
+    PipeType(input, _, output) =>
+      output_is_optional(input) && output_is_optional(output)
+    UnionType(branches) => branches.any(output_is_optional)
+    IntersectionType(branches) => branches.all(output_is_optional)
+    _ => false
   }
 }

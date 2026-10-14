@@ -388,6 +388,7 @@ pub extend NamedJsonRenderer with JsonSchemaRenderer::{
   render_unknown,
   render_tuple,
   render_preprocess,
+  render_lazy,
 }
 
 ///|
@@ -483,7 +484,11 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_optional(
   inner : @core.Schema,
   schema : @core.Schema,
 ) -> Json {
-  render_json_type_ref(self, inner, self.named_names)
+  render_json_type_ref(
+    self,
+    without_inherited_name(schema, inner),
+    self.named_names,
+  )
 }
 
 ///|
@@ -494,7 +499,14 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_default(
   default_val : Json,
   schema : @core.Schema,
 ) -> Json {
-  add_default(render_json_type_ref(self, inner, self.named_names), default_val)
+  add_default(
+    render_json_type_ref(
+      self,
+      without_inherited_name(schema, inner),
+      self.named_names,
+    ),
+    default_val,
+  )
 }
 
 ///|
@@ -505,7 +517,11 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_transform(
   closure : @core.TransformClosure,
   schema : @core.Schema,
 ) -> Json {
-  let base = render_json_type_ref(self, inner, self.named_names)
+  let base = render_json_type_ref(
+    self,
+    without_inherited_name(schema, inner),
+    self.named_names,
+  )
   if closure.kind is CustomTransform {
     base
   } else {
@@ -607,9 +623,13 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_tuple(
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_preprocess(
   self : NamedJsonRenderer,
   inner : @core.Schema,
-  _schema : @core.Schema,
+  schema : @core.Schema,
 ) -> Json {
-  render_json_type(self, inner)
+  render_json_type_ref(
+    self,
+    without_inherited_name(schema, inner),
+    self.named_names,
+  )
 }
 
 // ── Public API ──
@@ -618,6 +638,10 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_preprocess(
 /// Convert a moon_zod @core.Schema into a standard JSON @core.Schema @core.object with full
 /// constraint annotations (minLength, maximum, pattern, format, etc.).
 pub fn to_json_schema(schema : @core.Schema) -> Json {
+  let _ = @core.collect_named_schemas(schema)
+  if contains_lazy(schema, Map([])) {
+    return to_json_schema_named(schema)
+  }
   render_json_type(NamedJsonRenderer(named_names=[]), schema)
 }
 
@@ -625,6 +649,10 @@ pub fn to_json_schema(schema : @core.Schema) -> Json {
 /// Convert a moon_zod @core.Schema into a lightweight JSON @core.Schema skeleton.
 /// Only structural type information is exported.
 pub fn to_json_schema_skeleton(schema : @core.Schema) -> Json {
+  let _ = @core.collect_named_schemas(schema)
+  if contains_lazy(schema, Map([])) {
+    return to_json_schema_named(schema)
+  }
   render_json_type(
     NamedJsonRenderer(named_names=[], include_annotations=false),
     schema,
@@ -649,7 +677,7 @@ pub fn to_json_schema_named(
 
   let defs_map : Map[String, Json] = Map([])
   for ns in sorted_schemas {
-    let ref_names = named_names.filter(fn(n) { n != ns.name })
+    let ref_names = named_names
     let renderer = NamedJsonRenderer(named_names=ref_names)
     defs_map.set(ns.name, render_json_type(renderer, ns))
   }
@@ -667,4 +695,41 @@ pub fn to_json_schema_named(
   }
   result_map.set("$defs", Json::object(defs_map))
   Json::object(result_map)
+}
+
+///|
+pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_lazy(
+  self,
+  resolved,
+  schema,
+) {
+  render_json_type_ref(
+    self,
+    without_inherited_name(schema, resolved),
+    self.named_names,
+  )
+}
+
+///|
+fn without_inherited_name(
+  wrapper : @core.Schema,
+  inner : @core.Schema,
+) -> @core.Schema {
+  if !wrapper.name.is_empty() && wrapper.name == inner.name {
+    { ..inner, name: "", }
+  } else {
+    inner
+  }
+}
+
+///|
+fn contains_lazy(schema : @core.Schema, visited : Map[Int32, Bool]) -> Bool {
+  if schema.schema_type is LazyType(_) {
+    return true
+  }
+  if visited.contains(schema.id) {
+    return false
+  }
+  visited.set(schema.id, true)
+  @core.schema_children(schema).any(fn(child) { contains_lazy(child, visited) })
 }

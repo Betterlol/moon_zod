@@ -61,6 +61,11 @@ pub(all) enum Constraint {
   Integer
   Format(String)
   Pattern(String)
+  Prefix(String)
+  Suffix(String)
+  Contains(String)
+  Finite
+  SafeInteger
   Opaque
 } derive(Debug)
 

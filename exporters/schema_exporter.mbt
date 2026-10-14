@@ -18,6 +18,13 @@
 /// ```
 /// If root schema has no name, it is assigned the name "Root".
 pub fn schema_to_moon_zod_code(schema : @core.Schema) -> String {
+  match source_export_error(schema) {
+    Some(message) => abort(message)
+    None => ()
+  }
+  if contains_lazy(schema, Map([])) {
+    return schema_to_moon_zod_code_named(schema)
+  }
   let schema_name = if schema.name.is_empty() { "Root" } else { schema.name }
   let code = schema_to_moon_zod_code_inline(schema, None)
   let result = "let " +
@@ -41,6 +48,10 @@ pub fn schema_to_moon_zod_code_inline_with_refs(
   schema : @core.Schema,
   include_names : Array[String]?,
 ) -> String {
+  match source_export_error(schema) {
+    Some(message) => abort(message)
+    None => ()
+  }
   schema_to_moon_zod_code_inline(schema, include_names)
 }
 
@@ -59,6 +70,10 @@ pub fn schema_to_moon_zod_code_named(
   schema : @core.Schema,
   include_names~ : Array[String]? = None,
 ) -> String {
+  match source_export_error(schema) {
+    Some(message) => abort(message)
+    None => ()
+  }
   let mut schema = schema
   if schema.name.is_empty() {
     schema = schema.name("Root")
@@ -71,18 +86,35 @@ pub fn schema_to_moon_zod_code_named(
   let mut result = ""
   for s in sorted {
     if !s.name.is_empty() {
-      let self_names = defined_names.filter(fn(n) { n != s.name })
-      let code = schema_to_moon_zod_code_inline(s, Some(self_names))
+      let code = schema_to_moon_zod_code_inline(
+        s,
+        Some(defined_names),
+        inline_root=true,
+      )
       if !result.is_empty() {
         result = result + "\n"
       }
-      let line = "let " +
+      let line = if s.schema_type is LazyType(_) {
+        "fn " +
+        @core.escape_function_name(s.name) +
+        "_schema() -> @moon_zod.Schema { " +
+        code +
+        ".name(\"" +
+        @core.escape_mbt_string(s.name) +
+        "\") }\nlet " +
+        @core.escape_variable_name(s.name) +
+        " = " +
+        @core.escape_function_name(s.name) +
+        "_schema()"
+      } else {
+        "let " +
         @core.escape_variable_name(s.name) +
         " = " +
         code +
         ".name(\"" +
         @core.escape_mbt_string(s.name) +
         "\")"
+      }
       result = result + line
     }
   }
@@ -94,6 +126,7 @@ pub fn schema_to_moon_zod_code_named(
 fn schema_to_moon_zod_code_inline(
   schema : @core.Schema,
   include_names : Array[String]?,
+  inline_root~ : Bool = false,
 ) -> String {
   let defined_names = match include_names {
     None => []
@@ -101,11 +134,13 @@ fn schema_to_moon_zod_code_inline(
   }
 
   // If this schema has a name and it's in the defined_names list, use reference
-  if !schema.name.is_empty() && @core.value_in_array(schema.name, defined_names) {
+  if !inline_root &&
+    !schema.name.is_empty() &&
+    @core.value_in_array(schema.name, defined_names) {
     return @core.escape_variable_name(schema.name)
   }
 
-  let base = schema_type_to_code(schema.schema_type, defined_names)
+  let base = schema_type_to_code(schema.schema_type, defined_names, schema.name)
   let mut result = apply_rules_to_code(base, schema)
 
   // Apply description if present
@@ -138,6 +173,7 @@ fn schema_to_moon_zod_code_inline(
 fn schema_type_to_code(
   schema_type : @core.SchemaType,
   defined_names : Array[String],
+  wrapper_name : String,
 ) -> String {
   match schema_type {
     StringType => "@moon_zod.string()"
@@ -180,16 +216,46 @@ fn schema_type_to_code(
       "@moon_zod.tuple([" + join_with(parts, ", ") + "])"
     }
     NullableType(inner) =>
-      schema_to_moon_zod_code_inline(inner, Some(defined_names)) + ".nullable()"
+      schema_to_moon_zod_code_inline(
+        if inner.name == wrapper_name {
+          { ..inner, name: "", }
+        } else {
+          inner
+        },
+        Some(defined_names),
+      ) +
+      ".nullable()"
     PrefaultType(inner, value) =>
-      schema_to_moon_zod_code_inline(inner, Some(defined_names)) +
+      schema_to_moon_zod_code_inline(
+        if inner.name == wrapper_name {
+          { ..inner, name: "", }
+        } else {
+          inner
+        },
+        Some(defined_names),
+      ) +
       ".prefault(" +
       json_to_literal(value) +
       ")"
     OptionalType(inner) =>
-      schema_to_moon_zod_code_inline(inner, Some(defined_names)) + ".optional()"
+      schema_to_moon_zod_code_inline(
+        if inner.name == wrapper_name {
+          { ..inner, name: "", }
+        } else {
+          inner
+        },
+        Some(defined_names),
+      ) +
+      ".optional()"
     DefaultType(inner, default_val) =>
-      schema_to_moon_zod_code_inline(inner, Some(defined_names)) +
+      schema_to_moon_zod_code_inline(
+        if inner.name == wrapper_name {
+          { ..inner, name: "", }
+        } else {
+          inner
+        },
+        Some(defined_names),
+      ) +
       ".default(" +
       json_to_literal(default_val) +
       ")"
@@ -214,18 +280,45 @@ fn schema_type_to_code(
       }
       "@moon_zod.intersection([" + join_with(parts, ", ") + "])"
     }
-    PreprocessType(_, inner) => {
-      let inner_code = schema_to_moon_zod_code_inline(
-        inner,
+    PreprocessType(_, _) =>
+      abort(
+        "Custom preprocess cannot be serialized; use try_schema_to_moon_zod_code()",
+      )
+    LiteralType(val) => "@moon_zod.literal(" + json_to_literal(val) + ")"
+    TransformType(inner, closure) => {
+      let base = schema_to_moon_zod_code_inline(
+        if inner.name == wrapper_name {
+          { ..inner, name: "", }
+        } else {
+          inner
+        },
         Some(defined_names),
       )
-      "@moon_zod.preprocess(fn(x) { Ok(x) }, " + inner_code + ")" // TODO: Handle preprocess function code export
+      let suffix = match closure.kind {
+        TrimTransform => ".trim()"
+        LowerTransform => ".to_lower()"
+        UpperTransform => ".to_upper()"
+        IdentityTransform => ""
+        CustomTransform => abort("Custom transform cannot be serialized")
+      }
+      base + suffix
     }
-    LiteralType(val) => "@moon_zod.literal(" + json_to_literal(val) + ")"
-    TransformType(inner, _) =>
-      schema_to_moon_zod_code_inline(inner, Some(defined_names)) +
-      ".transform(fn(x) { Ok(x) })" // TODO: Handle transform function code export
-    LazyType(f) => schema_to_moon_zod_code_inline(f(), Some(defined_names))
+    LazyType(resolve) => {
+      let resolved = resolve()
+      if !resolved.name.is_empty() && defined_names.contains(resolved.name) {
+        "@moon_zod.recursive(" +
+        @core.escape_function_name(resolved.name) +
+        "_schema)"
+      } else {
+        "@moon_zod.recursive(fn() { " +
+        schema_to_moon_zod_code_inline(
+          resolved,
+          Some(defined_names),
+          inline_root=resolved.name == wrapper_name,
+        ) +
+        " })"
+      }
+    }
     DiscriminatedUnionType(disc, options) => {
       let parts : Array[String] = []
       for key, option in options {
@@ -261,125 +354,131 @@ fn schema_type_to_code(
 /// since rule.message may be auto-generated defaults.
 fn apply_rules_to_code(base : String, schema : @core.Schema) -> String {
   let mut result = base
-  let mut has_int_type = false
-
   for rule in schema.rules {
-    match rule.annotation {
-      Object(map) => {
-        if map.contains("type") {
-          match map.get("type") {
-            Some(String("integer")) => has_int_type = true
-            _ => ()
-          }
+    let operation = match rule.constraint {
+      Minimum(_, value, inclusive) =>
+        if !inclusive && value == 0.0 {
+          ".positive()"
+        } else {
+          (if inclusive { ".min(" } else { ".gt(" }) +
+          @core.format_double_simple(value) +
+          ")"
         }
-
-        // String constraints
-        if map.contains("minLength") {
-          match map.get("minLength") {
-            Some(Number(v, ..)) =>
-              result = result + ".min(" + @core.format_double_simple(v) + ")"
-            _ => ()
-          }
+      Maximum(_, value, inclusive) =>
+        if !inclusive && value == 0.0 {
+          ".negative()"
+        } else {
+          (if inclusive { ".max(" } else { ".lt(" }) +
+          @core.format_double_simple(value) +
+          ")"
         }
-        if map.contains("maxLength") {
-          match map.get("maxLength") {
-            Some(Number(v, ..)) =>
-              result = result + ".max(" + @core.format_double_simple(v) + ")"
-            _ => ()
-          }
+      ExactLength(_, value) => ".length(" + value.to_string() + ")"
+      Multiple(value) =>
+        ".multipleOf(" + @core.format_double_simple(value) + ")"
+      Integer => ".int()"
+      SafeInteger => ".safe()"
+      Finite => ".finite()"
+      Pattern(value) => ".regex(\"" + @core.escape_mbt_string(value) + "\")"
+      Prefix(value) => ".startsWith(\"" + @core.escape_mbt_string(value) + "\")"
+      Suffix(value) => ".endsWith(\"" + @core.escape_mbt_string(value) + "\")"
+      Contains(value) => ".includes(\"" + @core.escape_mbt_string(value) + "\")"
+      Format(value) =>
+        match value {
+          "uri" => ".url()"
+          "date-time" => datetime_to_code(rule.annotation)
+          "email" => ".email()"
+          "uuid" => ".uuid()"
+          "ipv4" => ".ipv4()"
+          "ipv6" => ".ipv6()"
+          "ip" => ".ip()"
+          "ulid" => ".ulid()"
+          "cuid" => ".cuid()"
+          _ => abort("Unsupported format in source export: " + value)
         }
-        if map.contains("pattern") {
-          match map.get("pattern") {
-            Some(String(p)) =>
-              result = result + ".regex(\"" + @core.escape_mbt_string(p) + "\")"
-            _ => ()
-          }
-        }
-        if map.contains("format") {
-          match map.get("format") {
-            Some(String("email")) => result = result + ".email()"
-            Some(String("uri")) => result = result + ".url()"
-            Some(String("date-time")) => result = result + ".datetime()"
-            Some(String("ipv4")) => result = result + ".ipv4()"
-            Some(String("ipv6")) => result = result + ".ipv6()"
-            Some(String("uuid")) => result = result + ".uuid()"
-            _ => ()
-          }
-        }
-
-        // Number constraints
-        if map.contains("minimum") {
-          match map.get("minimum") {
-            Some(Number(v, ..)) =>
-              result = result + ".min(" + @core.format_double_simple(v) + ")"
-            _ => ()
-          }
-        }
-        if map.contains("maximum") {
-          match map.get("maximum") {
-            Some(Number(v, ..)) =>
-              result = result + ".max(" + @core.format_double_simple(v) + ")"
-            _ => ()
-          }
-        }
-        if map.contains("exclusiveMinimum") {
-          match map.get("exclusiveMinimum") {
-            Some(Number(v, ..)) =>
-              if v == 0.0 {
-                result = result + ".positive()"
-              } else {
-                result = result + ".min(" + @core.format_double_simple(v) + ")"
-              }
-            _ => ()
-          }
-        }
-        if map.contains("exclusiveMaximum") {
-          match map.get("exclusiveMaximum") {
-            Some(Number(v, ..)) =>
-              if v == 0.0 {
-                result = result + ".negative()"
-              } else {
-                result = result + ".max(" + @core.format_double_simple(v) + ")"
-              }
-            _ => ()
-          }
-        }
-        if map.contains("multipleOf") {
-          match map.get("multipleOf") {
-            Some(Number(v, ..)) =>
-              result = result +
-                ".multipleOf(" +
-                @core.format_double_simple(v) +
-                ")"
-            _ => ()
-          }
-        }
-
-        // Array constraints
-        if map.contains("minItems") {
-          match map.get("minItems") {
-            Some(Number(v, ..)) =>
-              result = result + ".min(" + @core.format_double_simple(v) + ")"
-            _ => ()
-          }
-        }
-        if map.contains("maxItems") {
-          match map.get("maxItems") {
-            Some(Number(v, ..)) =>
-              result = result + ".max(" + @core.format_double_simple(v) + ")"
-            _ => ()
-          }
-        }
-      }
-      _ => ()
+      Opaque =>
+        abort(
+          "Opaque rule cannot be serialized; use try_schema_to_moon_zod_code()",
+        )
+    }
+    result = result + operation
+    if rule.explicit_message {
+      result = result +
+        ".message(\"" +
+        @core.escape_mbt_string(rule.message) +
+        "\")"
     }
   }
-
-  if has_int_type {
-    result = result + ".int()"
-  }
-
   result
+}
+
+///|
+fn datetime_to_code(annotation : Json) -> String {
+  guard annotation is Object(fields) &&
+    fields.get("x-moon-zod-datetime") is Some(Object(params)) else {
+    return ".datetime()"
+  }
+  let offset = params.get("offset") is Some(True)
+  let allow_local = params.get("allow_local") is Some(True)
+  let precision = match params.get("precision") {
+    Some(Number(value, ..)) => value.to_int()
+    _ => -2
+  }
+  if !offset && !allow_local && precision == -2 {
+    ".datetime()"
+  } else {
+    ".datetime(offset=" +
+    offset.to_string() +
+    ", allow_local=" +
+    allow_local.to_string() +
+    ", precision=" +
+    precision.to_string() +
+    ")"
+  }
+}
+
+///|
+fn source_export_error(schema : @core.Schema) -> String? {
+  let nodes = match @core.try_schema_nodes(schema) {
+    Ok(nodes) => nodes
+    Err(message) => return Some(message)
+  }
+  let identifiers : Map[String, String] = Map([])
+  for node in nodes {
+    if !node.name.is_empty() {
+      let identifier = @core.escape_variable_name(node.name)
+      match identifiers.get(identifier) {
+        Some(previous) =>
+          if previous != node.name {
+            return Some(
+              "Schema names collide after identifier escaping: " + node.name,
+            )
+          }
+        None => identifiers.set(identifier, node.name)
+      }
+    }
+    if node.schema_type is PreprocessType(_, _) {
+      return Some("Custom preprocess callbacks cannot be serialized")
+    }
+    if node.schema_type is TransformType(_, closure) &&
+      closure.kind is CustomTransform {
+      return Some("Custom transform callbacks cannot be serialized")
+    }
+    if node.rules.any(fn(rule) { rule.constraint is Opaque }) {
+      return Some("Opaque refinement callbacks cannot be serialized")
+    }
+  }
+  None
+}
+
+///|
+/// Generate faithful source or return an explicit unsupported-schema error.
+pub fn try_schema_to_moon_zod_code(
+  schema : @core.Schema,
+) -> Result[String, String] {
+  match source_export_error(schema) {
+    Some(message) => Err(message)
+    None => Ok(schema_to_moon_zod_code(schema))
+  }
 }
 
 ///|
