@@ -363,7 +363,7 @@ pub fn json_infer_schema(json : Json) -> Schema {
     String(_) => string()
     Number(v, ..) =>
       // Check if it's an integer value
-      if v == v.to_int().to_double() {
+      if is_safe_integer(v) {
         number().int()
       } else {
         number()
@@ -371,10 +371,13 @@ pub fn json_infer_schema(json : Json) -> Schema {
     True | False => boolean()
     Null => null()
     Array(elements) => {
-      let elem_schema = if elements.length() > 0 {
-        json_infer_schema(elements[0])
+      let branches = elements.map(json_infer_schema)
+      let elem_schema = if branches.is_empty() {
+        unknown()
+      } else if branches.length() == 1 {
+        branches[0]
       } else {
-        string()
+        union(branches)
       }
       array(elem_schema)
     }

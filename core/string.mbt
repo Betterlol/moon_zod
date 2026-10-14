@@ -16,26 +16,26 @@ pub fn string(
 }
 
 ///|
-fn schema_min_check(s : Schema, n : Int32) -> (Json) -> Bool {
+fn schema_min_check(s : Schema, n : Double) -> (Json) -> Bool {
   match inner_type(s.schema_type) {
     StringType =>
       fn(json) {
         match json {
-          String(s) => s.length() >= n
+          String(s) => s.length().to_double() >= n
           _ => false
         }
       }
     NumberType =>
       fn(json) {
         match json {
-          Number(v, ..) => v >= n.to_double()
+          Number(v, ..) => v >= n
           _ => false
         }
       }
     ArrayType(_) =>
       fn(json) {
         match json {
-          Array(arr) => arr.length() >= n
+          Array(arr) => arr.length().to_double() >= n
           _ => false
         }
       }
@@ -44,7 +44,7 @@ fn schema_min_check(s : Schema, n : Int32) -> (Json) -> Bool {
 }
 
 ///|
-fn schema_min_msg(s : Schema, n : Int32) -> String {
+fn schema_min_msg(s : Schema, n : Double) -> String {
   match inner_type(s.schema_type) {
     StringType => "String must contain at least \{n} character(s)"
     NumberType => "Value must be >= \{n}"
@@ -55,14 +55,20 @@ fn schema_min_msg(s : Schema, n : Int32) -> String {
 
 ///|
 /// Require the string length to be at least `n`.
-pub fn Schema::min(self : Schema, n : Int32, msg~ : String = "") -> Schema {
+pub fn[N : NumericBound] Schema::min(
+  self : Schema,
+  n : N,
+  msg~ : String = "",
+) -> Schema {
+  let n = n.to_bound()
+  guard_sized_bound(self, n)
   guard_no_user_transform(self)
   let check = schema_min_check(self, n)
   let message = if msg.is_empty() { schema_min_msg(self, n) } else { msg }
   let annotation = match inner_type(self.schema_type) {
-    StringType => Json::object({ "minLength": Json::number(n.to_double()) })
-    NumberType => Json::object({ "minimum": Json::number(n.to_double()) })
-    ArrayType(_) => Json::object({ "minItems": Json::number(n.to_double()) })
+    StringType => Json::object({ "minLength": Json::number(n) })
+    NumberType => Json::object({ "minimum": Json::number(n) })
+    ArrayType(_) => Json::object({ "minItems": Json::number(n) })
     _ => Json::null()
   }
   let origin = match inner_type(self.schema_type) {
@@ -75,32 +81,32 @@ pub fn Schema::min(self : Schema, n : Int32, msg~ : String = "") -> Schema {
     self,
     check,
     message,
-    IssueCode::TooSmall(origin, n.to_double(), true),
+    IssueCode::TooSmall(origin, n, true),
     annotation,
   )
 }
 
 ///|
-fn schema_max_check(s : Schema, n : Int32) -> (Json) -> Bool {
+fn schema_max_check(s : Schema, n : Double) -> (Json) -> Bool {
   match inner_type(s.schema_type) {
     StringType =>
       fn(json) {
         match json {
-          String(s) => s.length() <= n
+          String(s) => s.length().to_double() <= n
           _ => false
         }
       }
     NumberType =>
       fn(json) {
         match json {
-          Number(v, ..) => v <= n.to_double()
+          Number(v, ..) => v <= n
           _ => false
         }
       }
     ArrayType(_) =>
       fn(json) {
         match json {
-          Array(arr) => arr.length() <= n
+          Array(arr) => arr.length().to_double() <= n
           _ => false
         }
       }
@@ -109,7 +115,7 @@ fn schema_max_check(s : Schema, n : Int32) -> (Json) -> Bool {
 }
 
 ///|
-fn schema_max_msg(s : Schema, n : Int32) -> String {
+fn schema_max_msg(s : Schema, n : Double) -> String {
   match inner_type(s.schema_type) {
     StringType => "String must contain at most \{n} character(s)"
     NumberType => "Value must be <= \{n}"
@@ -120,14 +126,20 @@ fn schema_max_msg(s : Schema, n : Int32) -> String {
 
 ///|
 /// Require the string length to be at most `n`.
-pub fn Schema::max(self : Schema, n : Int32, msg~ : String = "") -> Schema {
+pub fn[N : NumericBound] Schema::max(
+  self : Schema,
+  n : N,
+  msg~ : String = "",
+) -> Schema {
+  let n = n.to_bound()
+  guard_sized_bound(self, n)
   guard_no_user_transform(self)
   let check = schema_max_check(self, n)
   let message = if msg.is_empty() { schema_max_msg(self, n) } else { msg }
   let annotation = match inner_type(self.schema_type) {
-    StringType => Json::object({ "maxLength": Json::number(n.to_double()) })
-    NumberType => Json::object({ "maximum": Json::number(n.to_double()) })
-    ArrayType(_) => Json::object({ "maxItems": Json::number(n.to_double()) })
+    StringType => Json::object({ "maxLength": Json::number(n) })
+    NumberType => Json::object({ "maximum": Json::number(n) })
+    ArrayType(_) => Json::object({ "maxItems": Json::number(n) })
     _ => Json::null()
   }
   let origin = match inner_type(self.schema_type) {
@@ -140,7 +152,7 @@ pub fn Schema::max(self : Schema, n : Int32, msg~ : String = "") -> Schema {
     self,
     check,
     message,
-    IssueCode::TooBig(origin, n.to_double(), true),
+    IssueCode::TooBig(origin, n, true),
     annotation,
   )
 }
@@ -1192,4 +1204,19 @@ pub fn Schema::ulid(self : Schema, msg~ : String = "") -> Schema {
     IssueCode::InvalidFormat("ulid"),
     Json::object({ "format": Json::string("ulid") }),
   )
+}
+
+///|
+fn guard_sized_bound(schema : Schema, bound : Double) -> Unit {
+  if bound.is_nan() || bound.is_inf() {
+    abort("bounds must be finite")
+  }
+  match inner_type(schema.schema_type) {
+    NumberType => ()
+    StringType | ArrayType(_) =>
+      if bound < 0.0 || bound != bound.floor() {
+        abort("length bounds must be nonnegative integers")
+      }
+    _ => abort("min()/max() require a string, number or array schema")
+  }
 }

@@ -362,9 +362,9 @@ fn parse_node(
     _ => {
       let valid = match (schema.schema_type, input) {
         (StringType, String(_))
-        | (NumberType, Number(_))
         | (BooleanType, True | False)
         | (NullType, Null) => true
+        (NumberType, Number(value, ..)) => !value.is_nan() && !value.is_inf()
         (AnyType | UnknownType, _) => true
         _ => false
       }

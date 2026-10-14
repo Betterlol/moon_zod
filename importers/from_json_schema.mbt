@@ -272,11 +272,11 @@ fn apply_json_schema_constraints(
 
   // String/Array length constraints
   match m.get("minLength") {
-    Some(Number(v, ..)) => result = result.min(v.to_int())
+    Some(Number(v, ..)) => result = result.min(v)
     _ => ()
   }
   match m.get("maxLength") {
-    Some(Number(v, ..)) => result = result.max(v.to_int())
+    Some(Number(v, ..)) => result = result.max(v)
     _ => ()
   }
   match m.get("pattern") {
@@ -295,75 +295,33 @@ fn apply_json_schema_constraints(
 
   // Number constraints
   match m.get("minimum") {
-    Some(Number(v, ..)) => result = result.min(v.to_int())
+    Some(Number(v, ..)) => result = result.min(v)
     _ => ()
   }
   match m.get("maximum") {
-    Some(Number(v, ..)) => result = result.max(v.to_int())
+    Some(Number(v, ..)) => result = result.max(v)
     _ => ()
   }
   match m.get("exclusiveMinimum") {
-    Some(Number(v, ..)) =>
-      if v == 0.0 {
-        result = result.positive()
-      } else {
-        let int_val = v.to_int()
-        let is_integer = v == int_val.to_double()
-        let bound = if is_integer { int_val + 1 } else { int_val }
-        result = result.min(bound)
-        if !is_integer {
-          result = @core.append_rule(
-            result,
-            fn(json) {
-              match json {
-                Number(n, ..) => n > v
-                _ => false
-              }
-            },
-            "Value must be greater than \{v}",
-            @core.IssueCode::Custom,
-          )
-        }
-      }
+    Some(Number(v, ..)) => result = result.gt(v)
     _ => ()
   }
   match m.get("exclusiveMaximum") {
-    Some(Number(v, ..)) =>
-      if v == 0.0 {
-        result = result.negative()
-      } else {
-        let int_val = v.to_int()
-        let is_integer = v == int_val.to_double()
-        if is_integer {
-          result = result.max(int_val - 1)
-        } else {
-          result = @core.append_rule(
-            result,
-            fn(json) {
-              match json {
-                Number(n, ..) => n < v
-                _ => false
-              }
-            },
-            "Value must be less than \{v}",
-            @core.IssueCode::Custom,
-          )
-        }
-      }
+    Some(Number(v, ..)) => result = result.lt(v)
     _ => ()
   }
   match m.get("multipleOf") {
-    Some(Number(v, ..)) => result = result.multipleOf(v.to_int())
+    Some(Number(v, ..)) => result = result.multipleOf(v)
     _ => ()
   }
 
   // Array constraints
   match m.get("minItems") {
-    Some(Number(v, ..)) => result = result.min(v.to_int())
+    Some(Number(v, ..)) => result = result.min(v)
     _ => ()
   }
   match m.get("maxItems") {
-    Some(Number(v, ..)) => result = result.max(v.to_int())
+    Some(Number(v, ..)) => result = result.max(v)
     _ => ()
   }
 
