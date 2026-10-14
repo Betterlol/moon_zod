@@ -17,6 +17,8 @@ pub using @core {
   type TransformClosure,
   type ValidationError,
   type SchemaResult,
+  type StreamParseResult,
+  type StreamParser,
   type ConstraintInfo,
   string,
   number,
