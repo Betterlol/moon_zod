@@ -181,9 +181,13 @@ fn render_struct_def(type_name : String, schema : @core.Schema) -> String {
           field_schema,
           child_type_name(escaped_type, key),
         )
-        let opt_mark = if is_optional_field(field_schema) { "?" } else { "" }
+        let field_type = if @core.output_is_optional(field_schema) {
+          optional_moonbit_type(field_type)
+        } else {
+          field_type
+        }
         let comment = @core.constraint_comment(field_schema)
-        let line = "  " + field_name + " : " + field_type + opt_mark
+        let line = "  " + field_name + " : " + field_type
         if comment.is_empty() {
           result = result + line + "\n"
         } else {
@@ -252,10 +256,10 @@ fn render_enum_to_schema_fn(
 ///|
 fn field_to_moonbit_type(schema : @core.Schema, type_hint : String) -> String {
   match schema.schema_type {
-    OptionalType(inner)
-    | DefaultType(inner, _)
-    | PrefaultType(inner, _)
-    | NullableType(inner) => field_to_moonbit_type(inner, type_hint)
+    OptionalType(inner) | DefaultType(inner, _) | PrefaultType(inner, _) =>
+      field_to_moonbit_type(inner, type_hint)
+    NullableType(inner) =>
+      nullable_moonbit_type(field_to_moonbit_type(inner, type_hint))
     TransformType(inner, _) => field_to_moonbit_type(inner, type_hint)
     PreprocessType(_, inner) => field_to_moonbit_type(inner, type_hint)
     StringType => "String"
@@ -266,7 +270,7 @@ fn field_to_moonbit_type(schema : @core.Schema, type_hint : String) -> String {
     ObjectType(_, _) => schema_type_name(schema, type_hint)
     ArrayType(elem) =>
       "Array[" + field_to_moonbit_type(elem, type_hint + "Item") + "]"
-    TupleType(_) => "Json // TODO: tuple type"
+    TupleType(_) => "Json"
     EnumType(_) => schema_type_name(schema, type_hint)
     UnionType(schemas) => union_to_moonbit_type(schemas, type_hint)
     IntersectionType(schemas) =>
@@ -294,13 +298,13 @@ fn union_to_moonbit_type(
     let left = schemas[0]
     let right = schemas[1]
     if is_null_schema(left) {
-      return field_to_moonbit_type(right, type_hint)
+      return nullable_moonbit_type(field_to_moonbit_type(right, type_hint))
     }
     if is_null_schema(right) {
-      return field_to_moonbit_type(left, type_hint)
+      return nullable_moonbit_type(field_to_moonbit_type(left, type_hint))
     }
   }
-  "Json // TODO: union type"
+  "Json"
 }
 
 ///|
@@ -311,15 +315,24 @@ fn intersection_to_moonbit_type(
   if schemas.length() == 1 {
     return field_to_moonbit_type(schemas[0], type_hint)
   }
-  "Json // TODO: intersection type"
+  "Json"
 }
 
 ///|
-fn is_optional_field(schema : @core.Schema) -> Bool {
-  match schema.schema_type {
-    OptionalType(_) | NullableType(_) => true
-    UnionType(schemas) => schemas.any(fn(item) { is_null_schema(item) })
-    _ => false
+fn nullable_moonbit_type(type_name : String) -> String {
+  if type_name.has_prefix("@moon_zod.JsonNullable[") {
+    type_name
+  } else {
+    "@moon_zod.JsonNullable[" + type_name + "]"
+  }
+}
+
+///|
+fn optional_moonbit_type(type_name : String) -> String {
+  if type_name.has_suffix("?") {
+    type_name
+  } else {
+    type_name + "?"
   }
 }
 

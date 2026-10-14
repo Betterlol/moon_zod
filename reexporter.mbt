@@ -116,3 +116,7 @@ pub using @exporters {
 ///|
 /// Structured validation paths and their canonical string representation.
 pub using @core {type PathSegment, parse_path, format_path_segments}
+
+///|
+/// JSON-compatible nullable values for generated MoonBit types.
+pub using @exporters {type JsonNullable}

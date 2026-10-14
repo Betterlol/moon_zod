@@ -50,6 +50,30 @@ fn main {
     Json::string(@moon_zod.schema_to_moon_zod_code(s))
   })).stringify())
   println(Json::string(@moon_zod.schema_to_moonbit_struct_full(tree())).stringify())
+  let rows = [
+    @moon_zod.object({"items": @moon_zod.array(@moon_zod.string().nullable())}).name("NullableRow"),
+    @moon_zod.object({
+      "items": @moon_zod.array(@moon_zod.array(@moon_zod.string().nullable()).nullable()).nullable(),
+      "note": @moon_zod.string().nullish(),
+      "pair": @moon_zod.array(@moon_zod.tuple([@moon_zod.string(), @moon_zod.number()])),
+    }).name("NestedRow"),
+    @moon_zod.object({"value": @moon_zod.string().default(Json::string("x")).optional()}).name("DefaultRow"),
+  ]
+  let values = [
+    @moon_zod.parse_json("{\"items\":[null,\"x\"]}"),
+    @moon_zod.parse_json("{\"items\":[null,[null,\"x\"]],\"note\":null,\"pair\":[[\"a\",1]]}"),
+    @moon_zod.parse_json("{}"),
+  ]
+  let fixtures : Array[Json] = []
+  for i = 0; i < rows.length(); i = i + 1 {
+    guard rows[i].parse(values[i]) is Ok(output) else { abort("invalid fixture") }
+    fixtures.push(Json::object({
+      "name": Json::string(rows[i].name),
+      "code": Json::string(@moon_zod.schema_to_moonbit_struct(rows[i])),
+      "value": output,
+    }))
+  }
+  println(Json::array(fixtures).stringify())
 }
 '''
 
@@ -81,8 +105,10 @@ def main():
         (producer / "main.mbt").write_text(PRODUCER, encoding="utf-8")
         lines = moon("run", producer_path, "--target", "js").splitlines()
         codes, struct = json.loads(lines[0]), json.loads(lines[1])
+        decode_fixtures = json.loads(lines[2])
         consumer = task / "consumer"
         consumer_path = package(consumer)
+        (consumer / "moon.pkg").write_text('import { "Betterlol/moon_zod", "moonbitlang/core/json" }\n', encoding="utf-8")
         inputs = ['" abc "', '{"v":9007199254740991}',
                   '{"value":1,"children":[{"value":2}]}',
                   '{"children":[{"children":[]}]}', '"text"', '3e-7',
@@ -105,6 +131,16 @@ def main():
             f'  let input = @moon_zod.parse_json({json.dumps(inputs[2])})\n'
             '  assert_true(Tree::to_schema().parse(input) is Ok(value) && value == input)\n}\n'
         )
+        for fixture in decode_fixtures:
+            tests.append(fixture["code"])
+            data = json.dumps(json.dumps(fixture["value"], ensure_ascii=True))
+            tests.append(
+                f'///|\ntest "decode generated {fixture["name"]}" {{\n'
+                f'  let value = @moon_zod.parse_json({data})\n'
+                f'  let decoded : {fixture["name"]} = @json.from_json(value) catch {{ _ => fail("generated type rejected legal output") }}\n'
+                '  assert_true(ToJson::to_json(decoded) == value)\n'
+                '}\n'
+            )
         (consumer / "generated_test.mbt").write_text("\n".join(tests), encoding="utf-8")
         for backend in ("wasm-gc", "js"):
             print(f"Generated source ({backend}): " + moon(
