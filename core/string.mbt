@@ -248,7 +248,7 @@ pub fn Schema::email(self : Schema, msg~ : String = "") -> Schema {
 
 ///|
 fn is_valid_url(s : String) -> Bool {
-  let chars = s.trim().to_owned().to_array()
+  let chars = s.to_array()
   let mut colon = -1
   for i = 0; i < chars.length(); i = i + 1 {
     if chars[i] == ':' {
@@ -280,7 +280,7 @@ fn is_valid_url(s : String) -> Bool {
     chars[colon + 1] == '/' &&
     chars[colon + 2] == '/'
   if !has_authority {
-    return !special
+    return !special && valid_uri_tail(chars, colon + 1)
   }
   let start = colon + 3
   let mut end = start
@@ -290,12 +290,20 @@ fn is_valid_url(s : String) -> Bool {
         chars[end] != '#' {
     end = end + 1
   }
+  if !valid_uri_tail(chars, end) {
+    return false
+  }
   if end == start {
     return scheme == "file"
   }
   let mut host_start = start
+  let mut userinfo = false
   for i = start; i < end; i = i + 1 {
     if chars[i] == '@' {
+      if userinfo || !valid_uri_component(chars, start, i, ":") {
+        return false
+      }
+      userinfo = true
       host_start = i + 1
     }
   }
@@ -360,6 +368,77 @@ fn is_valid_url(s : String) -> Bool {
         return false
       }
     }
+  }
+  true
+}
+
+///|
+/// RFC 3986 unreserved/sub-delims, plus each component's permitted delimiters.
+fn valid_uri_component(
+  chars : Array[Char],
+  start : Int32,
+  end : Int32,
+  extra : String,
+) -> Bool {
+  let mut i = start
+  while i < end {
+    let c = chars[i]
+    if c == '%' {
+      if i + 2 >= end ||
+        !is_hex_digit(chars[i + 1]) ||
+        !is_hex_digit(chars[i + 2]) {
+        return false
+      }
+      i = i + 3
+      continue
+    }
+    let unreserved = (c >= 'a' && c <= 'z') ||
+      (c >= 'A' && c <= 'Z') ||
+      (c >= '0' && c <= '9') ||
+      c == '-' ||
+      c == '.' ||
+      c == '_' ||
+      c == '~'
+    let subdelim = c == '!' ||
+      c == '$' ||
+      c == '&' ||
+      c.to_int() == 39 ||
+      c == '(' ||
+      c == ')' ||
+      c == '*' ||
+      c == '+' ||
+      c == ',' ||
+      c == ';' ||
+      c == '='
+    if !unreserved && !subdelim && !extra.to_array().contains(c) {
+      return false
+    }
+    i = i + 1
+  }
+  true
+}
+
+///|
+fn valid_uri_tail(chars : Array[Char], start : Int32) -> Bool {
+  let mut end = start
+  while end < chars.length() && chars[end] != '?' && chars[end] != '#' {
+    end = end + 1
+  }
+  if !valid_uri_component(chars, start, end, ":@/") {
+    return false
+  }
+  if end < chars.length() && chars[end] == '?' {
+    let query = end + 1
+    end = query
+    while end < chars.length() && chars[end] != '#' {
+      end = end + 1
+    }
+    if !valid_uri_component(chars, query, end, ":@/?") {
+      return false
+    }
+  }
+  if end < chars.length() {
+    return valid_uri_component(chars, end + 1, chars.length(), ":@/?")
   }
   true
 }
