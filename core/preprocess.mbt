@@ -10,6 +10,7 @@ pub fn preprocess(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
+    id: new_schema_id(),
     schema_type: PreprocessType(
       TransformClosure::{ f, kind: CustomTransform, },
       inner,
@@ -32,7 +33,11 @@ pub fn Schema::parse_preprocess(
   path_stack : Array[String],
 ) -> RawSchemaResult {
   parse_inner(
-    { ..self, schema_type: PreprocessType(closure, inner), },
+    {
+      ..self,
+      id: new_schema_id(),
+      schema_type: PreprocessType(closure, inner),
+    },
     json,
     path_stack,
   )

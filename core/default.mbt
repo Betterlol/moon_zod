@@ -4,6 +4,7 @@
 /// via `append_rule`.
 pub fn Schema::default(self : Schema, value : Json) -> Schema {
   {
+    id: new_schema_id(),
     schema_type: DefaultType(self, copy_json(value)),
     rules: [],
     description: self.description,
@@ -23,7 +24,11 @@ pub fn Schema::parse_default(
   path_stack : Array[String],
 ) -> RawSchemaResult {
   parse_inner(
-    { ..self, schema_type: DefaultType(inner, default_val), },
+    {
+      ..self,
+      id: new_schema_id(),
+      schema_type: DefaultType(inner, default_val),
+    },
     json,
     path_stack,
   )

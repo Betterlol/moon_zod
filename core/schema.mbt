@@ -93,6 +93,7 @@ pub extend Rule with @debug.Debug::{to_repr}
 ///|
 /// A schema defines the shape and constraints of JSON data.
 pub(all) struct Schema {
+  id : Int32
   schema_type : SchemaType
   rules : Array[Rule]
   description : String
@@ -111,7 +112,7 @@ pub extend Schema with @debug.Debug::{to_repr}
 /// The description is rendered by `schema_to_prompt()` alongside type and constraints,
 /// helping LLMs understand the semantic meaning of each field.
 pub fn Schema::describe(self : Schema, text : String) -> Schema {
-  { ..self, description: text, }
+  { ..self, id: new_schema_id(), description: text, }
 }
 
 ///|
@@ -119,7 +120,7 @@ pub fn Schema::describe(self : Schema, text : String) -> Schema {
 /// When used with `schema_to_prompt_named()`, named schemas are extracted as separate
 /// interface/type definitions in the generated prompt, supporting Object and Enum types.
 pub fn Schema::name(self : Schema, text : String) -> Schema {
-  { ..self, name: text, }
+  { ..self, id: new_schema_id(), name: text, }
 }
 
 ///|
@@ -128,20 +129,20 @@ pub fn Schema::name(self : Schema, text : String) -> Schema {
 /// structurally identical schemas (e.g., `UserId` vs `string`).
 /// The brand is rendered in prompt and JSON Schema exports.
 pub fn Schema::brand(self : Schema, text : String) -> Schema {
-  { ..self, brand: text, }
+  { ..self, id: new_schema_id(), brand: text, }
 }
 
 ///|
 /// Override the error message when a required field is missing.
 /// Only effective when this schema is used as an object field value.
 pub fn Schema::required_error(self : Schema, text : String) -> Schema {
-  { ..self, required_error: text, }
+  { ..self, id: new_schema_id(), required_error: text, }
 }
 
 ///|
 /// Override the error message when the input type does not match.
 pub fn Schema::invalid_type_error(self : Schema, text : String) -> Schema {
-  { ..self, invalid_type_error: text, }
+  { ..self, id: new_schema_id(), invalid_type_error: text, }
 }
 
 ///|
@@ -158,7 +159,7 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
     let rules = self.rules.copy()
     let i = rules.length() - 1
     rules[i] = { ..rules[i], message: text, explicit_message: true, }
-    return { ..self, rules, }
+    return { ..self, id: new_schema_id(), rules, }
   }
   let schema_type = match self.schema_type {
     OptionalType(inner) => OptionalType(inner.message(text))
@@ -172,7 +173,7 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
       PipeType(input, bridge, output.message(text))
     _ => abort("message() must follow a rule method")
   }
-  { ..self, schema_type, }
+  { ..self, id: new_schema_id(), schema_type, }
 }
 
 ///|

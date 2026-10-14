@@ -7,7 +7,8 @@ pub fn intersection(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
-    schema_type: IntersectionType(schemas),
+    id: new_schema_id(),
+    schema_type: IntersectionType(schemas.copy()),
     rules: [],
     description: "",
     required_error,
@@ -32,7 +33,11 @@ pub fn Schema::parse_intersection(
   path_stack : Array[String],
 ) -> RawSchemaResult {
   parse_inner(
-    { ..self, schema_type: IntersectionType(schemas), },
+    {
+      ..self,
+      id: new_schema_id(),
+      schema_type: IntersectionType(schemas.copy()),
+    },
     json,
     path_stack,
   )

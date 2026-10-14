@@ -1,7 +1,7 @@
 ///|
 /// Accept explicit JSON null without making an object key optional.
 pub fn Schema::nullable(self : Schema) -> Schema {
-  { ..self, schema_type: NullableType(self), rules: [], }
+  { ..self, id: new_schema_id(), schema_type: NullableType(self), rules: [], }
 }
 
 ///|

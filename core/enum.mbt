@@ -6,7 +6,8 @@ pub fn enum_values(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
-    schema_type: EnumType(values),
+    id: new_schema_id(),
+    schema_type: EnumType(values.copy()),
     rules: [],
     description: "",
     required_error,
@@ -37,7 +38,7 @@ pub fn Schema::exclude(self : Schema, values : Array[String]) -> Schema {
           filtered.push(v)
         }
       }
-      { ..self, schema_type: EnumType(filtered), }
+      { ..self, id: new_schema_id(), schema_type: EnumType(filtered), }
     }
     _ => abort("exclude() is only valid for enum schemas")
   }
@@ -64,7 +65,7 @@ pub fn Schema::extract(self : Schema, values : Array[String]) -> Schema {
           filtered.push(v)
         }
       }
-      { ..self, schema_type: EnumType(filtered), }
+      { ..self, id: new_schema_id(), schema_type: EnumType(filtered), }
     }
     _ => abort("extract() is only valid for enum schemas")
   }
@@ -77,5 +78,9 @@ pub fn Schema::parse_enum(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  parse_inner({ ..self, schema_type: EnumType(values), }, json, path_stack)
+  parse_inner(
+    { ..self, id: new_schema_id(), schema_type: EnumType(values.copy()), },
+    json,
+    path_stack,
+  )
 }

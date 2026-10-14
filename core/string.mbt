@@ -5,6 +5,7 @@ pub fn string(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
+    id: new_schema_id(),
     schema_type: StringType,
     rules: [],
     description: "",
@@ -1050,6 +1051,7 @@ pub fn Schema::trim(self : Schema) -> Schema {
     _ => abort("trim() is only valid for string schemas")
   }
   {
+    id: new_schema_id(),
     schema_type: TransformType(self, TransformClosure::{
       f: fn(json) {
         match json {
@@ -1077,6 +1079,7 @@ pub fn Schema::to_lower(self : Schema) -> Schema {
     _ => abort("to_lower() is only valid for string schemas")
   }
   {
+    id: new_schema_id(),
     schema_type: TransformType(self, TransformClosure::{
       f: fn(json) {
         match json {
@@ -1104,6 +1107,7 @@ pub fn Schema::to_upper(self : Schema) -> Schema {
     _ => abort("to_upper() is only valid for string schemas")
   }
   {
+    id: new_schema_id(),
     schema_type: TransformType(self, TransformClosure::{
       f: fn(json) {
         match json {

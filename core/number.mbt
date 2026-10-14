@@ -91,6 +91,7 @@ pub fn number(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
+    id: new_schema_id(),
     schema_type: NumberType,
     rules: [],
     description: "",

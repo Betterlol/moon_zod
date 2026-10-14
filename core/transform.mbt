@@ -21,6 +21,7 @@ pub fn Schema::transform(
   f : (Json) -> Result[Json, String],
 ) -> Schema {
   {
+    id: new_schema_id(),
     schema_type: TransformType(self, TransformClosure::{
       f,
       kind: CustomTransform,
@@ -43,7 +44,7 @@ pub fn Schema::parse_transform(
   path_stack : Array[String],
 ) -> RawSchemaResult {
   parse_inner(
-    { ..self, schema_type: TransformType(inner, closure), },
+    { ..self, id: new_schema_id(), schema_type: TransformType(inner, closure), },
     json,
     path_stack,
   )

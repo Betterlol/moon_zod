@@ -10,7 +10,8 @@ pub fn object(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
-    schema_type: ObjectType(spec, Strip),
+    id: new_schema_id(),
+    schema_type: ObjectType(spec.copy(), Strip),
     rules: [],
     description: "",
     required_error,
@@ -24,7 +25,8 @@ pub fn object(
 /// Reject fields not defined in the schema spec.
 pub fn Schema::strict(self : Schema) -> Schema {
   match self.schema_type {
-    ObjectType(spec, _) => { ..self, schema_type: ObjectType(spec, Strict), }
+    ObjectType(spec, _) =>
+      { ..self, id: new_schema_id(), schema_type: ObjectType(spec, Strict), }
     _ => abort("strict() is only valid for object schemas")
   }
 }
@@ -34,7 +36,11 @@ pub fn Schema::strict(self : Schema) -> Schema {
 pub fn Schema::passthrough(self : Schema) -> Schema {
   match self.schema_type {
     ObjectType(spec, _) =>
-      { ..self, schema_type: ObjectType(spec, Passthrough), }
+      {
+        ..self,
+        id: new_schema_id(),
+        schema_type: ObjectType(spec, Passthrough),
+      }
     _ => abort("passthrough() is only valid for object schemas")
   }
 }
@@ -44,7 +50,12 @@ pub fn Schema::passthrough(self : Schema) -> Schema {
 /// This is the default mode.
 pub fn Schema::strip(self : Schema) -> Schema {
   match self.schema_type {
-    ObjectType(spec, _) => { ..self, schema_type: ObjectType(spec, Strip), }
+    ObjectType(spec, _) =>
+      {
+        ..self,
+        id: new_schema_id(),
+        schema_type: ObjectType(spec.copy(), Strip),
+      }
     _ => abort("strip() is only valid for object schemas")
   }
 }
@@ -70,6 +81,7 @@ pub fn Schema::pick(self : Schema, keys : Array[String]) -> Schema {
         }
       }
       {
+        id: new_schema_id(),
         schema_type: ObjectType(new_spec, mode),
         rules: self.rules,
         description: self.description,
@@ -105,6 +117,7 @@ pub fn Schema::omit(self : Schema, keys : Array[String]) -> Schema {
         }
       }
       {
+        id: new_schema_id(),
         schema_type: ObjectType(new_spec, mode),
         rules: self.rules,
         description: self.description,
@@ -139,6 +152,7 @@ pub fn Schema::partial(self : Schema) -> Schema {
         }
       }
       {
+        id: new_schema_id(),
         schema_type: ObjectType(new_spec, mode),
         rules: self.rules,
         description: self.description,
@@ -175,6 +189,7 @@ pub fn Schema::extend_with(
         }
       }
       {
+        id: new_schema_id(),
         schema_type: ObjectType(new_spec, mode),
         rules: self.rules,
         description: self.description,
@@ -209,6 +224,7 @@ pub fn Schema::merge(self : Schema, other : Schema) -> Schema {
         }
       }
       {
+        id: new_schema_id(),
         schema_type: ObjectType(new_spec, other_mode),
         rules: self.rules,
         description: self.description,
@@ -232,7 +248,7 @@ pub fn Schema::parse_object(
   path_stack : Array[String],
 ) -> RawSchemaResult {
   parse_inner(
-    { ..self, schema_type: ObjectType(spec, mode), },
+    { ..self, id: new_schema_id(), schema_type: ObjectType(spec, mode), },
     json,
     path_stack,
   )

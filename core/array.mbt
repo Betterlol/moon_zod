@@ -8,6 +8,7 @@ pub fn array(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
+    id: new_schema_id(),
     schema_type: ArrayType(element_schema),
     rules: [],
     description: "",
@@ -26,7 +27,7 @@ pub fn Schema::parse_array(
   path_stack : Array[String],
 ) -> RawSchemaResult {
   parse_inner(
-    { ..self, schema_type: ArrayType(element_schema), },
+    { ..self, id: new_schema_id(), schema_type: ArrayType(element_schema), },
     json,
     path_stack,
   )

@@ -9,9 +9,9 @@ fn append_typed_rule(schema : Schema, rule : Rule) -> Schema {
       PrefaultType(append_typed_rule(inner, rule), value)
     PipeType(input, bridge, output) =>
       PipeType(input, bridge, append_typed_rule(output, rule))
-    _ => return { ..schema, rules: schema.rules + [rule], }
+    _ => return { ..schema, id: new_schema_id(), rules: schema.rules + [rule], }
   }
-  { ..schema, schema_type, }
+  { ..schema, id: new_schema_id(), schema_type, }
 }
 
 ///|

@@ -5,6 +5,7 @@ pub fn any(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
+    id: new_schema_id(),
     schema_type: AnyType,
     rules: [],
     description: "",
@@ -24,6 +25,7 @@ pub fn unknown(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
+    id: new_schema_id(),
     schema_type: UnknownType,
     rules: [],
     description: "",

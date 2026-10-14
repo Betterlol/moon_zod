@@ -14,7 +14,8 @@ pub fn literal(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
-    schema_type: LiteralType(value),
+    id: new_schema_id(),
+    schema_type: LiteralType(copy_json(value)),
     rules: [],
     description: "",
     required_error,
@@ -31,7 +32,11 @@ pub fn Schema::parse_literal(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  parse_inner({ ..self, schema_type: LiteralType(expected), }, json, path_stack)
+  parse_inner(
+    { ..self, id: new_schema_id(), schema_type: LiteralType(expected), },
+    json,
+    path_stack,
+  )
 }
 
 ///|

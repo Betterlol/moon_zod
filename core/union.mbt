@@ -7,7 +7,8 @@ pub fn union(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
-    schema_type: UnionType(schemas),
+    id: new_schema_id(),
+    schema_type: UnionType(schemas.copy()),
     rules: [],
     description: "",
     required_error,
@@ -24,5 +25,9 @@ pub fn Schema::parse_union(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  parse_inner({ ..self, schema_type: UnionType(schemas), }, json, path_stack)
+  parse_inner(
+    { ..self, id: new_schema_id(), schema_type: UnionType(schemas.copy()), },
+    json,
+    path_stack,
+  )
 }

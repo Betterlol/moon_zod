@@ -15,6 +15,7 @@
 /// ```
 pub fn Schema::pipe(self : Schema, output : Schema) -> Schema {
   {
+    id: new_schema_id(),
     schema_type: PipeType(
       self,
       TransformClosure::{ f: fn(v) { Ok(v) }, kind: IdentityTransform, },
@@ -39,7 +40,11 @@ pub fn Schema::parse_pipe(
   path_stack : Array[String],
 ) -> RawSchemaResult {
   parse_inner(
-    { ..self, schema_type: PipeType(input_schema, bridge, output_schema), },
+    {
+      ..self,
+      id: new_schema_id(),
+      schema_type: PipeType(input_schema, bridge, output_schema),
+    },
     json,
     path_stack,
   )

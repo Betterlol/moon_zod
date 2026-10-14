@@ -14,8 +14,34 @@ pub fn discriminated_union(
   discriminator : String,
   options : Map[String, Schema],
 ) -> Schema {
+  let checked : Map[String, Schema] = Map([])
+  if options.is_empty() {
+    abort("discriminated_union() requires at least one option")
+  }
+  for tag, option in options {
+    guard option.schema_type is ObjectType(fields, _) else {
+      abort("discriminated_union() options must be object schemas")
+    }
+    match fields.get(discriminator) {
+      None =>
+        checked.set(
+          tag,
+          option.extend_with(Map([(discriminator, literal(Json::string(tag)))])),
+        )
+      Some(field) => {
+        guard field.schema_type is LiteralType(String(value)) && value == tag else {
+          abort(
+            "discriminator fields must be literals matching their option keys",
+          )
+        }
+        checked.set(tag, option)
+      }
+    }
+  }
+
   {
-    schema_type: DiscriminatedUnionType(discriminator, options),
+    id: new_schema_id(),
+    schema_type: DiscriminatedUnionType(discriminator, checked),
     rules: [],
     description: "",
     required_error: "",
@@ -34,7 +60,11 @@ pub fn Schema::parse_discriminated_union(
   path_stack : Array[String],
 ) -> RawSchemaResult {
   parse_inner(
-    { ..self, schema_type: DiscriminatedUnionType(discriminator, options), },
+    {
+      ..self,
+      id: new_schema_id(),
+      schema_type: DiscriminatedUnionType(discriminator, options),
+    },
     json,
     path_stack,
   )

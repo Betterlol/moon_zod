@@ -4,6 +4,7 @@
 /// via `append_rule`, so `string().optional().min(3)` works correctly.
 pub fn Schema::optional(self : Schema) -> Schema {
   {
+    id: new_schema_id(),
     schema_type: OptionalType(self),
     rules: [],
     description: self.description,
@@ -21,5 +22,9 @@ pub fn Schema::parse_optional(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  parse_inner({ ..self, schema_type: OptionalType(inner), }, json, path_stack)
+  parse_inner(
+    { ..self, id: new_schema_id(), schema_type: OptionalType(inner), },
+    json,
+    path_stack,
+  )
 }

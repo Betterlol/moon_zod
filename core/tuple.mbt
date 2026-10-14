@@ -8,7 +8,8 @@ pub fn tuple(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
-    schema_type: TupleType(items),
+    id: new_schema_id(),
+    schema_type: TupleType(items.copy()),
     rules: [],
     description: "",
     required_error,
@@ -25,5 +26,9 @@ pub fn Schema::parse_tuple(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  parse_inner({ ..self, schema_type: TupleType(items), }, json, path_stack)
+  parse_inner(
+    { ..self, id: new_schema_id(), schema_type: TupleType(items.copy()), },
+    json,
+    path_stack,
+  )
 }
