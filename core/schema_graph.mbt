@@ -61,10 +61,13 @@ fn walk_named(
   if !schema.name.is_empty() && schema.name != ignore_name {
     match names.get(schema.name) {
       Some(previous) => {
-        if previous.id == schema.id && schema.schema_type is LazyType(_) {
+        if previous.id == schema.id &&
+          lazy_reference &&
+          schema.schema_type is LazyType(_) {
           return Err("Recursive definition must resolve to a concrete schema")
         }
-        if previous.id != schema.id && !lazy_reference {
+        if previous.id != schema.id &&
+          !(lazy_reference && nodes.get(previous.id) is Some(true)) {
           return Err("Different schemas share the export name: " + schema.name)
         }
         return Ok(())
@@ -93,8 +96,9 @@ fn walk_named(
     _ => false
   }
   let lazy_reference = schema.schema_type is LazyType(_)
-  for child in schema_children(schema) {
-    let ignored = if transparent { schema.name } else { "" }
+  for index, child in schema_children(schema) {
+    let inherited_input = schema.schema_type is PipeType(_, _, _) && index == 0
+    let ignored = if transparent || inherited_input { schema.name } else { "" }
     match
       walk_named(
         child,
@@ -138,9 +142,10 @@ fn gather_dependencies(
     | PreprocessType(_, _) => true
     _ => false
   }
-  for child in schema_children(schema) {
+  for index, child in schema_children(schema) {
+    let inherited_input = schema.schema_type is PipeType(_, _, _) && index == 0
     if !child.name.is_empty() &&
-      !(transparent && child.name == schema.name) &&
+      !((transparent || inherited_input) && child.name == schema.name) &&
       available.any(fn(node) { node.name == child.name }) {
       if !deps.contains(child.name) {
         deps.push(child.name)
@@ -164,15 +169,38 @@ pub fn try_schema_nodes(schema : Schema) -> Result[Array[Schema], String] {
 ///|
 /// Whether a successful parse of a missing field can leave that field absent.
 pub fn output_is_optional(schema : Schema) -> Bool {
+  output_optional_impl(schema, Map([]), 0)
+}
+
+///|
+fn output_optional_impl(
+  schema : Schema,
+  visited : Map[Int32, Bool],
+  depth : Int32,
+) -> Bool {
+  if depth > 256 || visited.contains(schema.id) {
+    return false
+  }
+  visited.set(schema.id, true)
   match schema.schema_type {
-    OptionalType(inner) => !has_missing_default(inner)
+    OptionalType(inner) =>
+      !has_missing_default(inner) ||
+      output_optional_impl(inner, visited, depth + 1)
     NullableType(inner) | TransformType(inner, _) | PreprocessType(_, inner) =>
-      output_is_optional(inner)
+      output_optional_impl(inner, visited, depth + 1)
+    LazyType(resolve) => output_optional_impl(resolve(), visited, depth + 1)
     DefaultType(_, _) | PrefaultType(_, _) => false
     PipeType(input, _, output) =>
-      output_is_optional(input) && output_is_optional(output)
-    UnionType(branches) => branches.any(output_is_optional)
-    IntersectionType(branches) => branches.all(output_is_optional)
+      output_optional_impl(input, visited.copy(), depth + 1) &&
+      output_optional_impl(output, visited, depth + 1)
+    UnionType(branches) =>
+      branches.any(fn(child) {
+        output_optional_impl(child, visited.copy(), depth + 1)
+      })
+    IntersectionType(branches) =>
+      branches.all(fn(child) {
+        output_optional_impl(child, visited.copy(), depth + 1)
+      })
     _ => false
   }
 }

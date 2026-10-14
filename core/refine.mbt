@@ -10,6 +10,7 @@ pub fn Schema::refine(
 ) -> Schema {
   {
     ..self,
+    id: new_schema_id(),
     rules: self.rules +
     [
       {

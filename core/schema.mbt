@@ -130,8 +130,7 @@ pub fn Schema::name(self : Schema, text : String) -> Schema {
 
 ///|
 /// Assign a brand to a schema for nominal typing.
-/// Branded schemas carry a type-level marker that distinguishes
-/// structurally identical schemas (e.g., `UserId` vs `string`).
+/// Brands are metadata (e.g., `UserId`); they do not create nominal MoonBit types.
 /// The brand is rendered in prompt and JSON Schema exports.
 pub fn Schema::brand(self : Schema, text : String) -> Schema {
   { ..self, id: new_schema_id(), brand: text, }
@@ -318,16 +317,38 @@ pub fn sub_index(path : String, i : Int32) -> String {
 
 ///|
 pub fn is_optional_schema(s : Schema) -> Bool {
+  input_optional_impl(s, Map([]), 0)
+}
+
+///|
+fn input_optional_impl(
+  s : Schema,
+  visited : Map[Int32, Bool],
+  depth : Int32,
+) -> Bool {
+  if depth > 256 || visited.contains(s.id) {
+    return false
+  }
+  visited.set(s.id, true)
   match s.schema_type {
     OptionalType(_) | DefaultType(_, _) | PrefaultType(_, _) => true
     NullableType(inner) | TransformType(inner, _) | PreprocessType(_, inner) =>
-      is_optional_schema(inner)
+      input_optional_impl(inner, visited, depth + 1)
+    LazyType(resolve) => input_optional_impl(resolve(), visited, depth + 1)
     PipeType(input, _, output) =>
       has_missing_default(input) ||
-      (is_optional_schema(input) && is_optional_schema(output))
-    UnionType(branches) => branches.any(is_optional_schema)
-    IntersectionType(branches) => branches.all(is_optional_schema)
-    LazyType(_) => false
+      (
+        input_optional_impl(input, visited.copy(), depth + 1) &&
+        input_optional_impl(output, visited, depth + 1)
+      )
+    UnionType(branches) =>
+      branches.any(fn(child) {
+        input_optional_impl(child, visited.copy(), depth + 1)
+      })
+    IntersectionType(branches) =>
+      branches.all(fn(child) {
+        input_optional_impl(child, visited.copy(), depth + 1)
+      })
     _ => false
   }
 }

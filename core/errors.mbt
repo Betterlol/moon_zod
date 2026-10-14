@@ -55,7 +55,7 @@ pub(all) struct RawIssue {
 
 ///|
 /// Resolve an error message using the error map priority chain.
-/// Priority: error_map (contextual) → pre-resolved message.
+/// Priority: explicit Schema/rule message → error_map → default message.
 pub fn finalize_issue(raw : RawIssue, params : ParseParams) -> ValidationError {
   let resolved = resolve_raw_issue(raw, params)
   ValidationError::{

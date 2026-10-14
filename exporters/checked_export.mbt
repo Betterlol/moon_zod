@@ -27,6 +27,11 @@ pub fn try_to_json_schema(
       )
     }
     for node in nodes {
+      if node.schema_type is IntersectionType(_) {
+        return Err(
+          "Recursive intersection input projection requires an explicit input schema",
+        )
+      }
       if node.schema_type is ObjectType(_, Strip) {
         return Err(
           "Recursive Strip input projection requires an explicit input schema",
@@ -77,7 +82,11 @@ fn project_view(
             "Custom transform output is unknown; add pipe(output_schema)",
           )
         }
-        return Ok({ ..schema, schema_type: StringType, })
+        let present = { ..schema, schema_type: @core.SchemaType::StringType, }
+        if @core.output_is_optional(schema) {
+          return Ok(present.optional())
+        }
+        return Ok(present)
       }
       if !schema.rules.is_empty() {
         return Err("Post-transform checks cannot be projected onto raw input")
@@ -193,11 +202,20 @@ fn project_view(
         Ok(items) => UnionType(items)
         Err(message) => return Err(message)
       }
-    IntersectionType(items) =>
+    IntersectionType(items) => {
+      if !output &&
+        items.any(fn(child) {
+          @core.unwrap_schema(child).schema_type is ObjectType(_, Strict)
+        }) {
+        return Err(
+          "Strict object intersections require a separate input contract",
+        )
+      }
       match project_many(items, view, depth) {
         Ok(items) => IntersectionType(items)
         Err(message) => return Err(message)
       }
+    }
     DiscriminatedUnionType(tag, options) => {
       let projected : Map[String, @core.Schema] = Map([])
       for key, child in options {

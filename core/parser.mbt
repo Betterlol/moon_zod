@@ -84,7 +84,7 @@ fn parse_node(
     TransformType(inner, closure) => {
       let out = parse_output(inner, input, path)
       if !out.issues.is_empty() {
-        return out
+        return { ..out, aborted: true, }
       }
       match (closure.f)(out.value) {
         Ok(value) => parsed(value)
@@ -101,7 +101,7 @@ fn parse_node(
     PipeType(inner, bridge, output) => {
       let out = parse_output(inner, input, path)
       if !out.issues.is_empty() {
-        return out
+        return { ..out, aborted: true, }
       }
       match (bridge.f)(out.value) {
         Ok(value) => parse_output(output, value, path)
@@ -110,36 +110,7 @@ fn parse_node(
       }
     }
     LazyType(resolve) => parse_output(resolve(), input, path)
-    UnionType(branches) => {
-      let messages : Array[String] = []
-      let branch_issues : Array[Array[RawIssue]] = []
-      let mut continuable : ParseOutput? = None
-      for branch in branches {
-        let out = parse_output(branch, copy_json(input), path)
-        if out.issues.is_empty() {
-          return out
-        }
-        if !out.aborted && continuable is None {
-          continuable = Some(out)
-        }
-        if !out.issues.is_empty() {
-          branch_issues.push(out.issues)
-          messages.push(out.issues[0].message)
-        }
-      }
-      match continuable {
-        Some(out) => out
-        None =>
-          parse_failure(
-            input,
-            InvalidUnion(branch_issues),
-            "Expected union type, but all branches failed. Branches: [" +
-            messages.join(", ") +
-            "]",
-            path,
-          )
-      }
-    }
+    UnionType(branches) => parse_union_nodes(branches, Some(input), path)
     IntersectionType(branches) => {
       let issues : Array[RawIssue] = []
       let mut aborted = false
@@ -337,7 +308,11 @@ fn parse_node(
         parse_failure(
           input,
           InvalidValue(values.map(fn(v) { Json::string(v) })),
-          "Invalid enum value",
+          if schema.invalid_type_error.is_empty() {
+            "Invalid enum value"
+          } else {
+            schema.invalid_type_error
+          },
           path,
           explicit_message=!schema.invalid_type_error.is_empty(),
         )
@@ -454,7 +429,9 @@ fn parse_absent(schema : Schema, path : Array[String]) -> ParseOutput {
     NullableType(inner) | PreprocessType(_, inner) => parse_absent(inner, path)
     TransformType(inner, closure) => {
       let first = parse_absent(inner, path)
-      if !first.issues.is_empty() || first.missing {
+      if !first.issues.is_empty() {
+        { ..first, aborted: true, }
+      } else if first.missing {
         first
       } else {
         match (closure.f)(first.value) {
@@ -473,7 +450,7 @@ fn parse_absent(schema : Schema, path : Array[String]) -> ParseOutput {
     PipeType(input, _, output) => {
       let first = parse_absent(input, path)
       if !first.issues.is_empty() {
-        first
+        { ..first, aborted: true, }
       } else if first.missing {
         parse_absent(output, path)
       } else {
@@ -481,31 +458,27 @@ fn parse_absent(schema : Schema, path : Array[String]) -> ParseOutput {
       }
     }
     LazyType(resolve) => parse_absent(resolve(), path)
-    UnionType(branches) => {
-      let mut answer = parse_failure(
-        Json::null(),
-        MissingRequired(last_field_name(path)),
-        "Required",
-        path,
-      )
-      for branch in branches {
-        let candidate = parse_absent(branch, path)
-        if candidate.issues.is_empty() {
-          answer = candidate
-          break
-        }
-      }
-      answer
-    }
+    UnionType(branches) => parse_union_nodes(branches, None, path)
     IntersectionType(branches) => {
       let issues : Array[RawIssue] = []
       let mut combined : Json? = None
+      let mut first_missing : Bool? = None
       let mut missing = true
       let mut aborted = false
       for branch in branches {
         let candidate = parse_absent(branch, path)
         issues.append(candidate.issues)
         aborted = aborted || candidate.aborted
+        if !candidate.aborted {
+          match first_missing {
+            None => first_missing = Some(candidate.missing)
+            Some(previous) =>
+              if previous != candidate.missing {
+                issues.push(merge_conflict(candidate.value, path))
+                aborted = true
+              }
+          }
+        }
         if !candidate.missing && !candidate.aborted {
           missing = false
           match combined {
@@ -536,7 +509,27 @@ fn parse_absent(schema : Schema, path : Array[String]) -> ParseOutput {
         explicit_message=!schema.required_error.is_empty(),
       )
   }
-  if !out.aborted {
+  if !schema.required_error.is_empty() {
+    let current_path = format_path(path)
+    for index, issue in out.issues {
+      let missing_issue = match issue.code {
+        MissingRequired(_) => true
+        InvalidUnion(branches) =>
+          branches.all(fn(issues) {
+            issues.all(fn(issue) { issue.code is MissingRequired(_) })
+          })
+        _ => false
+      }
+      if missing_issue && issue.path == current_path {
+        out.issues[index] = {
+          ..issue,
+          message: schema.required_error,
+          explicit_message: true,
+        }
+      }
+    }
+  }
+  if !out.aborted && !out.missing {
     collect_raw_errors(out.issues, path, out.value, schema.rules)
   }
   out
@@ -544,13 +537,32 @@ fn parse_absent(schema : Schema, path : Array[String]) -> ParseOutput {
 
 ///|
 fn has_missing_default(schema : Schema) -> Bool {
+  missing_default_impl(schema, Map([]), 0)
+}
+
+///|
+fn missing_default_impl(
+  schema : Schema,
+  visited : Map[Int32, Bool],
+  depth : Int32,
+) -> Bool {
+  if depth > 256 || visited.contains(schema.id) {
+    return false
+  }
+  visited.set(schema.id, true)
   match schema.schema_type {
     DefaultType(_, _) | PrefaultType(_, _) => true
     OptionalType(inner)
     | NullableType(inner)
     | TransformType(inner, _)
-    | PreprocessType(_, inner) => has_missing_default(inner)
-    PipeType(input, _, _) => has_missing_default(input)
+    | PreprocessType(_, inner) =>
+      missing_default_impl(inner, visited, depth + 1)
+    LazyType(resolve) => missing_default_impl(resolve(), visited, depth + 1)
+    PipeType(input, _, _) => missing_default_impl(input, visited, depth + 1)
+    UnionType(branches) | IntersectionType(branches) =>
+      branches.any(fn(child) {
+        missing_default_impl(child, visited.copy(), depth + 1)
+      })
     _ => false
   }
 }
@@ -568,5 +580,46 @@ fn type_failure(
     type_msg(schema),
     path,
     explicit_message=!schema.invalid_type_error.is_empty(),
+  )
+}
+
+///|
+fn parse_union_nodes(
+  branches : Array[Schema],
+  input : Json?,
+  path : Array[String],
+) -> ParseOutput {
+  let messages : Array[String] = []
+  let branch_issues : Array[Array[RawIssue]] = []
+  let mut continuable : ParseOutput? = None
+  let mut continuable_count = 0
+  for branch in branches {
+    let out = match input {
+      Some(value) => parse_output(branch, copy_json(value), path)
+      None => parse_absent(branch, path)
+    }
+    if out.issues.is_empty() {
+      return out
+    }
+    if !out.aborted {
+      continuable_count = continuable_count + 1
+      continuable = Some(out)
+    }
+    branch_issues.push(out.issues)
+    messages.push(out.issues[0].message)
+  }
+  if continuable_count == 1 {
+    match continuable {
+      Some(out) => return out
+      None => ()
+    }
+  }
+  parse_failure(
+    input.unwrap_or(Json::null()),
+    InvalidUnion(branch_issues),
+    "Expected union type, but all branches failed. Branches: [" +
+    messages.join(", ") +
+    "]",
+    path,
   )
 }

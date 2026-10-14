@@ -137,6 +137,11 @@ fn schema_to_moon_zod_code_inline(
   if !inline_root &&
     !schema.name.is_empty() &&
     @core.value_in_array(schema.name, defined_names) {
+    if schema.schema_type is LazyType(_) {
+      return "@moon_zod.recursive(" +
+        @core.escape_function_name(schema.name) +
+        "_schema)"
+    }
     return @core.escape_variable_name(schema.name)
   }
 
@@ -341,6 +346,11 @@ fn schema_type_to_code(
       "})"
     }
     PipeType(input, _, output) => {
+      let input = if input.name == wrapper_name {
+        { ..input, name: "", }
+      } else {
+        input
+      }
       let input_code = schema_to_moon_zod_code_inline(
         input,
         Some(defined_names),
@@ -367,7 +377,7 @@ fn apply_rules_to_code(base : String, schema : @core.Schema) -> String {
           ".positive()"
         } else {
           (if inclusive { ".min(" } else { ".gt(" }) +
-          @core.format_double_simple(value) +
+          format_mbt_number(value) +
           ")"
         }
       Maximum(_, value, inclusive) =>
@@ -375,12 +385,11 @@ fn apply_rules_to_code(base : String, schema : @core.Schema) -> String {
           ".negative()"
         } else {
           (if inclusive { ".max(" } else { ".lt(" }) +
-          @core.format_double_simple(value) +
+          format_mbt_number(value) +
           ")"
         }
       ExactLength(_, value) => ".length(" + value.to_string() + ")"
-      Multiple(value) =>
-        ".multipleOf(" + @core.format_double_simple(value) + ")"
+      Multiple(value) => ".multipleOf(" + format_mbt_number(value) + ")"
       Integer => ".int()"
       SafeInteger => ".safe()"
       Finite => ".finite()"
@@ -504,7 +513,7 @@ pub fn try_schema_to_moon_zod_code(
 fn json_to_literal(val : Json) -> String {
   match val {
     String(s) => "Json::string(\"" + @core.escape_mbt_string(s) + "\")"
-    Number(v, ..) => "Json::number(" + @core.format_double_simple(v) + ")"
+    Number(v, ..) => "Json::number(" + format_mbt_number(v) + ")"
     True => "true"
     False => "false"
     Null => "null"
@@ -533,4 +542,15 @@ fn join_with(parts : Array[String], sep : String) -> String {
     result = result + sep + parts[i]
   }
   result
+}
+
+///|
+fn format_mbt_number(value : Double) -> String {
+  let text = @core.format_double_simple(value)
+  let parts = text.split("e").to_array()
+  if parts.length() == 2 && !parts[0].contains(".") {
+    parts[0].to_owned() + ".0e" + parts[1].to_owned()
+  } else {
+    text
+  }
 }

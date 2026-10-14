@@ -80,7 +80,8 @@ pub fn[R : JsonSchemaRenderer] render_json_type(
     LazyType(f) => renderer.render_lazy(f(), schema)
     DiscriminatedUnionType(_, options) =>
       renderer.render_union(options.values().collect(), schema)
-    PipeType(input, _, _) => render_json_type(renderer, input)
+    PipeType(input, _, _) =>
+      render_json_type(renderer, without_inherited_name(schema, input))
   }
 }
 

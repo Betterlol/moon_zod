@@ -20,6 +20,15 @@ fn tree() -> @moon_zod.Schema {
   }).name("Tree")
 }
 ///|
+fn anchored() -> @moon_zod.Schema {
+  let anchor : Ref[@moon_zod.Schema?] = Ref(None)
+  let schema = @moon_zod.recursive(fn() {
+    @moon_zod.object({"children": @moon_zod.array(anchor.val.unwrap())})
+  }).name("Anchor")
+  anchor.val = Some(schema)
+  schema
+}
+///|
 fn main {
   let schemas = [
     @moon_zod.string().trim().length(3).message("three"),
@@ -28,6 +37,9 @@ fn main {
       "v": @moon_zod.literal(Json::number(9007199254740991.0)),
     }),
     tree(),
+    anchored(),
+    @moon_zod.string().name("Text").pipe(@moon_zod.string()),
+    @moon_zod.number().min(1.0e-7).multipleOf(1.0e-7).default(Json::number(1.0e-7)),
   ]
   println(Json::array(schemas.map(fn(s) {
     Json::string(@moon_zod.schema_to_moon_zod_code(s))
@@ -67,11 +79,12 @@ def main():
         consumer = task / "consumer"
         consumer_path = package(consumer)
         inputs = ['" abc "', '{"v":9007199254740991}',
-                  '{"value":1,"children":[{"value":2}]}']
-        expected = ['"abc"', '{"n":42,"v":9007199254740991}', inputs[2]]
+                  '{"value":1,"children":[{"value":2}]}',
+                  '{"children":[{"children":[]}]}', '"text"', '3e-7']
+        expected = ['"abc"', '{"n":42,"v":9007199254740991}', *inputs[2:]]
         tests = []
         for index, (code, data, result) in enumerate(zip(codes, inputs, expected)):
-            variable = "tree" if index == 2 else "root"
+            variable = ["root", "root", "tree", "anchor", "text", "root"][index]
             lines = "\n".join("  " + line for line in code.splitlines())
             tests.append(
                 f'///|\ntest "generated schema {index}" {{\n{lines}\n'
