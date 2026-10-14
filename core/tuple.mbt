@@ -8,7 +8,8 @@ pub fn tuple(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
-    schema_type: TupleType(items),
+    id: new_schema_id(),
+    schema_type: TupleType(items.copy()),
     rules: [],
     description: "",
     required_error,
@@ -25,60 +26,9 @@ pub fn Schema::parse_tuple(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  match json {
-    Array(elements) => {
-      let raw : Array[RawIssue] = []
-      let actual_len = elements.length()
-      let expected_len = items.length()
-      if actual_len < expected_len {
-        let path = format_path(path_stack)
-        let msg = "Expected tuple of length \{expected_len}"
-        raw.push(RawIssue::{
-          code: IssueCode::TooSmall("tuple", expected_len.to_double(), true),
-          path,
-          message: msg,
-          input: json,
-        })
-      } else if actual_len > expected_len {
-        let path = format_path(path_stack)
-        let msg = "Expected tuple of length \{expected_len}"
-        raw.push(RawIssue::{
-          code: IssueCode::TooBig("tuple", expected_len.to_double(), true),
-          path,
-          message: msg,
-          input: json,
-        })
-      } else {
-        for i in 0..<items.length() {
-          path_stack.push("[\{i}]")
-          match parse_inner(items[i], elements[i], path_stack) {
-            Err(item_raw) =>
-              for e in item_raw {
-                raw.push(e)
-              }
-            _ => ()
-          }
-          let _ = path_stack.pop()
-        }
-      }
-      collect_raw_errors(raw, path_stack, json, self.rules)
-      if raw.is_empty() {
-        Ok(json)
-      } else {
-        Err(raw)
-      }
-    }
-    _ => {
-      let path = format_path(path_stack)
-      let message = type_msg(self)
-      Err([
-        RawIssue::{
-          code: IssueCode::InvalidType(type_origin(self.schema_type)),
-          path,
-          message,
-          input: json,
-        },
-      ])
-    }
-  }
+  parse_inner(
+    { ..self, id: new_schema_id(), schema_type: TupleType(items.copy()), },
+    json,
+    path_stack,
+  )
 }

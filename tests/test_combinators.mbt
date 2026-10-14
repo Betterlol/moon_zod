@@ -10,8 +10,8 @@ test "object field optional passes with missing field" {
 }
 
 ///|
-test "object field optional passes with null" {
-  let s = object({ "name": string().optional() })
+test "object field nullish passes with null" {
+  let s = object({ "name": string().nullish() })
   let input = parse_json("{\"name\": null}")
   match s.parse(input) {
     Ok(v) => @debug.assert_eq(v, input)
@@ -32,7 +32,7 @@ test "object field default passes with missing field" {
   let s = object({ "name": string().default(Json::string("default_name")) })
   let input = parse_json("{}")
   match s.parse(input) {
-    Ok(v) => @debug.assert_eq(v, input)
+    Ok(v) => @debug.assert_eq(v, parse_json("{\"name\":\"default_name\"}"))
     Err(_) => fail("expected Ok")
   }
 }
@@ -101,8 +101,8 @@ test "string().optional().min(3) rejects short string" {
 }
 
 ///|
-test "string().optional().min(3) accepts null" {
-  let s = string().optional().min(3)
+test "string().nullish().min(3) accepts null" {
+  let s = string().nullish().min(3)
   match s.parse(Json::null()) {
     Ok(v) => @debug.assert_eq(v, Json::null())
     Err(_) => fail("expected Ok")
@@ -110,20 +110,20 @@ test "string().optional().min(3) accepts null" {
 }
 
 ///|
-test "string().default(x).min(3) uses default for null" {
+test "string().default(x).min(3) uses default for missing" {
   let s = string().default(Json::string("xyz")).min(3)
-  match s.parse(Json::null()) {
-    Ok(v) => @debug.assert_eq(v, Json::string("xyz"))
-    Err(_) => fail("expected Ok")
+  match s.parse_missing() {
+    Ok(Some(v)) => @debug.assert_eq(v, Json::string("xyz"))
+    _ => fail("expected Ok")
   }
 }
 
 ///|
 test "default value satisfies rules chained after default" {
   let s = string().default(Json::string("default!")).min(3)
-  match s.parse(Json::null()) {
-    Ok(v) => @debug.assert_eq(v, Json::string("default!"))
-    Err(_) => fail("expected Ok")
+  match s.parse_missing() {
+    Ok(Some(v)) => @debug.assert_eq(v, Json::string("default!"))
+    _ => fail("expected Ok")
   }
 }
 

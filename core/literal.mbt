@@ -14,7 +14,8 @@ pub fn literal(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
-    schema_type: LiteralType(value),
+    id: new_schema_id(),
+    schema_type: LiteralType(copy_json(value)),
     rules: [],
     description: "",
     required_error,
@@ -26,30 +27,16 @@ pub fn literal(
 
 ///|
 pub fn Schema::parse_literal(
-  _self : Schema,
+  self : Schema,
   expected : Json,
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  let path = format_path(path_stack)
-  if json == expected {
-    Ok(json)
-  } else {
-    let default_msg = "Expected literal value \{json_to_literal_string(expected)}, got different value"
-    let message = if _self.invalid_type_error.is_empty() {
-      default_msg
-    } else {
-      _self.invalid_type_error
-    }
-    Err([
-      RawIssue::{
-        code: IssueCode::InvalidValue([expected]),
-        path,
-        message,
-        input: json,
-      },
-    ])
-  }
+  parse_inner(
+    { ..self, id: new_schema_id(), schema_type: LiteralType(expected), },
+    json,
+    path_stack,
+  )
 }
 
 ///|

@@ -5,6 +5,7 @@ pub fn null(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
+    id: new_schema_id(),
     schema_type: NullType,
     rules: [],
     description: "",
