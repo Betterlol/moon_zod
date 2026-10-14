@@ -71,6 +71,11 @@ pub fn Schema::strip(self : Schema) -> Schema {
 /// s.parse(json)  // validates only field "a"
 /// ```
 pub fn Schema::pick(self : Schema, keys : Array[String]) -> Schema {
+  guard self.rules.is_empty() else {
+    abort(
+      "pick() cannot change the shape of a refined object; compose the shape before refine()",
+    )
+  }
   match self.schema_type {
     ObjectType(spec, mode) => {
       let new_spec : Map[String, Schema] = Map([])
@@ -105,6 +110,11 @@ pub fn Schema::pick(self : Schema, keys : Array[String]) -> Schema {
 /// s.parse(json)  // validates only field "a"
 /// ```
 pub fn Schema::omit(self : Schema, keys : Array[String]) -> Schema {
+  guard self.rules.is_empty() else {
+    abort(
+      "omit() cannot change the shape of a refined object; compose the shape before refine()",
+    )
+  }
   match self.schema_type {
     ObjectType(spec, mode) => {
       let new_spec : Map[String, Schema] = Map([])
@@ -142,6 +152,11 @@ pub fn Schema::omit(self : Schema, keys : Array[String]) -> Schema {
 /// s.parse(json)  // all fields are now optional
 /// ```
 pub fn Schema::partial(self : Schema) -> Schema {
+  guard self.rules.is_empty() else {
+    abort(
+      "partial() cannot change the shape of a refined object; compose the shape before refine()",
+    )
+  }
   match self.schema_type {
     ObjectType(spec, mode) => {
       let new_spec : Map[String, Schema] = Map([])
@@ -173,6 +188,11 @@ pub fn Schema::extend_with(
   self : Schema,
   extension : Map[String, Schema],
 ) -> Schema {
+  guard self.rules.is_empty() else {
+    abort(
+      "extend_with() cannot change the shape of a refined object; compose the shape before refine()",
+    )
+  }
   match self.schema_type {
     ObjectType(spec, mode) => {
       let new_spec : Map[String, Schema] = Map([])
@@ -208,6 +228,11 @@ pub fn Schema::extend_with(
 /// Fields from `other` override fields with the same name in `self`.
 /// The merged schema inherits the right schema's object mode.
 pub fn Schema::merge(self : Schema, other : Schema) -> Schema {
+  guard self.rules.is_empty() && other.rules.is_empty() else {
+    abort(
+      "merge() cannot change the shape of a refined object; compose the shape before refine()",
+    )
+  }
   match (self.schema_type, other.schema_type) {
     (ObjectType(spec, _), ObjectType(other_spec, other_mode)) => {
       let new_spec : Map[String, Schema] = Map([])

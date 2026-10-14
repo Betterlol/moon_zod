@@ -651,7 +651,7 @@ pub fn to_json_schema(schema : @core.Schema) -> Json {
 pub fn to_json_schema_skeleton(schema : @core.Schema) -> Json {
   let _ = @core.collect_named_schemas(schema)
   if contains_lazy(schema, Map([])) {
-    return to_json_schema_named(schema)
+    return to_json_schema_named_impl(schema, None, false)
   }
   render_json_type(
     NamedJsonRenderer(named_names=[], include_annotations=false),
@@ -666,6 +666,15 @@ pub fn to_json_schema_named(
   schema : @core.Schema,
   include_names~ : Array[String]? = None,
 ) -> Json {
+  to_json_schema_named_impl(schema, include_names, true)
+}
+
+///|
+fn to_json_schema_named_impl(
+  schema : @core.Schema,
+  include_names : Array[String]?,
+  include_annotations : Bool,
+) -> Json {
   let mut schema = schema
   if schema.name.is_empty() {
     schema = schema.name("Root")
@@ -678,11 +687,14 @@ pub fn to_json_schema_named(
   let defs_map : Map[String, Json] = Map([])
   for ns in sorted_schemas {
     let ref_names = named_names
-    let renderer = NamedJsonRenderer(named_names=ref_names)
+    let renderer = NamedJsonRenderer(
+      named_names=ref_names,
+      include_annotations~,
+    )
     defs_map.set(ns.name, render_json_type(renderer, ns))
   }
 
-  let renderer = NamedJsonRenderer(named_names~)
+  let renderer = NamedJsonRenderer(named_names~, include_annotations~)
   let root = render_json_type_ref(renderer, schema, named_names)
 
   let result_map : Map[String, Json] = Map([])

@@ -27,6 +27,20 @@ pub fn try_to_json_schema(
       )
     }
     for node in nodes {
+      if node.schema_type is ObjectType(_, Strip) {
+        return Err(
+          "Recursive Strip input projection requires an explicit input schema",
+        )
+      }
+      if (
+          node.schema_type is TransformType(_, _) ||
+          node.schema_type is PipeType(_, _, _)
+        ) &&
+        !node.rules.is_empty() {
+        return Err(
+          "Post-effect checks cannot be projected onto recursive raw input",
+        )
+      }
       if node.schema_type is PreprocessType(_, _) {
         return Err("Preprocess input shape is unknown")
       }
@@ -78,11 +92,12 @@ fn project_view(
       if !output {
         return Err("Preprocess input shape is unknown")
       }
-      return project_view(
-        without_inherited_name(schema, inner),
-        view,
-        depth + 1,
-      )
+      return match
+        project_view(without_inherited_name(schema, inner), view, depth + 1) {
+        Ok(inner) =>
+          Ok({ ..inner, name: schema.name, rules: inner.rules + schema.rules, })
+        Err(message) => Err(message)
+      }
     }
     PipeType(input, _, target) => {
       if !output && !schema.rules.is_empty() {
@@ -126,7 +141,11 @@ fn project_view(
         project_view(without_inherited_name(schema, inner), view, depth + 1) {
         Ok(inner) =>
           if output && !@core.output_is_optional(schema) {
-            return Ok(inner)
+            return Ok({
+              ..inner,
+              name: schema.name,
+              rules: inner.rules + schema.rules,
+            })
           } else {
             OptionalType(inner)
           }
@@ -154,7 +173,11 @@ fn project_view(
         project_view(without_inherited_name(schema, inner), view, depth + 1) {
         Ok(inner) =>
           if output {
-            return Ok(inner)
+            return Ok({
+              ..inner,
+              name: schema.name,
+              rules: inner.rules + schema.rules,
+            })
           } else {
             PrefaultType(inner, value)
           }

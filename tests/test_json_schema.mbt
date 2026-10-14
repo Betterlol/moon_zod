@@ -1153,28 +1153,14 @@ test "json_schema_to_schema: additionalProperties true allows extra fields" {
 }
 
 ///|
-/// Test json_schema_to_schema: additionalProperties false → strip
-test "json_schema_to_schema: additionalProperties false strips extra fields" {
+/// Test json_schema_to_schema: additionalProperties false rejects extras.
+test "json_schema_to_schema: additionalProperties false rejects extra fields" {
   let input = parse_json(
     "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"additionalProperties\":false}",
   )
   let s = json_schema_to_schema(input)
-  // Should strip extra fields (default Strip mode)
-  match
-    s.parse(
-      Json::object({
-        "name": Json::string("Alice"),
-        "extra": Json::string("stripped"),
-      }),
-    ) {
-    Ok(parsed) =>
-      match parsed {
-        Object(m) => {
-          let has_extra = m.contains("extra")
-          @debug.assert_eq(has_extra, false)
-        }
-        _ => fail("expected object")
-      }
-    Err(_) => fail("expected Ok")
-  }
+  assert_true(
+    s.parse(parse_json("{\"name\":\"Alice\",\"extra\":true}")) is Err(_),
+  )
+  assert_true(s.parse(parse_json("{\"name\":\"Alice\"}")) is Ok(_))
 }

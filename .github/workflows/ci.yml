@@ -37,6 +37,9 @@ jobs:
       - name: Run Tests
         run: moon test
 
+      - name: Compile and Run Generated Schemas
+        run: python scripts/check_generated_source.py
+
       - name: Code Line Count (Unix)
         if: runner.os != 'Windows'
         shell: bash

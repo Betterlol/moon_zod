@@ -89,3 +89,67 @@ test "datetime options are retained during JSON Schema roundtrip" {
     imported.parse(Json::string("2024-01-01T12:00:00.123+08:00")) is Err(_),
   )
 }
+
+///|
+test "combined patterns survive typed JSON Schema roundtrip" {
+  let original = string().startsWith("a").endsWith("z")
+  let imported = json_schema_to_schema(to_json_schema(original))
+  assert_true(imported.parse(Json::string("abz")) is Ok(_))
+  assert_true(imported.parse(Json::string("abc")) is Err(_))
+  assert_true(imported.parse(Json::string("zzz")) is Err(_))
+}
+
+///|
+test "JSON Schema closed objects reject unknown keys" {
+  let imported = json_schema_to_schema(
+    parse_json(
+      "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}},\"additionalProperties\":false}",
+    ),
+  )
+  assert_true(imported.parse(parse_json("{\"a\":\"x\",\"extra\":1}")) is Err(_))
+}
+
+///|
+test "recursive struct source defines its helper" {
+  let code = schema_to_moonbit_struct_full(exported_tree())
+  assert_true(code.contains("fn tree_schema()"))
+  assert_true(
+    try_schema_to_moon_zod_code(
+      object({ "a": exported_tree(), "b": string().name("Tree_schema") }),
+    )
+    is Err(_),
+  )
+  assert_true(
+    schema_to_moon_zod_code(string().brand("Id")).contains(".brand(\"Id\")"),
+  )
+}
+
+///|
+test "recursive skeleton omits constraints" {
+  fn tree() -> Schema {
+    recursive(fn() {
+      object({
+        "v": string().min(5),
+        "children": array(recursive(tree)).optional(),
+      })
+    }).name("SkeletonTree")
+  }
+  let skeleton = to_json_schema_skeleton(tree()).stringify()
+  assert_true(!skeleton.contains("minLength"))
+  assert_true(skeleton.contains("$ref"))
+  assert_true(try_to_json_schema(tree(), view=InputView) is Err(_))
+}
+
+///|
+test "checked flattening preserves wrapper output constraints" {
+  let schema = preprocess(fn(v) { Ok(v) }, string()).min(4)
+  guard try_to_json_schema(schema, view=OutputView) is Ok(Object(m)) else {
+    fail("expected output")
+  }
+  @debug.assert_eq(m.get("minLength"), Some(Json::number(4.0)))
+  let defaulted = string().default(Json::string("abc")).optional().min(4)
+  guard try_to_json_schema(defaulted, view=OutputView) is Ok(json) else {
+    fail("expected output")
+  }
+  assert_true(json.stringify().contains("minLength"))
+}

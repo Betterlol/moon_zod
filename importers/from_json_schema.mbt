@@ -70,6 +70,50 @@ fn json_to_schema_impl(
 ) -> @core.Schema {
   match json {
     Object(m) => {
+      // Sibling constraints are conjunctive even when the root already has a type.
+      if m.contains("type") {
+        match m.get("allOf") {
+          Some(Array(branches)) => {
+            let base = m.copy()
+            base.remove("allOf")
+            let parts = [
+              json_to_schema_impl(
+                Json::object(base),
+                defs_json,
+                defs_cache,
+                visiting,
+              ),
+            ]
+            for branch in branches {
+              let branch = match branch {
+                Object(fields) =>
+                  if !fields.contains("type") &&
+                    !fields.contains("$ref") &&
+                    !fields.contains("anyOf") &&
+                    !fields.contains("oneOf") &&
+                    !fields.contains("allOf") &&
+                    !fields.contains("const") &&
+                    !fields.contains("enum") {
+                    let typed = fields.copy()
+                    match m.get("type") {
+                      Some(kind) => typed.set("type", kind)
+                      None => ()
+                    }
+                    Json::object(typed)
+                  } else {
+                    branch
+                  }
+                _ => branch
+              }
+              parts.push(
+                json_to_schema_impl(branch, defs_json, defs_cache, visiting),
+              )
+            }
+            return @core.intersection(parts)
+          }
+          _ => ()
+        }
+      }
       // 1. Check $ref
       match m.get("$ref") {
         Some(String(ref_str)) => {
@@ -185,7 +229,7 @@ fn json_to_schema_impl(
                 let mut obj_schema = @core.object(fields)
                 obj_schema = match m.get("additionalProperties") {
                   Some(True) => obj_schema.passthrough()
-                  Some(False) => obj_schema.strip()
+                  Some(False) => obj_schema.strict()
                   _ => obj_schema
                 }
                 obj_schema

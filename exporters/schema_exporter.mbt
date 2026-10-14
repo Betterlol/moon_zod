@@ -1,9 +1,8 @@
 ///|
 /// **@core.Schema → moon_zod source code**
 ///
-/// Best-effort conversion from @core.Schema objects to moon_zod method chain source code.
-/// Custom closures and opaque rules cannot be faithfully serialized; unsupported
-/// runtime-only semantics are emitted as explicit placeholders where possible.
+/// Convert representable schemas into moon_zod method chain source code.
+/// Custom closures and opaque rules fail explicitly; use the checked API for errors.
 /// Supports inline expansion and named schema references.
 
 ///|
@@ -83,6 +82,7 @@ pub fn schema_to_moon_zod_code_named(
   let sorted = @core.topological_sort_schemas(selected)
 
   let defined_names = selected.map(fn(x) { x.name })
+  let recursive_graph = contains_lazy(schema, Map([]))
   let mut result = ""
   for s in sorted {
     if !s.name.is_empty() {
@@ -94,7 +94,7 @@ pub fn schema_to_moon_zod_code_named(
       if !result.is_empty() {
         result = result + "\n"
       }
-      let line = if s.schema_type is LazyType(_) {
+      let line = if recursive_graph {
         "fn " +
         @core.escape_function_name(s.name) +
         "_schema() -> @moon_zod.Schema { " +
@@ -144,6 +144,12 @@ fn schema_to_moon_zod_code_inline(
   let mut result = apply_rules_to_code(base, schema)
 
   // Apply description if present
+  if !schema.brand.is_empty() {
+    result = result +
+      ".brand(\"" +
+      @core.escape_mbt_string(schema.brand) +
+      "\")"
+  }
   if !schema.description.is_empty() {
     result = result +
       ".describe(\"" +
@@ -465,6 +471,18 @@ fn source_export_error(schema : @core.Schema) -> String? {
     }
     if node.rules.any(fn(rule) { rule.constraint is Opaque }) {
       return Some("Opaque refinement callbacks cannot be serialized")
+    }
+  }
+  if contains_lazy(schema, Map([])) {
+    for node in nodes {
+      if !node.name.is_empty() {
+        let helper = @core.escape_function_name(node.name) + "_schema"
+        if identifiers.contains(helper) {
+          return Some(
+            "Recursive helper name collides with schema variable: " + helper,
+          )
+        }
+      }
     }
   }
   None

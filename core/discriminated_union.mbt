@@ -19,15 +19,19 @@ pub fn discriminated_union(
     abort("discriminated_union() requires at least one option")
   }
   for tag, option in options {
-    guard option.schema_type is ObjectType(fields, _) else {
+    guard option.schema_type is ObjectType(fields, mode) else {
       abort("discriminated_union() options must be object schemas")
     }
     match fields.get(discriminator) {
-      None =>
-        checked.set(
-          tag,
-          option.extend_with(Map([(discriminator, literal(Json::string(tag)))])),
-        )
+      None => {
+        let tagged = fields.copy()
+        tagged.set(discriminator, literal(Json::string(tag)))
+        checked.set(tag, {
+          ..option,
+          id: new_schema_id(),
+          schema_type: ObjectType(tagged, mode),
+        })
+      }
       Some(field) => {
         guard field.schema_type is LiteralType(String(value)) && value == tag else {
           abort(
