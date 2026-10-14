@@ -286,7 +286,7 @@ fn apply_json_schema_constraints(
   match m.get("format") {
     Some(String("email")) => result = result.email()
     Some(String("uri")) => result = result.url()
-    Some(String("date-time")) => result = result.datetime()
+    Some(String("date-time")) => result = result.datetime(offset=true)
     Some(String("ipv4")) => result = result.ipv4()
     Some(String("ipv6")) => result = result.ipv6()
     Some(String("uuid")) => result = result.uuid()

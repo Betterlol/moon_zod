@@ -227,12 +227,20 @@ pub fn append_rule_with_annotation(
 ///|
 fn guard_no_user_transform(schema : Schema) -> Unit {
   match schema.schema_type {
-    TransformType(_, cls) =>
+    TransformType(inner, cls) =>
       if !cls.is_builtin {
         abort(
           "cannot chain type-specific validation after transform(); use .pipe() instead",
         )
+      } else {
+        guard_no_user_transform(inner)
       }
+    OptionalType(inner)
+    | NullableType(inner)
+    | DefaultType(inner, _)
+    | PrefaultType(inner, _)
+    | PreprocessType(_, inner) => guard_no_user_transform(inner)
+    PipeType(_, _, output) => guard_no_user_transform(output)
     _ => ()
   }
 }
