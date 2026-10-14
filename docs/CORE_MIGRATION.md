@@ -22,7 +22,8 @@ declared; type-specific convenience checks can still target a wrapped schema.
 
 JSON Schema input exports no longer add null to optional/default fields. Prompt
 aliases use undefined for optional values. MoonBit structs describe parsed output:
-defaulted fields are required, nullable and optional fields use option types.
+defaulted fields are required; missing fields use Option, while nullable values
+use JsonNullable (see the codec note below).
 
 `Schema::brand()` is export metadata; it does not create a nominal MoonBit type.
 `bigint()` remains an integer JSON-number alias, with Double precision limitations,
@@ -101,3 +102,41 @@ Union selection now follows Zod 4: exactly one continuable failing branch can
 report its own issues; multiple such branches produce complete InvalidUnion
 payloads. Input failures before a transform/pipe prevent output refinements from
 observing a value for a stage that never ran.
+
+## Follow-up composition corrections
+
+Checked OutputView recursively merges object fields, array elements and tuple
+positions for intersections. Overlapping missing values or conditional/mixed
+structural shapes return Err when a faithful merge contract cannot be constructed.
+The legacy generation renderer is not used as the output merge algorithm.
+
+Source bounds outside Int32 retain an explicit Double literal, such as
+9007199254740991.0, including min/max/gt/lt/multipleOf arguments. Pipeline output
+defaults/prefaults survive optional and partial when the input can propagate
+absence. Unreachable output defaults do not prevent outer optional from accepting
+absence.
+
+Tuple outputs omit trailing absent positions. A missing position before a later
+present/defaulted value cannot be represented by JSON; parsing returns a Custom
+issue at that position rather than inserting null. A present null remains valid
+only when that position's schema permits null.
+
+Generated nullable types now use `@moon_zod.JsonNullable[T]`, whose cases are
+`JsonNull` and `JsonValue(T)` and whose ToJson/FromJson codecs use inline null-or-value
+JSON. This is intentional: MoonBit's standard Option uses singleton-array encoding
+outside direct struct fields. For example, an array of nullable strings generates
+`Array[@moon_zod.JsonNullable[String]]`, not `Array[String]` or `Array[String?]`.
+Missing object fields add an outer `?`; nullish strings therefore generate
+`@moon_zod.JsonNullable[String]?`, preserving missing versus present null. Import
+the root moon_zod package to compile these generated types. Raw Json fallbacks
+inside arrays remain valid type expressions without inline comments.
+
+URI checks reject raw whitespace/control/non-ASCII characters and malformed %HH
+escapes in path, query, fragment, userinfo and opaque scheme payloads. Encode
+non-ASCII data as percent-encoded bytes. This remains an ASCII URI subset and
+performs no WHATWG normalization. See RFC 3986 sections 2.1 and 3.2–3.5.
+
+Cross-feature checks now compile large numeric bounds, decode/re-encode generated
+nullable structs, and independently validate successful outputs against checked
+OutputView using JSON Schema draft 2020-12. Old throughput figures in both README
+languages and their source fragments are explicitly historical.

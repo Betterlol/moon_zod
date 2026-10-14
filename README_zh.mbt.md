@@ -269,7 +269,7 @@ moon run examples/json2schema                        # JSON → moon_zod Schema 
   - `schema_to_moonbit_struct_full(schema)` —— 生成定义并附加静态 `Type::to_schema()` 函数
 - **轻量依赖**：核心 MoonBit 库加官方 `moonbitlang/regexp`，无其他外部依赖
 - **WebAssembly 就绪**：共享路径栈；容器重建以保留转换后的结果
-- **性能**：根据 Schema 复杂度，每秒约 18.5k–56k 次校验
+- **历史性能（core 修复前）**：每秒约 18.5k–56k 次校验，不能作为当前解析器的性能指标
 
 ---
 

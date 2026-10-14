@@ -270,7 +270,7 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
   - `schema_to_moonbit_struct_full(schema)` — generate definitions plus static `Type::to_schema()` functions
 - **Lightweight dependencies**: Core MoonBit library plus official `moonbitlang/regexp` for regex validation
 - **WebAssembly-ready**: Shared path stack; parsed containers are rebuilt to preserve transformed values
-- **Performance**: ~18.5k-56k validations/second depending on schema complexity
+- **Historical performance (before core fixes)**: ~18.5k–56k validations/second; this does not measure the current parser
 
 ---
 

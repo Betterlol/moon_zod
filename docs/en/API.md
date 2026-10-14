@@ -131,3 +131,5 @@ pub enum ObjectMode {
 ---
 
 See [core migration](../CORE_MIGRATION.md) for nullable(), nullish(), prefault() and parse_missing().
+
+Generated nullable types use `JsonNullable[T]` (`JsonNull` / `JsonValue(T)`) with inline null-or-value ToJson/FromJson codecs; missing fields add an outer Option. See [migration](../CORE_MIGRATION.md).

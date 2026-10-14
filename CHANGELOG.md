@@ -23,6 +23,12 @@ Breaking changes and examples are documented in [CORE_MIGRATION.md](docs/CORE_MI
 - Verify emitted schemas and recursive structs by compiling and running them on
   Wasm GC and JS in CI. Historical allocation/performance claims are withdrawn.
 
+Follow-up review fixes: recursively merged checked intersection outputs, typed
+large numeric source bounds, pipeline output defaults under optional/partial,
+structured errors for interior tuple absence, recursive JsonNullable codecs and
+component-specific URI/percent-encoding checks. Independent output-contract and
+generated-type codec tests cover these combinations; README throughput is historical.
+
 ## v0.8.2 (2026-07-12)
 
 ### Add README in exporters/ and importers/ subpackages

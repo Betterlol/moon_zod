@@ -37,3 +37,19 @@ JSON Schema 导入器不是完整 draft-07 引擎。对于无法忠实表达的 
 验证包括 core 与跨包回归、Wasm GC / JS 全量测试、格式/接口/无警告检查、
 Wasm 构建，以及直接编译并运行导出源码。独立复查中的问题与最终验证结果
 记在 [实施记录](superpowers/plans/2026-10-14-core-correctness-plan.md)。
+
+## PR 反馈中的六个组合问题
+
+六条反馈均已复现并逐项修复。checked 输出交集现在递归合并结构；大整数
+边界源码保留 Double 类型；pipeline 输出默认值不会被 optional/partial 吞掉；
+tuple 中间缺失返回位置错误；可空类型在所有嵌套层保留；URI 所有分支检查
+字符与百分号编码。
+
+第 5 条建议中的 `String?` 仍不足以解码实际数据：MoonBit 标准 Option 在
+数组中采用 `[值] | null`。因此生成类型使用 `JsonNullable[String]`，同时保留
+字段缺失的外层 Option。实际编译测试覆盖 null、普通值、多层数组、nullish
+字段和默认字段，并检查 FromJson/ToJson 往返结果。
+
+新增独立 JSON Schema 校验器测试对解析成功的对象、数组、tuple 交集输出做
+验证，也用缺少合并必填属性的负例防止契约变成无条件接受。性能数字已在
+README 与生成它们的文档片段中同步标为历史数据。

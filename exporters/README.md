@@ -89,7 +89,7 @@ Schema ──► render_type(renderer, schema) ──► StringRenderer ──�
 - `schema_to_moonbit_struct()` 将 `ObjectType` 映射为 `pub struct`，`EnumType` 映射为 `pub enum`
 - `schema_to_moonbit_struct_full()` 额外生成静态 `Type::to_schema() -> @moon_zod.Schema` 方法，实现 struct ↔ Schema 往返
 - 基础类型映射：`String → String`，`Number → Int64 / Double`（按 `.int()` 规则区分），`Boolean → Bool`
-- `ArrayType → Array[T]`，可空 `UnionType` 剥除 `null` 后映射
+- `ArrayType → Array[T]`；nullable 和可空 UnionType 递归映射为 `@moon_zod.JsonNullable[T]`，字段缺失另加外层 `?`
 - `AnyType / UnknownType` 当前回退为 `Json`
 - `TupleType` / 非可空 `UnionType` / `IntersectionType` 当前回退为 `Json // TODO`
 - 字段名和类型名自动转义（MoonBit 关键字、保留字、首字母数字）
@@ -114,3 +114,10 @@ Schema ──► render_type(renderer, schema) ──► StringRenderer ──�
 - MoonBit 结构导出尚不支持 `tuple` / `intersection` / `union` 等复杂类型的精确类型映射，当前回退为 `Json // TODO`。
 - MoonZod 代码导出对 `TransformType` / `PreprocessType` 输出占位闭包 `fn(x) { Ok(x) }`，自定义闭包无法序列化。
 详见 [Core 迁移说明](../docs/CORE_MIGRATION.md)。使用 `try_to_json_schema(view=InputView/OutputView)` 区分结构阶段；生成源码的实际编译测试在 `scripts/check_generated_source.py`。
+
+`JsonNullable[T]` 使用 `JsonNull` / `JsonValue(T)`，提供 JSON 的 `null | 值`
+编解码。普通 Option 在数组中的标准编码为 `[值] | null`，不能用于生成这里的
+nullable 元素。生成类型的 `FromJson` 与 `ToJson` 往返已加入实际编译测试。
+checked OutputView 的 intersection 通过 `output_merge.mbt` 递归合并结构；涉及
+可缺失重叠值或无法表达的条件结构时返回 Err。独立校验器回归位于
+`scripts/check_output_contracts.py`（依赖 jsonschema 4.23.0）。

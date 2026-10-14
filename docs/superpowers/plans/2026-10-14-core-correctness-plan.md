@@ -76,3 +76,35 @@ build; moon build --target wasm --release; moon test; moon test --target js;
 python scripts/check_generated_source.py. Public metadata/error/wrapper interface
 changes are expected and documented. Generated .mbti files remain ignored per
 repository policy. Source changes are staged by explicit path lists.
+
+## Follow-up review: six composition feedback items
+
+All six feedback examples reproduced. Each fix has its own commit:
+
+| Feedback | Commit | Regression evidence |
+| --- | --- | --- |
+| Nested intersection output contract | 9274174 | 3 failing assertions → green; independent object/array/tuple output validation |
+| Large numeric source bounds | 61bf4db | compiler error 4095 → min/max/gt/lt/multipleOf compile and execute |
+| Pipeline output default under optional | 214afb2 | default and prefault missing tests failed → green; partial and unreachable-output controls |
+| Interior tuple absence | 96695f4 | fabricated-null success failed rejection assertions → structured error; explicit-null/trailing-absence controls |
+| Recursive nullable type and codec | 8f9d1e9 | type assertions and actual decode failures → inline JsonNullable codecs and roundtrip |
+| URI components and percent escapes | 4c24597 | invalid URI assertion failed → full component rejection, with valid encoded controls |
+
+Fresh independent review of e7c48af..4c24597: no actionable findings. The reviewer
+independently reran generated source (15/15 per backend), output contracts (3
+positive cases plus negatives per backend), and additional nullable/missing/value
+roundtrips on Wasm GC and JS. No minor findings deferred.
+
+Ruling: interior tuple absence returns a structured error rather than invented
+null — JSON has no undefined slot — a formerly accepted [] with a later default
+now fails, while trailing absence and explicit allowed null remain supported.
+
+Ruling: generated nullable values use JsonNullable[T] instead of plain T? — the
+standard MoonBit nested Option encoding is [value]|null, not the required inline
+null|value — generated nullable field types change, and callers use JsonNull or
+JsonValue; missing object fields keep an outer Option.
+
+Follow-up final validation: 667/667 on Wasm GC and JS; generated source and codecs
+15/15 per backend; independent JSON Schema contracts 3 positive and 3 negative
+cases per backend; moon info/fmt/fmt --check, check --deny-warn, build, and release
+Wasm build. README and its source fragments now label throughput as historical.

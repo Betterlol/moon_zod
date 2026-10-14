@@ -129,3 +129,5 @@ pub enum ObjectMode {
 ---
 
 See [core migration](../CORE_MIGRATION.md) for nullable(), nullish(), prefault() and parse_missing().
+
+生成类型的可空值使用 `JsonNullable[T]`（`JsonNull` / `JsonValue(T)`），按 JSON 的 null 或值编解码；字段缺失另加外层 Option。参见 [迁移说明](../CORE_MIGRATION.md)。
