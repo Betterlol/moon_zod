@@ -11,9 +11,8 @@ This branch follows Zod 4 for missing keys, explicit null and default values.
 | Fallback requiring validation/transformation | Use `.prefault(value)` for an input fallback; `.default(value)` is an output fallback. |
 | Parsing an absent root value | Use `.parse_missing()`, whose success value is `Json?`. `None` means absence. |
 
-The runtime remains JSON-only. JSON transformations do not receive a JavaScript
-undefined value: absent optional values propagate through transformations without
-calling a Json callback. Place default/prefault before a transform when the
+The runtime remains JSON-only. JSON transformations and refinements do not receive a JavaScript
+undefined value: absent optional values propagate without calling a Json callback. Place default/prefault before a transform when the
 callback should receive a fallback. Present null is always a real Json value.
 
 Array and tuple elements and declared object fields now retain parsed values in
@@ -47,8 +46,58 @@ preprocess input return errors; pipe(output_schema) supplies a known output.
 The legacy to_json_schema() remains a closed generation contract for LLM use.
 It must not be interpreted as an exact predicate for every effectful raw input.
 Recursive output projections require an explicit output schema.
+Recursive Strip/intersection input projections and post-effect recursive input checks also
+return errors rather than exporting an inaccurate contract. Use an explicit
+structural input schema for those cases.
 
 Schema has a stable id used by traversal; use factories rather than fabricating
 ids. Lazy resolution is cached. Duplicate export names and anonymous recursive
 expansion now fail explicitly. Public renderer implementations must implement
 render_lazy(), so named recursion can use references instead of inline expansion.
+
+`ValidationError` and `RawIssue` add `path_segments: Array[PathSegment]`.
+`RawIssue` also records `explicit_message`. Code constructing these records must
+provide those fields. Prefer factories and parser results over manual records.
+`IssueCode::InvalidUnion` now contains `Array[Array[RawIssue]]`, including every
+issue from every aborted branch, rather than one message string per branch.
+Nested union issues are localized by the same error map as the outer issue.
+Explicit Schema/rule messages win over a parse error map; `Some("")` is a real
+empty message, while `None` delegates to the default message.
+
+`number()` rejects NaN and infinity. `int()` and `safe()` require an integer
+within ±(2^53−1). Numeric bounds, gt/lt and multipleOf accept Int, Int64 or Double;
+string/array length bounds must remain nonnegative integers. Multiple-of uses
+decimal representations rather than a broad floating-point tolerance:
+`0.3` is a multiple of `0.1`, whereas `0.30000000000000004` is not.
+
+Email validation rejects spaces, consecutive dots and malformed domain labels.
+UUID accepts RFC versions 1–8 plus nil/max values. Datetime requires a complete
+date and time, with UTC `Z` by default; pass `offset=true`, `allow_local=true` or
+`precision` explicitly. URI validation supports absolute schemes, IPv6 authorities
+and bounded numeric ports; it is a portable validator, not WHATWG normalization.
+
+Object pick/omit/partial/extend_with/merge now reject objects carrying refinements.
+Build the final shape first, then refine it, or validate separate shapes through
+intersection. This prevents a refinement from accessing removed or changed fields.
+Discriminated unions require object branches; a missing tag is injected as a
+literal field, while a declared tag must match its branch key. Parsed tags survive
+Strip and Strict modes.
+
+JSON Schema imports now honor additionalProperties=false by rejecting extras.
+Use `.strip()` explicitly after importing when your caller needs cleanup instead.
+Typed allOf annotation fragments retain repeated constraints instead of dropping
+them. The importer remains a partial draft-07 implementation; this change does not
+add general recursive $ref import or every JSON Schema keyword.
+
+The old zero-allocation claim and performance comparisons do not describe this
+parser. Parsed containers are rebuilt and branch inputs are isolated. Historical
+benchmark results remain labeled as historical and require remeasurement.
+
+Strict object intersection input views return Err: the legacy exporter merges
+object fields for generation, which cannot describe independent Strict branch
+checks. Use separate structural contracts when these branches must be retained.
+
+Union selection now follows Zod 4: exactly one continuable failing branch can
+report its own issues; multiple such branches produce complete InvalidUnion
+payloads. Input failures before a transform/pipe prevent output refinements from
+observing a value for a stage that never ran.

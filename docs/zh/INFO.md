@@ -7,7 +7,7 @@
 | **命名 Schema 导出** | `schema_to_prompt_named()` 生成模块化 TypeScript 接口，带类型名称引用 | 内联展开 + 重复 |
 | **JSON Schema 导出** | `to_json_schema()` 为 LLM API 生成标准 Schema | 手动 Schema 维护 |
 | **路径精度** | 每个错误都包含确切的字段路径（`users[0].profile.age`） | 通常只是平面消息 |
-| **Wasm 就绪** | 可变路径栈 —— 成功路径上零堆分配 | 每次解析都进行重字符串分配 |
+| **Wasm 就绪** | 共享路径栈，错误路径按需渲染 | 每次解析都进行重字符串分配 |
 
 在 LLM 工具调用中，模型经常**一次性产生多个错误**并**幻觉额外字段**。moon_zod 在一次遍历中收集每个错误（以便你可以将它们全部发回进行自我纠正），并默认剥离未知字段（不会因幻觉键而导致静默数据损坏）。
 
@@ -165,5 +165,5 @@ moon run examples/json2schema                        # JSON → moon_zod Schema 
   - `schema_to_moonbit_struct(schema)` —— 为每个对象/枚举 schema 生成 MoonBit struct/enum 定义
   - `schema_to_moonbit_struct_full(schema)` —— 生成定义并附加静态 `Type::to_schema()` 函数
 - **轻量依赖**：核心 MoonBit 库加官方 `moonbitlang/regexp`，无其他外部依赖
-- **WebAssembly 就绪**：可变路径栈，成功路径上零堆分配
+- **WebAssembly 就绪**：共享路径栈；容器重建以保留转换后的结果
 - **性能**：根据 Schema 复杂度，每秒约 18.5k–56k 次校验
