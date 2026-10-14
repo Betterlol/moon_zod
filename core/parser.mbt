@@ -234,12 +234,7 @@ fn parse_node(
         path.push("[\{i}]")
         let out = parse_output(child, items[i], path)
         let _ = path.pop()
-        if !out.missing {
-          while output.length() < i {
-            output.push(Json::null())
-          }
-          output.push(out.value)
-        }
+        output.push(out.value)
         issues.append(out.issues)
         aborted = aborted || out.aborted
       }
@@ -278,10 +273,22 @@ fn parse_node(
         }
         let _ = path.pop()
         if !out.missing {
-          while output.length() < i {
-            output.push(Json::null())
+          if output.length() < i {
+            if !aborted {
+              path.push("[\{output.length()}]")
+              let failure = parse_failure(
+                Json::null(),
+                Custom,
+                "Tuple output cannot represent a missing position before a present value",
+                path,
+              )
+              issues.append(failure.issues)
+              let _ = path.pop()
+            }
+            aborted = true
+          } else {
+            output.push(out.value)
           }
-          output.push(out.value)
         }
         issues.append(out.issues)
         aborted = aborted || out.aborted
