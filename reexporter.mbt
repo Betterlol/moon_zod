@@ -112,3 +112,7 @@ pub using @exporters {
   try_to_json_schema,
   try_schema_to_moon_zod_code,
 }
+
+///|
+/// Structured validation paths and their canonical string representation.
+pub using @core {type PathSegment, parse_path, format_path_segments}

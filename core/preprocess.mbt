@@ -9,6 +9,11 @@ pub fn preprocess(
   required_error~ : String = "",
   invalid_type_error~ : String = "",
 ) -> Schema {
+  let inner = if invalid_type_error.is_empty() {
+    inner
+  } else {
+    inner.invalid_type_error(invalid_type_error)
+  }
   {
     id: new_schema_id(),
     schema_type: PreprocessType(

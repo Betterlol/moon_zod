@@ -83,3 +83,16 @@ test "lazy resolution is cached for a stable graph" {
   assert_true(schema.parse(Json::string("y")) is Ok(_))
   assert_eq(calls.val, 1)
 }
+
+///|
+test "checked traversal rejects a nonproductive lazy self cycle" {
+  let anchor : Ref[Schema?] = Ref(None)
+  let schema = recursive(fn() {
+    match anchor.val {
+      Some(value) => value
+      None => abort("uninitialized test schema")
+    }
+  })
+  anchor.val = Some(schema)
+  assert_true(try_collect_named_schemas(schema) is Err(_))
+}

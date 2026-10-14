@@ -147,7 +147,22 @@ pub fn Schema::required_error(self : Schema, text : String) -> Schema {
 ///|
 /// Override the error message when the input type does not match.
 pub fn Schema::invalid_type_error(self : Schema, text : String) -> Schema {
-  { ..self, id: new_schema_id(), invalid_type_error: text, }
+  let schema_type = match self.schema_type {
+    OptionalType(inner) => OptionalType(inner.invalid_type_error(text))
+    NullableType(inner) => NullableType(inner.invalid_type_error(text))
+    DefaultType(inner, value) =>
+      DefaultType(inner.invalid_type_error(text), value)
+    PrefaultType(inner, value) =>
+      PrefaultType(inner.invalid_type_error(text), value)
+    TransformType(inner, closure) =>
+      TransformType(inner.invalid_type_error(text), closure)
+    PreprocessType(closure, inner) =>
+      PreprocessType(closure, inner.invalid_type_error(text))
+    PipeType(input, bridge, output) =>
+      PipeType(input, bridge, output.invalid_type_error(text))
+    other => other
+  }
+  { ..self, id: new_schema_id(), schema_type, invalid_type_error: text, }
 }
 
 ///|
@@ -284,9 +299,11 @@ pub fn format_path(stack : Array[String]) -> String {
 ///|
 pub fn sub_path(path : String, name : String) -> String {
   if path.is_empty() {
-    name
+    path_key(name)
   } else {
-    "\{path}.\{name}"
+    path +
+    (if path_key(name).has_prefix("[") { "" } else { "." }) +
+    path_key(name)
   }
 }
 

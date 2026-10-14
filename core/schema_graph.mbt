@@ -61,6 +61,9 @@ fn walk_named(
   if !schema.name.is_empty() && schema.name != ignore_name {
     match names.get(schema.name) {
       Some(previous) => {
+        if previous.id == schema.id && schema.schema_type is LazyType(_) {
+          return Err("Recursive definition must resolve to a concrete schema")
+        }
         if previous.id != schema.id && !lazy_reference {
           return Err("Different schemas share the export name: " + schema.name)
         }
@@ -72,8 +75,11 @@ fn walk_named(
       }
     }
   }
-  if nodes.contains(schema.id) {
-    return Ok(())
+  match nodes.get(schema.id) {
+    Some(true) =>
+      return Err("Anonymous recursive cycle requires a named definition")
+    Some(false) => return Ok(())
+    None => ()
   }
   nodes.set(schema.id, true)
   all_nodes.push(schema)
@@ -104,6 +110,7 @@ fn walk_named(
       Err(message) => return Err(message)
     }
   }
+  nodes.set(schema.id, false)
   Ok(())
 }
 

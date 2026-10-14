@@ -7,7 +7,7 @@ pub(all) enum IssueCode {
   InvalidFormat(String)
   NotMultipleOf(Double)
   UnrecognizedKeys(Array[String])
-  InvalidUnion(Array[String])
+  InvalidUnion(Array[Array[RawIssue]])
   MissingRequired(String)
   InvalidKey(String)
   InvalidElement(String, Int32)
@@ -49,21 +49,44 @@ pub(all) struct RawIssue {
   path : String
   message : String
   input : Json
-}
+  path_segments : Array[PathSegment]
+  explicit_message : Bool
+} derive(Debug, Eq)
 
 ///|
 /// Resolve an error message using the error map priority chain.
 /// Priority: error_map (contextual) → pre-resolved message.
 pub fn finalize_issue(raw : RawIssue, params : ParseParams) -> ValidationError {
-  let message = match params.error_map {
-    Some(map) =>
-      match map(raw.code, raw.path, raw.input) {
-        Some(m) => if m.is_empty() { raw.message } else { m }
-        None => raw.message
-      }
-    None => raw.message
+  let resolved = resolve_raw_issue(raw, params)
+  ValidationError::{
+    code: resolved.code,
+    path: resolved.path,
+    path_segments: resolved.path_segments,
+    message: resolved.message,
+    got: resolved.input,
   }
-  ValidationError::{ code: raw.code, path: raw.path, message, got: raw.input, }
+}
+
+///|
+fn resolve_raw_issue(raw : RawIssue, params : ParseParams) -> RawIssue {
+  let code = match raw.code {
+    InvalidUnion(branches) =>
+      InvalidUnion(
+        branches.map(fn(branch) {
+          branch.map(fn(issue) { resolve_raw_issue(issue, params) })
+        }),
+      )
+    other => other
+  }
+  let message = if raw.explicit_message {
+    raw.message
+  } else {
+    match params.error_map {
+      Some(map) => map(code, raw.path, raw.input).unwrap_or(raw.message)
+      None => raw.message
+    }
+  }
+  { ..raw, code, message, }
 }
 
 ///|
@@ -88,6 +111,8 @@ pub fn collect_raw_errors(
       out.push(RawIssue::{
         code: rule.code,
         path: format_path(path_stack),
+        path_segments: stack_segments(path_stack),
+        explicit_message: rule.explicit_message,
         message: rule.message,
         input: json,
       })

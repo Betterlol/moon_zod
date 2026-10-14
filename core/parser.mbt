@@ -19,11 +19,21 @@ fn parse_failure(
   code : IssueCode,
   message : String,
   path : Array[String],
+  explicit_message~ : Bool = false,
 ) -> ParseOutput {
   {
     value,
     missing: false,
-    issues: [{ code, message, path: format_path(path), input: value, }],
+    issues: [
+      {
+        code,
+        message,
+        path: format_path(path),
+        input: value,
+        path_segments: stack_segments(path),
+        explicit_message,
+      },
+    ],
     aborted: true,
   }
 }
@@ -78,13 +88,15 @@ fn parse_node(
       }
       match (closure.f)(out.value) {
         Ok(value) => parsed(value)
-        Err(message) => parse_failure(input, Custom, message, path)
+        Err(message) =>
+          parse_failure(input, Custom, message, path, explicit_message=true)
       }
     }
     PreprocessType(closure, inner) =>
       match (closure.f)(input) {
         Ok(value) => parse_output(inner, value, path)
-        Err(message) => parse_failure(input, Custom, message, path)
+        Err(message) =>
+          parse_failure(input, Custom, message, path, explicit_message=true)
       }
     PipeType(inner, bridge, output) => {
       let out = parse_output(inner, input, path)
@@ -93,12 +105,14 @@ fn parse_node(
       }
       match (bridge.f)(out.value) {
         Ok(value) => parse_output(output, value, path)
-        Err(message) => parse_failure(input, Custom, message, path)
+        Err(message) =>
+          parse_failure(input, Custom, message, path, explicit_message=true)
       }
     }
     LazyType(resolve) => parse_output(resolve(), input, path)
     UnionType(branches) => {
       let messages : Array[String] = []
+      let branch_issues : Array[Array[RawIssue]] = []
       let mut continuable : ParseOutput? = None
       for branch in branches {
         let out = parse_output(branch, copy_json(input), path)
@@ -109,6 +123,7 @@ fn parse_node(
           continuable = Some(out)
         }
         if !out.issues.is_empty() {
+          branch_issues.push(out.issues)
           messages.push(out.issues[0].message)
         }
       }
@@ -117,7 +132,7 @@ fn parse_node(
         None =>
           parse_failure(
             input,
-            InvalidUnion(messages),
+            InvalidUnion(branch_issues),
             "Expected union type, but all branches failed. Branches: [" +
             messages.join(", ") +
             "]",
@@ -151,14 +166,9 @@ fn parse_node(
     }
     DiscriminatedUnionType(discriminator, options) => {
       guard input is Object(fields) else {
-        return parse_failure(
-          input,
-          InvalidType("object"),
-          type_msg(schema),
-          path,
-        )
+        return type_failure(schema, input, "object", path)
       }
-      path.push(discriminator)
+      path.push(path_key(discriminator))
       let selected = match fields.get(discriminator) {
         Some(String(value)) =>
           match options.get(value) {
@@ -202,18 +212,13 @@ fn parse_node(
     }
     ObjectType(spec, mode) => {
       guard input is Object(fields) else {
-        return parse_failure(
-          input,
-          InvalidType("object"),
-          type_msg(schema),
-          path,
-        )
+        return type_failure(schema, input, "object", path)
       }
       let output : Map[String, Json] = Map([])
       let issues : Array[RawIssue] = []
       let mut aborted = false
       for key, child in spec {
-        path.push(key)
+        path.push(path_key(key))
         let out = match fields.get(key) {
           Some(value) => parse_output(child, value, path)
           None => parse_absent(child, path)
@@ -231,11 +236,13 @@ fn parse_node(
             Passthrough => output.set(key, copy_json(value))
             Strip => ()
             Strict => {
-              path.push(key)
+              path.push(path_key(key))
               issues.push({
                 code: UnrecognizedKeys([key]),
                 message: "Unexpected field",
                 path: format_path(path),
+                path_segments: stack_segments(path),
+                explicit_message: false,
                 input: value,
               })
               let _ = path.pop()
@@ -247,12 +254,7 @@ fn parse_node(
     }
     ArrayType(child) => {
       guard input is Array(items) else {
-        return parse_failure(
-          input,
-          InvalidType("array"),
-          type_msg(schema),
-          path,
-        )
+        return type_failure(schema, input, "array", path)
       }
       let output : Array[Json] = []
       let issues : Array[RawIssue] = []
@@ -274,12 +276,7 @@ fn parse_node(
     }
     TupleType(children) => {
       guard input is Array(items) else {
-        return parse_failure(
-          input,
-          InvalidType("tuple"),
-          type_msg(schema),
-          path,
-        )
+        return type_failure(schema, input, "tuple", path)
       }
       if items.length() > children.length() ||
         (
@@ -331,6 +328,7 @@ fn parse_node(
             schema.invalid_type_error
           },
           path,
+          explicit_message=!schema.invalid_type_error.is_empty(),
         )
       }
       if value_in_array(value, values) {
@@ -341,6 +339,7 @@ fn parse_node(
           InvalidValue(values.map(fn(v) { Json::string(v) })),
           "Invalid enum value",
           path,
+          explicit_message=!schema.invalid_type_error.is_empty(),
         )
       }
     }
@@ -357,6 +356,7 @@ fn parse_node(
             schema.invalid_type_error
           },
           path,
+          explicit_message=!schema.invalid_type_error.is_empty(),
         )
       }
     _ => {
@@ -371,12 +371,7 @@ fn parse_node(
       if valid {
         parsed(input)
       } else {
-        parse_failure(
-          input,
-          InvalidType(type_origin(schema.schema_type)),
-          type_msg(schema),
-          path,
-        )
+        type_failure(schema, input, type_origin(schema.schema_type), path)
       }
     }
   }
@@ -401,7 +396,7 @@ fn merge_parsed(
         match left.get(key) {
           None => output.set(key, copy_json(value))
           Some(previous) => {
-            path.push(key)
+            path.push(path_key(key))
             let merged = merge_parsed(previous, value, path)
             let _ = path.pop()
             match merged {
@@ -438,6 +433,8 @@ fn merge_conflict(value : Json, path : Array[String]) -> RawIssue {
   {
     code: Custom,
     path: format_path(path),
+    path_segments: stack_segments(path),
+    explicit_message: false,
     message: "Intersection outputs cannot be merged",
     input: value,
   }
@@ -462,7 +459,14 @@ fn parse_absent(schema : Schema, path : Array[String]) -> ParseOutput {
       } else {
         match (closure.f)(first.value) {
           Ok(value) => parsed(value)
-          Err(message) => parse_failure(first.value, Custom, message, path)
+          Err(message) =>
+            parse_failure(
+              first.value,
+              Custom,
+              message,
+              path,
+              explicit_message=true,
+            )
         }
       }
     }
@@ -480,7 +484,7 @@ fn parse_absent(schema : Schema, path : Array[String]) -> ParseOutput {
     UnionType(branches) => {
       let mut answer = parse_failure(
         Json::null(),
-        MissingRequired(path.last().unwrap_or("")),
+        MissingRequired(last_field_name(path)),
         "Required",
         path,
       )
@@ -522,13 +526,14 @@ fn parse_absent(schema : Schema, path : Array[String]) -> ParseOutput {
     _ =>
       parse_failure(
         Json::null(),
-        MissingRequired(path.last().unwrap_or("")),
+        MissingRequired(last_field_name(path)),
         if schema.required_error.is_empty() {
           "Required"
         } else {
           schema.required_error
         },
         path,
+        explicit_message=!schema.required_error.is_empty(),
       )
   }
   if !out.aborted {
@@ -548,4 +553,20 @@ fn has_missing_default(schema : Schema) -> Bool {
     PipeType(input, _, _) => has_missing_default(input)
     _ => false
   }
+}
+
+///|
+fn type_failure(
+  schema : Schema,
+  input : Json,
+  expected : String,
+  path : Array[String],
+) -> ParseOutput {
+  parse_failure(
+    input,
+    InvalidType(expected),
+    type_msg(schema),
+    path,
+    explicit_message=!schema.invalid_type_error.is_empty(),
+  )
 }
