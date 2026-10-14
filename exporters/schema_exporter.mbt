@@ -550,6 +550,10 @@ fn format_mbt_number(value : Double) -> String {
   let parts = text.split("e").to_array()
   if parts.length() == 2 && !parts[0].contains(".") {
     parts[0].to_owned() + ".0e" + parts[1].to_owned()
+  } else if parts.length() == 1 &&
+    !text.contains(".") &&
+    (value > 2147483647.0 || value < -2147483648.0) {
+    text + ".0"
   } else {
     text
   }

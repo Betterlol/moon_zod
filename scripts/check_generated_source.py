@@ -40,6 +40,11 @@ fn main {
     anchored(),
     @moon_zod.string().name("Text").pipe(@moon_zod.string()),
     @moon_zod.number().min(1.0e-7).multipleOf(1.0e-7).default(Json::number(1.0e-7)),
+    @moon_zod.number().min(9007199254740991.0),
+    @moon_zod.number().max(-9007199254740991.0),
+    @moon_zod.number().gt(2147483648.0),
+    @moon_zod.number().lt(-2147483649.0),
+    @moon_zod.number().multipleOf(2147483649.0),
   ]
   println(Json::array(schemas.map(fn(s) {
     Json::string(@moon_zod.schema_to_moon_zod_code(s))
@@ -80,11 +85,13 @@ def main():
         consumer_path = package(consumer)
         inputs = ['" abc "', '{"v":9007199254740991}',
                   '{"value":1,"children":[{"value":2}]}',
-                  '{"children":[{"children":[]}]}', '"text"', '3e-7']
+                  '{"children":[{"children":[]}]}', '"text"', '3e-7',
+                  '9007199254740991', '-9007199254740991',
+                  '2147483649', '-2147483650', '4294967298']
         expected = ['"abc"', '{"n":42,"v":9007199254740991}', *inputs[2:]]
         tests = []
         for index, (code, data, result) in enumerate(zip(codes, inputs, expected)):
-            variable = ["root", "root", "tree", "anchor", "text", "root"][index]
+            variable = ["root", "root", "tree", "anchor", "text", *(["root"] * 6)][index]
             lines = "\n".join("  " + line for line in code.splitlines())
             tests.append(
                 f'///|\ntest "generated schema {index}" {{\n{lines}\n'
