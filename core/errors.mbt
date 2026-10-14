@@ -115,6 +115,8 @@ pub fn type_origin(t : SchemaType) -> String {
     TransformType(_, _) => "transform"
     PreprocessType(_, _) => "preprocess"
     OptionalType(_) => "optional"
+    NullableType(_) => "nullable"
+    PrefaultType(_, _) => "prefault"
     DefaultType(_, _) => "default"
     LazyType(_) => "lazy"
     DiscriminatedUnionType(_, _) => "discriminated_union"

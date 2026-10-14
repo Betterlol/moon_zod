@@ -94,6 +94,9 @@ pub fn[R : StringRenderer] render_type(
     ArrayType(elem) => renderer.render_array(elem, schema, indent)
     TupleType(items) => renderer.render_tuple(items, schema, indent)
     OptionalType(inner) => renderer.render_optional(inner, schema, indent)
+    NullableType(inner) => render_type(renderer, inner, indent) + " | null"
+    PrefaultType(inner, value) =>
+      renderer.render_default(inner, value, schema, indent)
     DefaultType(inner, default_val) =>
       renderer.render_default(inner, default_val, schema, indent)
     EnumType(values) => renderer.render_enum(values, schema, indent)

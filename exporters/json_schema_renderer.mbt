@@ -59,6 +59,14 @@ pub fn[R : JsonSchemaRenderer] render_json_type(
     ArrayType(elem) => renderer.render_array(elem, schema)
     TupleType(items) => renderer.render_tuple(items, schema)
     OptionalType(inner) => renderer.render_optional(inner, schema)
+    NullableType(inner) =>
+      Json::object({
+        "anyOf": Json::array([
+          render_json_type(renderer, inner),
+          Json::object({ "type": Json::string("null") }),
+        ]),
+      })
+    PrefaultType(inner, value) => renderer.render_default(inner, value, schema)
     DefaultType(inner, default_val) =>
       renderer.render_default(inner, default_val, schema)
     EnumType(values) => renderer.render_enum(values, schema)

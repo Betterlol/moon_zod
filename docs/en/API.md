@@ -52,7 +52,7 @@
 | `.multipleOf(n[, msg])` | number | Must be multiple of `n` |
 | `.finite([msg])` | number | Must be finite |
 | `.safe([msg])` | number | Must be a safe integer |
-| `.optional()` | any | Null or missing values skip validation |
+| `.optional()` | any | Missing keys skip validation; explicit null is validated |
 | `.default(value)` | any | Replace null with default |
 | `.strict()` | object | Reject undefined fields |
 | `.passthrough()` | object | Keep undefined fields as-is |
@@ -125,3 +125,5 @@ pub enum ObjectMode {
 ```
 
 ---
+
+See [core migration](../CORE_MIGRATION.md) for nullable(), nullish(), prefault() and parse_missing().

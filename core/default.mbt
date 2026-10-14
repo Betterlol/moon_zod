@@ -1,10 +1,10 @@
 ///|
-/// Provide a default value when the input is null.
+/// Return this output default when a key is absent. Explicit null is not replaced.
 /// Rules chained after `.default()` are pushed through to the inner schema
 /// via `append_rule`.
 pub fn Schema::default(self : Schema, value : Json) -> Schema {
   {
-    schema_type: DefaultType(self, value),
+    schema_type: DefaultType(self, copy_json(value)),
     rules: [],
     description: self.description,
     required_error: self.required_error,

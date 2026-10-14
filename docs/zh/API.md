@@ -52,8 +52,8 @@
 | `.multipleOf(n[, msg])` | number | 必须是 `n` 的倍数 |
 | `.finite([msg])` | number | 必须是有限数 |
 | `.safe([msg])` | number | 必须是安全整数 |
-| `.optional()` | any | Null 或缺失值跳过校验 |
-| `.default(value)` | any | 用默认值替换 null |
+| `.optional()` | any | 允许缺失；显式 null 正常校验 |
+| `.default(value)` | any | 缺失字段使用输出默认值 |
 | `.strict()` | object | 拒绝未定义的字段 |
 | `.passthrough()` | object | 保持未定义的字段不变 |
 | `.strip()` | object | 无声地删除未定义的字段（默认） |
@@ -123,3 +123,5 @@ pub enum ObjectMode {
 ```
 
 ---
+
+See [core migration](../CORE_MIGRATION.md) for nullable(), nullish(), prefault() and parse_missing().

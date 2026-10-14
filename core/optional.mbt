@@ -1,5 +1,5 @@
 ///|
-/// Make a field optional: null or missing values pass validation.
+/// Make a field optional: absent keys pass; explicit null is validated normally.
 /// Rules chained after `.optional()` are pushed through to the inner schema
 /// via `append_rule`, so `string().optional().min(3)` works correctly.
 pub fn Schema::optional(self : Schema) -> Schema {

@@ -102,7 +102,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_optional(
   _schema : @core.Schema,
   indent : Int32,
 ) -> String {
-  render_type_named(self, inner, indent, self.named_schemas) + " | null"
+  render_type_named(self, inner, indent, self.named_schemas) + " | undefined"
 }
 
 ///|
@@ -113,7 +113,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_default(
   _schema : @core.Schema,
   indent : Int32,
 ) -> String {
-  render_type_named(self, inner, indent, self.named_schemas) + " | null"
+  render_type_named(self, inner, indent, self.named_schemas)
 }
 
 ///|

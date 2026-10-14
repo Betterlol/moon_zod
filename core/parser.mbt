@@ -3,13 +3,14 @@
 /// Structural failures prevent callbacks from observing an invalid shape.
 priv struct ParseOutput {
   value : Json
+  missing : Bool
   issues : Array[RawIssue]
   aborted : Bool
 }
 
 ///|
 fn parsed(value : Json) -> ParseOutput {
-  { value, issues: [], aborted: false, }
+  { value, missing: false, issues: [], aborted: false, }
 }
 
 ///|
@@ -21,6 +22,7 @@ fn parse_failure(
 ) -> ParseOutput {
   {
     value,
+    missing: false,
     issues: [{ code, message, path: format_path(path), input: value, }],
     aborted: true,
   }
@@ -61,15 +63,11 @@ fn parse_node(
   path : Array[String],
 ) -> ParseOutput {
   match schema.schema_type {
-    OptionalType(inner) =>
+    OptionalType(inner) | DefaultType(inner, _) | PrefaultType(inner, _) =>
+      parse_output(inner, input, path)
+    NullableType(inner) =>
       if input is Null {
         parsed(input)
-      } else {
-        parse_output(inner, input, path)
-      }
-    DefaultType(inner, value) =>
-      if input is Null {
-        parsed(copy_json(value))
       } else {
         parse_output(inner, input, path)
       }
@@ -149,7 +147,7 @@ fn parse_node(
           }
         }
       }
-      { value: combined.unwrap_or(input), issues, aborted, }
+      { value: combined.unwrap_or(input), issues, aborted, missing: false, }
     }
     DiscriminatedUnionType(discriminator, options) => {
       guard input is Object(fields) else {
@@ -216,28 +214,15 @@ fn parse_node(
       let mut aborted = false
       for key, child in spec {
         path.push(key)
-        match fields.get(key) {
-          Some(value) => {
-            let out = parse_output(child, value, path)
-            output.set(key, out.value)
-            issues.append(out.issues)
-            aborted = aborted || out.aborted
-          }
-          None =>
-            if !is_optional_schema(child) {
-              issues.push({
-                code: MissingRequired(key),
-                message: if child.required_error.is_empty() {
-                  "Required"
-                } else {
-                  child.required_error
-                },
-                path: format_path(path),
-                input: Json::null(),
-              })
-              aborted = true
-            }
+        let out = match fields.get(key) {
+          Some(value) => parse_output(child, value, path)
+          None => parse_absent(child, path)
         }
+        if !out.missing {
+          output.set(key, out.value)
+        }
+        issues.append(out.issues)
+        aborted = aborted || out.aborted
         let _ = path.pop()
       }
       for key, value in fields {
@@ -258,7 +243,7 @@ fn parse_node(
           }
         }
       }
-      { value: Json::object(output), issues, aborted, }
+      { value: Json::object(output), issues, aborted, missing: false, }
     }
     ArrayType(child) => {
       guard input is Array(items) else {
@@ -276,11 +261,16 @@ fn parse_node(
         path.push("[\{i}]")
         let out = parse_output(child, items[i], path)
         let _ = path.pop()
-        output.push(out.value)
+        if !out.missing {
+          while output.length() < i {
+            output.push(Json::null())
+          }
+          output.push(out.value)
+        }
         issues.append(out.issues)
         aborted = aborted || out.aborted
       }
-      { value: Json::array(output), issues, aborted, }
+      { value: Json::array(output), issues, aborted, missing: false, }
     }
     TupleType(children) => {
       guard input is Array(items) else {
@@ -291,7 +281,11 @@ fn parse_node(
           path,
         )
       }
-      if items.length() != children.length() {
+      if items.length() > children.length() ||
+        (
+          items.length() < children.length() &&
+          !children[items.length():].to_owned().all(is_optional_schema)
+        ) {
         let expected = children.length().to_double()
         return parse_failure(
           input,
@@ -307,15 +301,24 @@ fn parse_node(
       let output : Array[Json] = []
       let issues : Array[RawIssue] = []
       let mut aborted = false
-      for i = 0; i < items.length(); i = i + 1 {
+      for i = 0; i < children.length(); i = i + 1 {
         path.push("[\{i}]")
-        let out = parse_output(children[i], items[i], path)
+        let out = if i < items.length() {
+          parse_output(children[i], items[i], path)
+        } else {
+          parse_absent(children[i], path)
+        }
         let _ = path.pop()
-        output.push(out.value)
+        if !out.missing {
+          while output.length() < i {
+            output.push(Json::null())
+          }
+          output.push(out.value)
+        }
         issues.append(out.issues)
         aborted = aborted || out.aborted
       }
-      { value: Json::array(output), issues, aborted, }
+      { value: Json::array(output), issues, aborted, missing: false, }
     }
     EnumType(values) => {
       guard input is String(value) else {
@@ -437,5 +440,112 @@ fn merge_conflict(value : Json, path : Array[String]) -> RawIssue {
     path: format_path(path),
     message: "Intersection outputs cannot be merged",
     input: value,
+  }
+}
+
+///|
+fn parse_absent(schema : Schema, path : Array[String]) -> ParseOutput {
+  let out = match schema.schema_type {
+    DefaultType(_, value) => parsed(copy_json(value))
+    PrefaultType(inner, value) => parse_output(inner, copy_json(value), path)
+    OptionalType(inner) =>
+      if has_missing_default(inner) {
+        parse_absent(inner, path)
+      } else {
+        { value: Json::null(), missing: true, issues: [], aborted: false, }
+      }
+    NullableType(inner) | PreprocessType(_, inner) => parse_absent(inner, path)
+    TransformType(inner, closure) => {
+      let first = parse_absent(inner, path)
+      if !first.issues.is_empty() || first.missing {
+        first
+      } else {
+        match (closure.f)(first.value) {
+          Ok(value) => parsed(value)
+          Err(message) => parse_failure(first.value, Custom, message, path)
+        }
+      }
+    }
+    PipeType(input, _, output) => {
+      let first = parse_absent(input, path)
+      if !first.issues.is_empty() {
+        first
+      } else if first.missing {
+        parse_absent(output, path)
+      } else {
+        parse_output(output, first.value, path)
+      }
+    }
+    LazyType(resolve) => parse_absent(resolve(), path)
+    UnionType(branches) => {
+      let mut answer = parse_failure(
+        Json::null(),
+        MissingRequired(path.last().unwrap_or("")),
+        "Required",
+        path,
+      )
+      for branch in branches {
+        let candidate = parse_absent(branch, path)
+        if candidate.issues.is_empty() {
+          answer = candidate
+          break
+        }
+      }
+      answer
+    }
+    IntersectionType(branches) => {
+      let issues : Array[RawIssue] = []
+      let mut combined : Json? = None
+      let mut missing = true
+      let mut aborted = false
+      for branch in branches {
+        let candidate = parse_absent(branch, path)
+        issues.append(candidate.issues)
+        aborted = aborted || candidate.aborted
+        if !candidate.missing && !candidate.aborted {
+          missing = false
+          match combined {
+            None => combined = Some(candidate.value)
+            Some(previous) =>
+              match merge_parsed(previous, candidate.value, path) {
+                Ok(value) => combined = Some(value)
+                Err(issue) => {
+                  issues.push(issue)
+                  aborted = true
+                }
+              }
+          }
+        }
+      }
+      { value: combined.unwrap_or(Json::null()), missing, issues, aborted, }
+    }
+    _ =>
+      parse_failure(
+        Json::null(),
+        MissingRequired(path.last().unwrap_or("")),
+        if schema.required_error.is_empty() {
+          "Required"
+        } else {
+          schema.required_error
+        },
+        path,
+      )
+  }
+  if !out.aborted {
+    collect_raw_errors(out.issues, path, out.value, schema.rules)
+  }
+  out
+}
+
+///|
+fn has_missing_default(schema : Schema) -> Bool {
+  match schema.schema_type {
+    DefaultType(_, _) | PrefaultType(_, _) => true
+    OptionalType(inner)
+    | NullableType(inner)
+    | TransformType(inner, _)
+    | PreprocessType(_, inner) => has_missing_default(inner)
+    PipeType(input, _, _) => has_missing_default(input)
+    _ => false
   }
 }

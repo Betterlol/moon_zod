@@ -56,16 +56,6 @@ fn maybe_merge_annotations(
 }
 
 ///|
-fn nullable_schema(inner_json : Json) -> Json {
-  Json::object({
-    "anyOf": Json::array([
-      inner_json,
-      Json::object({ "type": Json::string("null") }),
-    ]),
-  })
-}
-
-///|
 fn add_default(schema_json : Json, default_val : Json) -> Json {
   match schema_json {
     Object(map) => {
@@ -188,12 +178,16 @@ fn[R : JsonSchemaRenderer] render_json_tuple_type(
   renderer : R,
   items : Array[@core.Schema],
 ) -> Json {
+  let mut minimum = items.length()
+  while minimum > 0 && @core.is_optional_schema(items[minimum - 1]) {
+    minimum = minimum - 1
+  }
   Json::object({
     "type": Json::string("array"),
     "prefixItems": Json::array(
       items.map(fn(item) { render_json_type(renderer, item) }),
     ),
-    "minItems": Json::number(items.length().to_double()),
+    "minItems": Json::number(minimum.to_double()),
     "maxItems": Json::number(items.length().to_double()),
   })
 }
@@ -447,7 +441,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_optional(
   inner : @core.Schema,
   schema : @core.Schema,
 ) -> Json {
-  nullable_schema(render_json_type_ref(self, inner, self.named_names))
+  render_json_type_ref(self, inner, self.named_names)
 }
 
 ///|
@@ -458,10 +452,7 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_default(
   default_val : Json,
   schema : @core.Schema,
 ) -> Json {
-  add_default(
-    nullable_schema(render_json_type_ref(self, inner, self.named_names)),
-    default_val,
-  )
+  add_default(render_json_type_ref(self, inner, self.named_names), default_val)
 }
 
 ///|

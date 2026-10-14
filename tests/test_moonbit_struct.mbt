@@ -74,7 +74,7 @@ test "schema_to_moonbit_struct handles optional default and nullable fields" {
   let result = schema_to_moonbit_struct(schema)
 
   @debug.assert_eq(result.contains("email : String?"), true)
-  @debug.assert_eq(result.contains("role : String?"), true)
+  @debug.assert_eq(result.contains("role : String"), true)
   @debug.assert_eq(result.contains("note : String?"), true)
 }
 

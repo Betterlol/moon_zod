@@ -134,7 +134,7 @@ test "review literal refine is executed" {
 ///|
 test "review optional refine can reject null" {
   assert_true(
-    string().optional().refine(fn(_) { false }, "reject").parse(Json::null())
+    string().nullish().refine(fn(_) { false }, "reject").parse(Json::null())
     is Err(_),
   )
 }

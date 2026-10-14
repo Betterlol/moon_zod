@@ -23,6 +23,8 @@ pub(all) enum SchemaType {
   ArrayType(Schema)
   TupleType(Array[Schema])
   OptionalType(Schema)
+  NullableType(Schema)
+  PrefaultType(Schema, Json)
   DefaultType(Schema, Json)
   EnumType(Array[String])
   UnionType(Array[Schema])
@@ -135,6 +137,8 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
   }
   let schema_type = match self.schema_type {
     OptionalType(inner) => OptionalType(inner.message(text))
+    NullableType(inner) => NullableType(inner.message(text))
+    PrefaultType(inner, value) => PrefaultType(inner.message(text), value)
     DefaultType(inner, value) => DefaultType(inner.message(text), value)
     TransformType(inner, closure) => TransformType(inner.message(text), closure)
     PreprocessType(closure, inner) =>
@@ -150,10 +154,11 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
 /// Peel OptionalType / DefaultType wrappers to find the effective base type.
 pub fn inner_type(t : SchemaType) -> SchemaType {
   match t {
-    OptionalType(inner) => inner.schema_type
-    DefaultType(inner, _) => inner.schema_type
-    PreprocessType(_, inner) => inner.schema_type
-    TransformType(inner, _) => inner.schema_type
+    OptionalType(inner) | NullableType(inner) | PrefaultType(inner, _) =>
+      inner_type(inner.schema_type)
+    DefaultType(inner, _) => inner_type(inner.schema_type)
+    PreprocessType(_, inner) => inner_type(inner.schema_type)
+    TransformType(inner, _) => inner_type(inner.schema_type)
     LazyType(_) | DiscriminatedUnionType(_, _) => t
     PipeType(_, _, output) => inner_type(output.schema_type)
     LiteralType(_) => t
@@ -183,55 +188,38 @@ pub fn append_rule_with_annotation(
   code : IssueCode,
   annotation : Json,
 ) -> Schema {
-  match schema.schema_type {
-    OptionalType(inner) => {
-      let new_inner = append_rule_with_annotation(
-        inner, check, message, code, annotation,
+  let schema_type = match schema.schema_type {
+    OptionalType(inner) =>
+      OptionalType(
+        append_rule_with_annotation(inner, check, message, code, annotation),
       )
-      {
-        schema_type: OptionalType(new_inner),
-        rules: [],
-        description: schema.description,
-        required_error: schema.required_error,
-        invalid_type_error: schema.invalid_type_error,
-        name: schema.name,
-        brand: schema.brand,
-      }
-    }
-    DefaultType(inner, default_val) => {
-      let new_inner = append_rule_with_annotation(
-        inner, check, message, code, annotation,
+    NullableType(inner) =>
+      NullableType(
+        append_rule_with_annotation(inner, check, message, code, annotation),
       )
-      {
-        schema_type: DefaultType(new_inner, default_val),
-        rules: [],
-        description: schema.description,
-        required_error: schema.required_error,
-        invalid_type_error: schema.invalid_type_error,
-        name: schema.name,
-        brand: schema.brand,
-      }
-    }
-    PipeType(input_schema, bridge, output_schema) => {
-      let new_output = append_rule_with_annotation(
-        output_schema, check, message, code, annotation,
+    DefaultType(inner, value) =>
+      DefaultType(
+        append_rule_with_annotation(inner, check, message, code, annotation),
+        value,
       )
-      {
-        schema_type: PipeType(input_schema, bridge, new_output),
-        rules: [],
-        description: schema.description,
-        required_error: schema.required_error,
-        invalid_type_error: schema.invalid_type_error,
-        name: schema.name,
-        brand: schema.brand,
-      }
-    }
+    PrefaultType(inner, value) =>
+      PrefaultType(
+        append_rule_with_annotation(inner, check, message, code, annotation),
+        value,
+      )
+    PipeType(input, bridge, output) =>
+      PipeType(
+        input,
+        bridge,
+        append_rule_with_annotation(output, check, message, code, annotation),
+      )
     _ =>
-      {
+      return {
         ..schema,
         rules: schema.rules + [{ check, message, code, annotation, }],
       }
   }
+  { ..schema, schema_type, }
 }
 
 ///|
@@ -299,7 +287,15 @@ pub fn sub_index(path : String, i : Int32) -> String {
 ///|
 pub fn is_optional_schema(s : Schema) -> Bool {
   match s.schema_type {
-    OptionalType(_) | DefaultType(_, _) => true
+    OptionalType(_) | DefaultType(_, _) | PrefaultType(_, _) => true
+    NullableType(inner) | TransformType(inner, _) | PreprocessType(_, inner) =>
+      is_optional_schema(inner)
+    PipeType(input, _, output) =>
+      has_missing_default(input) ||
+      (is_optional_schema(input) && is_optional_schema(output))
+    UnionType(branches) => branches.any(is_optional_schema)
+    IntersectionType(branches) => branches.all(is_optional_schema)
+    LazyType(_) => false
     _ => false
   }
 }
@@ -390,5 +386,19 @@ pub fn json_infer_schema(json : Json) -> Schema {
       }
       object(fields)
     }
+  }
+}
+
+///|
+/// Parse an absent value without conflating it with explicit JSON null.
+/// An absent optional result is None; a default/prefault result is Some(value).
+pub fn Schema::parse_missing(
+  self : Schema,
+) -> Result[Json?, Array[ValidationError]] {
+  let out = parse_absent(self, [])
+  if out.issues.is_empty() {
+    Ok(if out.missing { None } else { Some(out.value) })
+  } else {
+    Err(finalize_issues(out.issues, ParseParams::default()))
   }
 }

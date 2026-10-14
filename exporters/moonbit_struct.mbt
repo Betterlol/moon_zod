@@ -43,8 +43,11 @@ fn collect_type_defs(
     }
     EnumType(values) =>
       push_enum_def(defs, schema_type_name(schema, type_hint), values)
-    OptionalType(inner) | DefaultType(inner, _) | TransformType(inner, _) =>
-      collect_type_defs(inner, type_hint, defs)
+    OptionalType(inner)
+    | DefaultType(inner, _)
+    | PrefaultType(inner, _)
+    | NullableType(inner)
+    | TransformType(inner, _) => collect_type_defs(inner, type_hint, defs)
     PreprocessType(_, inner) => collect_type_defs(inner, type_hint, defs)
     ArrayType(elem) => collect_type_defs(elem, type_hint + "Item", defs)
     UnionType(schemas) | IntersectionType(schemas) =>
@@ -71,8 +74,11 @@ fn collect_field_defs(
   defs : Array[StructDef],
 ) -> Unit {
   match schema.schema_type {
-    OptionalType(inner) | DefaultType(inner, _) | TransformType(inner, _) =>
-      collect_field_defs(inner, type_hint, defs)
+    OptionalType(inner)
+    | DefaultType(inner, _)
+    | PrefaultType(inner, _)
+    | NullableType(inner)
+    | TransformType(inner, _) => collect_field_defs(inner, type_hint, defs)
     PreprocessType(_, inner) => collect_field_defs(inner, type_hint, defs)
     ArrayType(elem) => collect_field_defs(elem, type_hint + "Item", defs)
     UnionType(schemas) | IntersectionType(schemas) =>
@@ -239,8 +245,10 @@ fn render_enum_to_schema_fn(
 ///|
 fn field_to_moonbit_type(schema : @core.Schema, type_hint : String) -> String {
   match schema.schema_type {
-    OptionalType(inner) | DefaultType(inner, _) =>
-      field_to_moonbit_type(inner, type_hint)
+    OptionalType(inner)
+    | DefaultType(inner, _)
+    | PrefaultType(inner, _)
+    | NullableType(inner) => field_to_moonbit_type(inner, type_hint)
     TransformType(inner, _) => field_to_moonbit_type(inner, type_hint)
     PreprocessType(_, inner) => field_to_moonbit_type(inner, type_hint)
     StringType => "String"
@@ -301,7 +309,7 @@ fn intersection_to_moonbit_type(
 ///|
 fn is_optional_field(schema : @core.Schema) -> Bool {
   match schema.schema_type {
-    OptionalType(_) | DefaultType(_, _) => true
+    OptionalType(_) | NullableType(_) => true
     UnionType(schemas) => schemas.any(fn(item) { is_null_schema(item) })
     _ => false
   }
