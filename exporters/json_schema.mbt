@@ -7,21 +7,63 @@
 
 ///|
 fn merge_annotations(base : Json, rules : Array[@core.Rule]) -> Json {
-  match base {
-    Object(map) => {
-      for rule in rules {
-        match rule.annotation {
-          Object(ann_map) =>
-            for k, v in ann_map {
-              map.set(k, v)
+  guard base is Object(fields) else { return base }
+  for rule in rules {
+    if rule.annotation is Object(annotation) {
+      for key, value in annotation {
+        match (fields.get(key), value) {
+          (Some(Number(previous, ..)), Number(next, ..)) =>
+            if key == "minLength" ||
+              key == "minItems" ||
+              key == "minimum" ||
+              key == "exclusiveMinimum" {
+              fields.set(
+                key,
+                Json::number(if previous > next { previous } else { next }),
+              )
+            } else if key == "maxLength" ||
+              key == "maxItems" ||
+              key == "maximum" ||
+              key == "exclusiveMaximum" {
+              fields.set(
+                key,
+                Json::number(if previous < next { previous } else { next }),
+              )
+            } else if previous != next {
+              append_annotation_intersection(fields, key, value)
             }
-          _ => ()
+          (Some(previous), _) =>
+            if previous != value {
+              if key == "type" &&
+                value == Json::string("integer") &&
+                previous == Json::string("number") {
+                fields.set(key, value)
+              } else {
+                append_annotation_intersection(fields, key, value)
+              }
+            }
+          (None, _) => fields.set(key, value)
         }
       }
-      base
     }
-    _ => base
   }
+  base
+}
+
+///|
+fn append_annotation_intersection(
+  fields : Map[String, Json],
+  key : String,
+  value : Json,
+) -> Unit {
+  let additions = match fields.get("allOf") {
+    Some(Array(items)) => items
+    _ => []
+  }
+  let annotation : Map[String, Json] = Map([])
+  annotation.set(key, value)
+  additions.push(Json::object(annotation))
+  fields.set("allOf", Json::array(additions))
 }
 
 ///|
@@ -460,10 +502,15 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_default(
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_transform(
   self : NamedJsonRenderer,
   inner : @core.Schema,
-  _closure : @core.TransformClosure,
+  closure : @core.TransformClosure,
   schema : @core.Schema,
 ) -> Json {
-  render_json_type_ref(self, inner, self.named_names)
+  let base = render_json_type_ref(self, inner, self.named_names)
+  if closure.kind is CustomTransform {
+    base
+  } else {
+    maybe_merge_annotations(base, schema.rules, self.include_annotations)
+  }
 }
 
 ///|

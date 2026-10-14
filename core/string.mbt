@@ -77,12 +77,13 @@ pub fn[N : NumericBound] Schema::min(
     ArrayType(_) => "array"
     _ => "value"
   }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     check,
     message,
     IssueCode::TooSmall(origin, n, true),
     annotation,
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -148,12 +149,13 @@ pub fn[N : NumericBound] Schema::max(
     ArrayType(_) => "array"
     _ => "value"
   }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     check,
     message,
     IssueCode::TooBig(origin, n, true),
     annotation,
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -228,7 +230,7 @@ pub fn Schema::email(self : Schema, msg~ : String = "") -> Schema {
   } else {
     msg
   }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -239,6 +241,7 @@ pub fn Schema::email(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("email"),
     Json::object({ "format": Json::string("email") }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -370,7 +373,7 @@ pub fn Schema::url(self : Schema, msg~ : String = "") -> Schema {
     _ => abort("url() is only valid for string schemas")
   }
   let message = if msg.is_empty() { "String must be a valid URL" } else { msg }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -381,6 +384,7 @@ pub fn Schema::url(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("url"),
     Json::object({ "format": Json::string("uri") }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -404,7 +408,7 @@ pub fn Schema::regex(
   let re = @regexp.compile(pattern) catch {
     _ => abort("Invalid regex pattern: \{pattern}")
   }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -415,6 +419,7 @@ pub fn Schema::regex(
     message,
     IssueCode::InvalidFormat("regex"),
     Json::object({ "pattern": Json::string(pattern) }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -435,7 +440,7 @@ pub fn Schema::startsWith(
   } else {
     msg
   }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -445,7 +450,8 @@ pub fn Schema::startsWith(
     },
     message,
     IssueCode::Custom,
-    Json::object({ "pattern": Json::string("^" + prefix) }),
+    Json::object({ "pattern": Json::string("^" + escape_regex_literal(prefix)) }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -466,7 +472,7 @@ pub fn Schema::endsWith(
   } else {
     msg
   }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -476,7 +482,8 @@ pub fn Schema::endsWith(
     },
     message,
     IssueCode::Custom,
-    Json::object({ "pattern": Json::string(suffix + "$") }),
+    Json::object({ "pattern": Json::string(escape_regex_literal(suffix) + "$") }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -497,7 +504,7 @@ pub fn Schema::includes(
   } else {
     msg
   }
-  append_rule(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -507,6 +514,8 @@ pub fn Schema::includes(
     },
     message,
     IssueCode::Custom,
+    Json::object({ "pattern": Json::string(escape_regex_literal(substring)) }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -529,7 +538,7 @@ pub fn Schema::uuid(self : Schema, msg~ : String = "") -> Schema {
   } else {
     msg
   }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -579,6 +588,7 @@ pub fn Schema::uuid(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("uuid"),
     Json::object({ "format": Json::string("uuid") }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -591,7 +601,7 @@ pub fn Schema::cuid(self : Schema, msg~ : String = "") -> Schema {
     _ => abort("cuid() is only valid for string schemas")
   }
   let message = if msg.is_empty() { "String must be a valid CUID" } else { msg }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -617,6 +627,7 @@ pub fn Schema::cuid(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("cuid"),
     Json::object({ "format": Json::string("cuid") }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -753,7 +764,7 @@ pub fn Schema::datetime(
   } else {
     msg
   }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -764,6 +775,7 @@ pub fn Schema::datetime(
     message,
     IssueCode::InvalidFormat("datetime"),
     Json::object({ "format": Json::string("date-time") }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -889,7 +901,7 @@ pub fn Schema::ipv4(self : Schema, msg~ : String = "") -> Schema {
   } else {
     msg
   }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -900,6 +912,7 @@ pub fn Schema::ipv4(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("ipv4"),
     Json::object({ "format": Json::string("ipv4") }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -916,7 +929,7 @@ pub fn Schema::ipv6(self : Schema, msg~ : String = "") -> Schema {
   } else {
     msg
   }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -927,6 +940,7 @@ pub fn Schema::ipv6(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("ipv6"),
     Json::object({ "format": Json::string("ipv6") }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -1007,7 +1021,7 @@ pub fn Schema::nonempty(self : Schema, msg~ : String = "") -> Schema {
     TupleType(_) => "tuple"
     _ => "value"
   }
-  append_rule(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -1018,6 +1032,12 @@ pub fn Schema::nonempty(self : Schema, msg~ : String = "") -> Schema {
     },
     message,
     IssueCode::TooSmall(origin, 1.0, true),
+    if origin == "string" {
+      Json::object({ "minLength": Json::number(1.0) })
+    } else {
+      Json::object({ "minItems": Json::number(1.0) })
+    },
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -1037,7 +1057,7 @@ pub fn Schema::trim(self : Schema) -> Schema {
           _ => Err("Expected string")
         }
       },
-      is_builtin: true,
+      kind: TrimTransform,
     }),
     rules: [],
     description: self.description,
@@ -1064,7 +1084,7 @@ pub fn Schema::to_lower(self : Schema) -> Schema {
           _ => Err("Expected string")
         }
       },
-      is_builtin: true,
+      kind: LowerTransform,
     }),
     rules: [],
     description: self.description,
@@ -1091,7 +1111,7 @@ pub fn Schema::to_upper(self : Schema) -> Schema {
           _ => Err("Expected string")
         }
       },
-      is_builtin: true,
+      kind: UpperTransform,
     }),
     rules: [],
     description: self.description,
@@ -1105,10 +1125,33 @@ pub fn Schema::to_upper(self : Schema) -> Schema {
 ///|
 /// Require the string or array to have exactly `n` items.
 pub fn Schema::length(self : Schema, n : Int32, msg~ : String = "") -> Schema {
+  guard_no_user_transform(self)
+  if n < 0 {
+    abort("length() requires a nonnegative length")
+  }
   let check = schema_length_check(self, n)
   let message = if msg.is_empty() { schema_length_msg(self, n) } else { msg }
-  // No annotation — avoids conflict with minLength/maxLength
-  append_rule(self, check, message, IssueCode::Custom)
+  let annotation = match inner_type(self.schema_type) {
+    StringType =>
+      Json::object({
+        "minLength": Json::number(n.to_double()),
+        "maxLength": Json::number(n.to_double()),
+      })
+    ArrayType(_) =>
+      Json::object({
+        "minItems": Json::number(n.to_double()),
+        "maxItems": Json::number(n.to_double()),
+      })
+    _ => abort("length() requires a string or array")
+  }
+  append_builtin_rule(
+    self,
+    check,
+    message,
+    IssueCode::Custom,
+    annotation,
+    explicit_message=!msg.is_empty(),
+  )
 }
 
 ///|
@@ -1128,7 +1171,7 @@ pub fn Schema::ulid(self : Schema, msg~ : String = "") -> Schema {
     _ => abort("ulid() is only valid for string schemas")
   }
   let message = if msg.is_empty() { "String must be a valid ULID" } else { msg }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -1154,6 +1197,7 @@ pub fn Schema::ulid(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("ulid"),
     Json::object({ "format": Json::string("ulid") }),
+    explicit_message=!msg.is_empty(),
   )
 }
 

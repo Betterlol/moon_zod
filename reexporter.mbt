@@ -87,3 +87,12 @@ pub using @importers {json_schema_to_schema}
 
 ///|
 pub using @combinators {json_schema_to_moon_zod, json_schema_to_prompt}
+
+///|
+/// Structured core metadata and numeric bound support.
+pub using @core {
+  trait NumericBound,
+  type Constraint,
+  type TransformKind,
+  effective_rules,
+}

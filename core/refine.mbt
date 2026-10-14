@@ -11,6 +11,15 @@ pub fn Schema::refine(
   {
     ..self,
     rules: self.rules +
-    [{ check, message, code: IssueCode::Custom, annotation: Json::null(), }],
+    [
+      {
+        check,
+        message,
+        code: IssueCode::Custom,
+        annotation: Json::null(),
+        constraint: Opaque,
+        explicit_message: true,
+      },
+    ],
   }
 }

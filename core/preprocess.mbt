@@ -11,7 +11,7 @@ pub fn preprocess(
 ) -> Schema {
   {
     schema_type: PreprocessType(
-      TransformClosure::{ f, is_builtin: false, },
+      TransformClosure::{ f, kind: CustomTransform, },
       inner,
     ),
     rules: [],

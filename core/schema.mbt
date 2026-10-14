@@ -43,9 +43,32 @@ pub extend SchemaType with @debug.Debug::{to_repr}
 
 ///|
 /// Internal wrapper for a transform function stored in TransformType.
+pub(all) enum TransformKind {
+  CustomTransform
+  IdentityTransform
+  TrimTransform
+  LowerTransform
+  UpperTransform
+} derive(Debug)
+
+///|
+/// A built-in constraint's semantic identity, independent of rendered messages.
+pub(all) enum Constraint {
+  Minimum(String, Double, Bool)
+  Maximum(String, Double, Bool)
+  ExactLength(String, Int32)
+  Multiple(Double)
+  Integer
+  Format(String)
+  Pattern(String)
+  Opaque
+} derive(Debug)
+
+///|
+/// Transform callbacks carry an explicit kind for inspection and source export.
 pub(all) struct TransformClosure {
   f : (Json) -> Result[Json, String]
-  is_builtin : Bool
+  kind : TransformKind
 } derive(Debug)
 
 ///|
@@ -55,6 +78,8 @@ pub extend TransformClosure with @debug.Debug::{to_repr}
 ///|
 /// A single validation rule: a predicate + error message + optional JSON Schema annotation.
 pub(all) struct Rule {
+  constraint : Constraint
+  explicit_message : Bool
   check : (Json) -> Bool
   message : String
   code : IssueCode
@@ -132,7 +157,7 @@ pub fn Schema::message(self : Schema, text : String) -> Schema {
   if !self.rules.is_empty() {
     let rules = self.rules.copy()
     let i = rules.length() - 1
-    rules[i] = { ..rules[i], message: text, }
+    rules[i] = { ..rules[i], message: text, explicit_message: true, }
     return { ..self, rules, }
   }
   let schema_type = match self.schema_type {
@@ -188,38 +213,14 @@ pub fn append_rule_with_annotation(
   code : IssueCode,
   annotation : Json,
 ) -> Schema {
-  let schema_type = match schema.schema_type {
-    OptionalType(inner) =>
-      OptionalType(
-        append_rule_with_annotation(inner, check, message, code, annotation),
-      )
-    NullableType(inner) =>
-      NullableType(
-        append_rule_with_annotation(inner, check, message, code, annotation),
-      )
-    DefaultType(inner, value) =>
-      DefaultType(
-        append_rule_with_annotation(inner, check, message, code, annotation),
-        value,
-      )
-    PrefaultType(inner, value) =>
-      PrefaultType(
-        append_rule_with_annotation(inner, check, message, code, annotation),
-        value,
-      )
-    PipeType(input, bridge, output) =>
-      PipeType(
-        input,
-        bridge,
-        append_rule_with_annotation(output, check, message, code, annotation),
-      )
-    _ =>
-      return {
-        ..schema,
-        rules: schema.rules + [{ check, message, code, annotation, }],
-      }
-  }
-  { ..schema, schema_type, }
+  append_typed_rule(schema, {
+    check,
+    message,
+    code,
+    annotation,
+    constraint: Opaque,
+    explicit_message: true,
+  })
 }
 
 ///|
@@ -228,7 +229,7 @@ pub fn append_rule_with_annotation(
 fn guard_no_user_transform(schema : Schema) -> Unit {
   match schema.schema_type {
     TransformType(inner, cls) =>
-      if !cls.is_builtin {
+      if cls.kind is CustomTransform {
         abort(
           "cannot chain type-specific validation after transform(); use .pipe() instead",
         )

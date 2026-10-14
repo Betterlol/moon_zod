@@ -110,7 +110,7 @@ pub fn Schema::int(self : Schema, msg~ : String = "") -> Schema {
     _ => abort("int() is only valid for number schemas")
   }
   let message = if msg.is_empty() { "Value must be an integer" } else { msg }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -121,6 +121,7 @@ pub fn Schema::int(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("integer"),
     Json::object({ "type": Json::string("integer") }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -133,7 +134,7 @@ pub fn Schema::positive(self : Schema, msg~ : String = "") -> Schema {
     _ => abort("positive() is only valid for number schemas")
   }
   let message = if msg.is_empty() { "Value must be positive" } else { msg }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -144,6 +145,7 @@ pub fn Schema::positive(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::TooSmall("number", 0.0, false),
     Json::object({ "exclusiveMinimum": Json::number(0.0) }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -156,7 +158,7 @@ pub fn Schema::negative(self : Schema, msg~ : String = "") -> Schema {
     _ => abort("negative() is only valid for number schemas")
   }
   let message = if msg.is_empty() { "Value must be negative" } else { msg }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -167,6 +169,7 @@ pub fn Schema::negative(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::TooBig("number", 0.0, false),
     Json::object({ "exclusiveMaximum": Json::number(0.0) }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -191,7 +194,7 @@ pub fn[N : NumericBound] Schema::multipleOf(
   } else {
     msg
   }
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -202,6 +205,7 @@ pub fn[N : NumericBound] Schema::multipleOf(
     message,
     IssueCode::NotMultipleOf(n),
     Json::object({ "multipleOf": Json::number(n) }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -246,7 +250,7 @@ pub fn Schema::safe(self : Schema, msg~ : String = "") -> Schema {
   }
   let min_safe = -9007199254740991.0
   let max_safe = 9007199254740991.0
-  append_rule(
+  append_builtin_rule(
     self,
     fn(json) {
       match json {
@@ -256,6 +260,12 @@ pub fn Schema::safe(self : Schema, msg~ : String = "") -> Schema {
     },
     message,
     IssueCode::Custom,
+    Json::object({
+      "type": Json::string("integer"),
+      "minimum": Json::number(min_safe),
+      "maximum": Json::number(max_safe),
+    }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -268,7 +278,7 @@ pub fn[N : NumericBound] Schema::gt(
 ) -> Schema {
   let bound = bound.to_bound()
   guard_numeric_bound(self, bound)
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(value) {
       match value {
@@ -283,6 +293,7 @@ pub fn[N : NumericBound] Schema::gt(
     },
     TooSmall("number", bound, false),
     Json::object({ "exclusiveMinimum": Json::number(bound) }),
+    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -295,7 +306,7 @@ pub fn[N : NumericBound] Schema::lt(
 ) -> Schema {
   let bound = bound.to_bound()
   guard_numeric_bound(self, bound)
-  append_rule_with_annotation(
+  append_builtin_rule(
     self,
     fn(value) {
       match value {
@@ -310,6 +321,7 @@ pub fn[N : NumericBound] Schema::lt(
     },
     TooBig("number", bound, false),
     Json::object({ "exclusiveMaximum": Json::number(bound) }),
+    explicit_message=!msg.is_empty(),
   )
 }
 

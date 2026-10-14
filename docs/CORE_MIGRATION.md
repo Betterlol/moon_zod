@@ -28,3 +28,9 @@ defaulted fields are required, nullable and optional fields use option types.
 `Schema::brand()` is export metadata; it does not create a nominal MoonBit type.
 `bigint()` remains an integer JSON-number alias, with Double precision limitations,
 and must not be used for arbitrary precision IDs or money storage.
+
+Built-in rules now expose a structured Constraint and explicit-message origin.
+TransformClosure carries TransformKind instead of the old is_builtin flag.
+ConstraintInfo min_value/max_value are optional bounds; negative values are no
+longer sentinels. Repeated patterns/formats/multiples are retained as arrays.
+Public helper functions remain available; new parser helpers stay private.

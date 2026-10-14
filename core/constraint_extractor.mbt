@@ -1,311 +1,238 @@
 ///|
-/// Unified constraint information extracted from Rule annotations.
-/// This data structure consolidates all constraint metadata across different types.
+/// Constraint metadata uses optional bounds, preserving negative values.
 pub(all) struct ConstraintInfo {
-  min_value : Double // For string length, number min, array minItems
-  max_value : Double // For string length, number max, array maxItems
-  format : String // "email", "uri", "date-time", "uuid", "ipv4", etc.
-  pattern : String // regex pattern
-  is_int : Bool // For numbers: must be integer
-  is_positive : Bool // For numbers: > 0
-  is_negative : Bool // For numbers: < 0
-  multiple_of : Double // For numbers: multiple of N
-  custom_messages : Array[String] // Custom error messages
+  min_value : Double?
+  max_value : Double?
+  min_inclusive : Bool
+  max_inclusive : Bool
+  format : String
+  pattern : String
+  patterns : Array[String]
+  formats : Array[String]
+  is_int : Bool
+  is_positive : Bool
+  is_negative : Bool
+  multiple_of : Double
+  multiples : Array[Double]
+  custom_messages : Array[String]
 }
 
 ///|
-/// Create a default empty ConstraintInfo
+/// Empty constraints use None instead of a numeric sentinel.
 pub fn constraint_info_default() -> ConstraintInfo {
   {
-    min_value: -1.0,
-    max_value: -1.0,
+    min_value: None,
+    max_value: None,
+    min_inclusive: true,
+    max_inclusive: true,
     format: "",
     pattern: "",
+    patterns: [],
+    formats: [],
     is_int: false,
     is_positive: false,
     is_negative: false,
     multiple_of: 0.0,
+    multiples: [],
     custom_messages: [],
   }
 }
 
 ///|
-/// Extract all constraint information from a Rule array.
-/// Unified extraction that works across all types.
+/// Extract built-in constraints and explicit annotation extensions.
 pub fn extract_constraints(rules : Array[Rule]) -> ConstraintInfo {
-  let mut min_value = -1.0
-  let mut max_value = -1.0
-  let mut format_val = ""
-  let mut pattern_val = ""
-  let mut is_int_val = false
-  let mut is_positive_val = false
-  let mut is_negative_val = false
-  let mut multiple_of_val = 0.0
-  let custom_messages_val : Array[String] = []
-
-  // First pass: extract from IssueCode (structured, fast path)
+  let mut info = constraint_info_default()
   for rule in rules {
-    match rule.code {
-      TooSmall(_, val, _) => min_value = val
-      TooBig(_, val, _) => max_value = val
-      InvalidFormat(fmt) =>
-        if fmt == "integer" {
-          is_int_val = true
-        } else {
-          format_val = fmt
+    match rule.constraint {
+      Minimum(_, value, inclusive) =>
+        info = fold_minimum(info, value, inclusive)
+      Maximum(_, value, inclusive) =>
+        info = fold_maximum(info, value, inclusive)
+      ExactLength(_, value) => {
+        info = fold_minimum(info, value.to_double(), true)
+        info = fold_maximum(info, value.to_double(), true)
+      }
+      Multiple(value) => {
+        info.multiples.push(value)
+        info = { ..info, multiple_of: value, }
+      }
+      Integer => info = { ..info, is_int: true, }
+      Format(value) => {
+        info.formats.push(value)
+        info = { ..info, format: value, }
+      }
+      Pattern(value) => {
+        info.patterns.push(value)
+        info = { ..info, pattern: value, }
+      }
+      Opaque =>
+        if rule.annotation is Null {
+          info.custom_messages.push(rule.message)
         }
-      NotMultipleOf(div) => multiple_of_val = div
-      _ => ()
     }
-    match rule.code {
-      TooSmall("number", 0.0, false) => is_positive_val = true
-      TooBig("number", 0.0, false) => is_negative_val = true
-      _ => ()
-    }
-  }
-
-  // Second pass: extract from JSON annotations (fallback for Custom rules)
-  for rule in rules {
-    match rule.annotation {
-      Object(map) => {
-        if map.contains("minLength") {
-          match map.get("minLength") {
-            Some(Number(v, ..)) => min_value = v
-            _ => ()
-          }
-        }
-        if map.contains("maxLength") {
-          match map.get("maxLength") {
-            Some(Number(v, ..)) => max_value = v
-            _ => ()
-          }
-        }
-        if map.contains("minimum") {
-          match map.get("minimum") {
-            Some(Number(v, ..)) => min_value = v
-            _ => ()
-          }
-        }
-        if map.contains("maximum") {
-          match map.get("maximum") {
-            Some(Number(v, ..)) => max_value = v
-            _ => ()
-          }
-        }
-        if map.contains("minItems") {
-          match map.get("minItems") {
-            Some(Number(v, ..)) => min_value = v
-            _ => ()
-          }
-        }
-        if map.contains("maxItems") {
-          match map.get("maxItems") {
-            Some(Number(v, ..)) => max_value = v
-            _ => ()
-          }
-        }
-        if map.contains("format") {
-          match map.get("format") {
-            Some(String(s)) => format_val = s
-            _ => ()
-          }
-        }
-        if map.contains("pattern") {
-          match map.get("pattern") {
-            Some(String(s)) => pattern_val = s
-            _ => ()
-          }
-        }
-        if map.contains("type") {
-          match map.get("type") {
-            Some(String(s)) => if s == "integer" { is_int_val = true }
-            _ => ()
-          }
-        }
-        if map.contains("exclusiveMinimum") {
-          match map.get("exclusiveMinimum") {
-            Some(Number(v, ..)) => if v == 0.0 { is_positive_val = true }
-            _ => ()
-          }
-        }
-        if map.contains("exclusiveMaximum") {
-          match map.get("exclusiveMaximum") {
-            Some(Number(v, ..)) => if v == 0.0 { is_negative_val = true }
-            _ => ()
-          }
-        }
-        if map.contains("multipleOf") {
-          match map.get("multipleOf") {
-            Some(Number(v, ..)) => multiple_of_val = v
-            _ => ()
-          }
+    if rule.annotation is Object(fields) {
+      for key, value in fields {
+        match (key, value) {
+          ("minLength" | "minItems" | "minimum", Number(v, ..)) =>
+            info = fold_minimum(info, v, true)
+          ("maxLength" | "maxItems" | "maximum", Number(v, ..)) =>
+            info = fold_maximum(info, v, true)
+          ("exclusiveMinimum", Number(v, ..)) =>
+            info = fold_minimum(info, v, false)
+          ("exclusiveMaximum", Number(v, ..)) =>
+            info = fold_maximum(info, v, false)
+          ("type", String("integer")) => info = { ..info, is_int: true, }
+          ("format", String(v)) =>
+            if !info.formats.contains(v) {
+              info.formats.push(v)
+              info = { ..info, format: v, }
+            }
+          ("pattern", String(v)) =>
+            if !info.patterns.contains(v) {
+              info.patterns.push(v)
+              info = { ..info, pattern: v, }
+            }
+          ("multipleOf", Number(v, ..)) =>
+            if !info.multiples.contains(v) {
+              info.multiples.push(v)
+              info = { ..info, multiple_of: v, }
+            }
+          _ => ()
         }
       }
-      _ => ()
     }
   }
-
-  // Third pass: collect custom error messages
-  for rule in rules {
-    match rule.annotation {
-      Null =>
-        if rule.message != "String must not be empty" {
-          custom_messages_val.push(rule.message)
-        }
-      _ => ()
-    }
-  }
-
   {
-    min_value,
-    max_value,
-    format: format_val,
-    pattern: pattern_val,
-    is_int: is_int_val,
-    is_positive: is_positive_val,
-    is_negative: is_negative_val,
-    multiple_of: multiple_of_val,
-    custom_messages: custom_messages_val,
+    ..info,
+    is_positive: info.min_value is Some(0.0) && !info.min_inclusive,
+    is_negative: info.max_value is Some(0.0) && !info.max_inclusive,
   }
 }
 
 ///|
-/// Convert ConstraintInfo to prompt comment string for strings.
+fn fold_minimum(
+  info : ConstraintInfo,
+  value : Double,
+  inclusive : Bool,
+) -> ConstraintInfo {
+  match info.min_value {
+    Some(previous) =>
+      if value < previous {
+        return info
+      } else if value == previous {
+        return { ..info, min_inclusive: info.min_inclusive && inclusive, }
+      }
+    None => ()
+  }
+  { ..info, min_value: Some(value), min_inclusive: inclusive, }
+}
+
+///|
+fn fold_maximum(
+  info : ConstraintInfo,
+  value : Double,
+  inclusive : Bool,
+) -> ConstraintInfo {
+  match info.max_value {
+    Some(previous) =>
+      if value > previous {
+        return info
+      } else if value == previous {
+        return { ..info, max_inclusive: info.max_inclusive && inclusive, }
+      }
+    None => ()
+  }
+  { ..info, max_value: Some(value), max_inclusive: inclusive, }
+}
+
+///|
+fn range_parts(info : ConstraintInfo, suffix : String) -> Array[String] {
+  match (info.min_value, info.max_value) {
+    (Some(a), Some(b)) =>
+      if info.min_inclusive && info.max_inclusive {
+        [format_double_simple(a) + "-" + format_double_simple(b) + suffix]
+      } else {
+        [
+          (if info.min_inclusive { "min: " } else { "> " }) +
+          format_double_simple(a),
+          (if info.max_inclusive { "max: " } else { "< " }) +
+          format_double_simple(b),
+        ]
+      }
+    (Some(a), None) =>
+      [
+        (if info.min_inclusive { "min: " } else { "> " }) +
+        format_double_simple(a),
+      ]
+    (None, Some(b)) =>
+      [
+        (if info.max_inclusive { "max: " } else { "< " }) +
+        format_double_simple(b),
+      ]
+    _ => []
+  }
+}
+
+///|
+/// Render every string bound, format and pattern.
 pub fn constraint_info_to_string_comment(info : ConstraintInfo) -> String {
-  let parts : Array[String] = []
-
-  // Length constraints
-  if info.min_value >= 0.0 && info.max_value >= 0.0 {
-    parts.push(
-      format_double_simple(info.min_value) +
-      "-" +
-      format_double_simple(info.max_value) +
-      " chars",
-    )
-  } else if info.min_value >= 0.0 {
-    parts.push("min: " + format_double_simple(info.min_value))
-  } else if info.max_value >= 0.0 {
-    parts.push("max: " + format_double_simple(info.max_value))
+  let parts = range_parts(info, " chars")
+  for format in info.formats {
+    parts.push(if format == "uri" { "url" } else { format })
   }
-
-  // Format
-  if info.format == "email" {
-    parts.push("email")
-  } else if info.format == "uri" {
-    parts.push("url")
-  } else if !info.format.is_empty() {
-    parts.push(info.format)
+  for pattern in info.patterns {
+    parts.push("pattern: " + pattern)
   }
-
-  // Pattern
-  if !info.pattern.is_empty() {
-    parts.push("pattern: " + info.pattern)
-  }
-
-  // Custom messages
-  for msg in info.custom_messages {
-    parts.push(msg)
-  }
-
-  if parts.is_empty() {
-    ""
-  } else {
-    join_parts(parts)
-  }
+  parts.append(info.custom_messages)
+  parts.join(", ")
 }
 
 ///|
-/// Convert ConstraintInfo to prompt comment string for numbers.
+/// Render numeric constraints, including negative and exclusive bounds.
 pub fn constraint_info_to_number_comment(info : ConstraintInfo) -> String {
   let parts : Array[String] = []
-
-  // Type
   if info.is_int {
     parts.push("int")
   }
-
-  // Range
-  if info.is_positive {
+  if info.is_positive && info.max_value is None {
     parts.push("positive")
-  } else if info.is_negative {
+  } else if info.is_negative && info.min_value is None {
     parts.push("negative")
-  } else if info.min_value >= 0.0 && info.max_value >= 0.0 {
-    parts.push(
-      format_double_simple(info.min_value) +
-      "-" +
-      format_double_simple(info.max_value),
-    )
-  } else if info.min_value >= 0.0 {
-    parts.push("min: " + format_double_simple(info.min_value))
-  } else if info.max_value >= 0.0 {
-    parts.push("max: " + format_double_simple(info.max_value))
-  }
-
-  // Special constraints
-  if info.multiple_of > 0.0 {
-    parts.push("multiple of " + format_double_simple(info.multiple_of))
-  }
-
-  // Custom messages
-  for msg in info.custom_messages {
-    parts.push(msg)
-  }
-
-  if parts.is_empty() {
-    ""
   } else {
-    join_parts(parts)
+    parts.append(range_parts(info, ""))
   }
+  for multiple in info.multiples {
+    parts.push("multiple of " + format_double_simple(multiple))
+  }
+  parts.append(info.custom_messages)
+  parts.join(", ")
 }
 
 ///|
-/// Convert ConstraintInfo to prompt comment string for arrays.
+/// Render array cardinality constraints.
 pub fn constraint_info_to_array_comment(info : ConstraintInfo) -> String {
   let parts : Array[String] = []
-
-  // Item count (use min/max format, not range format like strings)
-  if info.min_value >= 0.0 {
-    parts.push("min: " + format_double_simple(info.min_value) + " items")
+  if info.min_value is Some(value) {
+    parts.push("min: " + format_double_simple(value) + " items")
   }
-  if info.max_value >= 0.0 {
-    parts.push("max: " + format_double_simple(info.max_value) + " items")
+  if info.max_value is Some(value) {
+    parts.push("max: " + format_double_simple(value) + " items")
   }
-
-  // Custom messages
-  for msg in info.custom_messages {
-    parts.push(msg)
-  }
-
-  if parts.is_empty() {
-    ""
-  } else {
-    join_parts(parts)
-  }
+  parts.append(info.custom_messages)
+  parts.join(", ")
 }
 
 ///|
-/// Convert ConstraintInfo to prompt comment string (fallback for unknown types).
+/// Render opaque predicates.
 pub fn constraint_info_to_fallback_comment(info : ConstraintInfo) -> String {
-  let parts : Array[String] = []
-
-  for msg in info.custom_messages {
-    parts.push(msg)
-  }
-
-  if parts.is_empty() {
-    ""
-  } else {
-    join_parts(parts)
-  }
+  info.custom_messages.join(", ")
 }
 
 ///|
-/// Extract and format constraint comment for a schema (without description).
-/// Dispatches to type-appropriate formatter based on the unwrapped schema type.
+/// Keep checks attached after built-in effects when rendering constraints.
 pub fn constraint_comment(schema : Schema) -> String {
-  let unwrapped = unwrap_schema(schema)
-  let info = extract_constraints(unwrapped.rules)
-  match unwrapped.schema_type {
+  let info = extract_constraints(effective_rules(schema))
+  match inner_type(schema.schema_type) {
     StringType => constraint_info_to_string_comment(info)
     NumberType => constraint_info_to_number_comment(info)
     ArrayType(_) => constraint_info_to_array_comment(info)
