@@ -26,36 +26,14 @@ pub fn Schema::intersect(self : Schema, other : Schema) -> Schema {
 
 ///|
 pub fn Schema::parse_intersection(
-  _self : Schema,
+  self : Schema,
   schemas : Array[Schema],
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  fn merge_json(a : Json, b : Json) -> Json {
-    match (a, b) {
-      (Object(map_a), Object(map_b)) => {
-        for k, v in map_b {
-          map_a.set(k, v)
-        }
-        Json::object(map_a)
-      }
-      _ => a
-    }
-  }
-  let raw : Array[RawIssue] = []
-  let mut merged = json
-  for s in schemas {
-    match parse_inner(s, json, path_stack) {
-      Ok(result) => merged = merge_json(merged, result)
-      Err(errs) =>
-        for e in errs {
-          raw.push(e)
-        }
-    }
-  }
-  if raw.is_empty() {
-    Ok(merged)
-  } else {
-    Err(raw)
-  }
+  parse_inner(
+    { ..self, schema_type: IntersectionType(schemas), },
+    json,
+    path_stack,
+  )
 }

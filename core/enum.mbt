@@ -72,34 +72,10 @@ pub fn Schema::extract(self : Schema, values : Array[String]) -> Schema {
 
 ///|
 pub fn Schema::parse_enum(
-  _self : Schema,
+  self : Schema,
   values : Array[String],
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  let path = format_path(path_stack)
-  match json {
-    String(s) =>
-      if value_in_array(s, values) {
-        Ok(json)
-      } else {
-        Err([
-          RawIssue::{
-            code: IssueCode::InvalidValue(values.map(fn(v) { Json::string(v) })),
-            path,
-            message: "Invalid enum value",
-            input: json,
-          },
-        ])
-      }
-    _ =>
-      Err([
-        RawIssue::{
-          code: IssueCode::InvalidType("string"),
-          path,
-          message: "Expected string for enum",
-          input: json,
-        },
-      ])
-  }
+  parse_inner({ ..self, schema_type: EnumType(values), }, json, path_stack)
 }

@@ -127,71 +127,23 @@ pub fn Schema::invalid_type_error(self : Schema, text : String) -> Schema {
 /// string().min(2).message("姓名至少需要 2 个字符")
 /// ```
 pub fn Schema::message(self : Schema, text : String) -> Schema {
-  match self.schema_type {
-    OptionalType(inner) => {
-      let new_inner = inner.message(text)
-      {
-        schema_type: OptionalType(new_inner),
-        rules: [],
-        description: self.description,
-        required_error: self.required_error,
-        invalid_type_error: self.invalid_type_error,
-        name: self.name,
-        brand: self.brand,
-      }
-    }
-    DefaultType(inner, val) => {
-      let new_inner = inner.message(text)
-      {
-        schema_type: DefaultType(new_inner, val),
-        rules: [],
-        description: self.description,
-        required_error: self.required_error,
-        invalid_type_error: self.invalid_type_error,
-        name: self.name,
-        brand: self.brand,
-      }
-    }
-    TransformType(inner, cls) => {
-      let new_inner = inner.message(text)
-      {
-        schema_type: TransformType(new_inner, cls),
-        rules: [],
-        description: self.description,
-        required_error: self.required_error,
-        invalid_type_error: self.invalid_type_error,
-        name: self.name,
-        brand: self.brand,
-      }
-    }
-    PipeType(input, bridge, output) => {
-      let new_output = output.message(text)
-      {
-        schema_type: PipeType(input, bridge, new_output),
-        rules: [],
-        description: self.description,
-        required_error: self.required_error,
-        invalid_type_error: self.invalid_type_error,
-        name: self.name,
-        brand: self.brand,
-      }
-    }
-    _ => {
-      let n = self.rules.length()
-      if n == 0 {
-        abort("message() must follow a rule method")
-      }
-      let new_rules : Array[Rule] = []
-      for i = 0; i < n; i = i + 1 {
-        if i == n - 1 {
-          new_rules.push({ ..self.rules[i], message: text, })
-        } else {
-          new_rules.push(self.rules[i])
-        }
-      }
-      { ..self, rules: new_rules, }
-    }
+  if !self.rules.is_empty() {
+    let rules = self.rules.copy()
+    let i = rules.length() - 1
+    rules[i] = { ..rules[i], message: text, }
+    return { ..self, rules, }
   }
+  let schema_type = match self.schema_type {
+    OptionalType(inner) => OptionalType(inner.message(text))
+    DefaultType(inner, value) => DefaultType(inner.message(text), value)
+    TransformType(inner, closure) => TransformType(inner.message(text), closure)
+    PreprocessType(closure, inner) =>
+      PreprocessType(closure, inner.message(text))
+    PipeType(input, bridge, output) =>
+      PipeType(input, bridge, output.message(text))
+    _ => abort("message() must follow a rule method")
+  }
+  { ..self, schema_type, }
 }
 
 ///|
@@ -360,65 +312,11 @@ fn parse_inner(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  match schema.schema_type {
-    ObjectType(spec, mode) => schema.parse_object(spec, mode, json, path_stack)
-    ArrayType(element_schema) =>
-      schema.parse_array(element_schema, json, path_stack)
-    TupleType(items) => schema.parse_tuple(items, json, path_stack)
-    AnyType | UnknownType => {
-      let raw : Array[RawIssue] = []
-      collect_raw_errors(raw, path_stack, json, schema.rules)
-      if raw.is_empty() {
-        Ok(json)
-      } else {
-        Err(raw)
-      }
-    }
-    OptionalType(inner) => schema.parse_optional(inner, json, path_stack)
-    DefaultType(inner, default_val) =>
-      schema.parse_default(inner, default_val, json, path_stack)
-    EnumType(values) => schema.parse_enum(values, json, path_stack)
-    UnionType(schemas) => schema.parse_union(schemas, json, path_stack)
-    IntersectionType(schemas) =>
-      schema.parse_intersection(schemas, json, path_stack)
-    PreprocessType(closure, inner) =>
-      schema.parse_preprocess(closure, inner, json, path_stack)
-    TransformType(inner, closure) =>
-      schema.parse_transform(inner, closure, json, path_stack)
-    LiteralType(expected) => schema.parse_literal(expected, json, path_stack)
-    LazyType(f) => schema.parse_lazy(f, json, path_stack)
-    DiscriminatedUnionType(disc, options) =>
-      schema.parse_discriminated_union(disc, options, json, path_stack)
-    PipeType(input_schema, bridge, output_schema) =>
-      schema.parse_pipe(input_schema, bridge, output_schema, json, path_stack)
-    _ => {
-      let valid = match (schema.schema_type, json) {
-        (StringType, String(_)) => true
-        (NumberType, Number(_)) => true
-        (BooleanType, True | False) => true
-        (NullType, Null) => true
-        _ => false
-      }
-      if !valid {
-        let path = format_path(path_stack)
-        let message = type_msg(schema)
-        return Err([
-          RawIssue::{
-            code: IssueCode::InvalidType(type_origin(schema.schema_type)),
-            path,
-            message,
-            input: json,
-          },
-        ])
-      }
-      let raw : Array[RawIssue] = []
-      collect_raw_errors(raw, path_stack, json, schema.rules)
-      if raw.is_empty() {
-        Ok(json)
-      } else {
-        Err(raw)
-      }
-    }
+  let out = parse_output(schema, json, path_stack)
+  if out.issues.is_empty() {
+    Ok(out.value)
+  } else {
+    Err(out.issues)
   }
 }
 
@@ -455,7 +353,7 @@ pub fn Schema::safe_parse(
   } else {
     [params.path]
   }
-  match parse_inner(self, json, path_stack) {
+  match parse_inner(self, copy_json(json), path_stack) {
     Ok(v) => Ok(v)
     Err(raw) => Err(finalize_issues(raw, params))
   }

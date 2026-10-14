@@ -83,12 +83,11 @@ pub fn collect_raw_errors(
   json : Json,
   rules : Array[Rule],
 ) -> Unit {
-  let path = format_path(path_stack)
   for rule in rules {
     if !(rule.check)(json) {
       out.push(RawIssue::{
         code: rule.code,
-        path,
+        path: format_path(path_stack),
         message: rule.message,
         input: json,
       })

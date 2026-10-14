@@ -32,17 +32,5 @@ pub fn Schema::parse_lazy(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  let resolved = f()
-  match parse_inner(resolved, json, path_stack) {
-    Err(e) => Err(e)
-    Ok(v) => {
-      let raw : Array[RawIssue] = []
-      collect_raw_errors(raw, path_stack, json, self.rules)
-      if raw.is_empty() {
-        Ok(v)
-      } else {
-        Err(raw)
-      }
-    }
-  }
+  parse_inner({ ..self, schema_type: LazyType(f), }, json, path_stack)
 }

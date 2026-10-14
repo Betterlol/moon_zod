@@ -16,13 +16,10 @@ pub fn Schema::optional(self : Schema) -> Schema {
 
 ///|
 pub fn Schema::parse_optional(
-  _self : Schema,
+  self : Schema,
   inner : Schema,
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  match json {
-    Null => Ok(json)
-    _ => parse_inner(inner, json, path_stack)
-  }
+  parse_inner({ ..self, schema_type: OptionalType(inner), }, json, path_stack)
 }

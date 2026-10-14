@@ -33,80 +33,9 @@ pub fn Schema::parse_discriminated_union(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  let dispatch_result = match json {
-    Object(map) => {
-      path_stack.push(discriminator)
-      let disc_path = format_path(path_stack)
-      let _ = path_stack.pop()
-      match map.get(discriminator) {
-        None =>
-          Err([
-            RawIssue::{
-              code: IssueCode::MissingRequired(discriminator),
-              path: disc_path,
-              message: "Required",
-              input: json,
-            },
-          ])
-        Some(String(disc_value)) =>
-          match options.get(disc_value) {
-            Some(schema) => parse_inner(schema, json, path_stack)
-            None => {
-              let valid_keys : Array[Json] = []
-              for k in options.keys() {
-                valid_keys.push(Json::string(k))
-              }
-              Err([
-                RawIssue::{
-                  code: IssueCode::InvalidValue(valid_keys),
-                  path: disc_path,
-                  message: "Invalid discriminator value",
-                  input: json,
-                },
-              ])
-            }
-          }
-        Some(_) =>
-          Err([
-            RawIssue::{
-              code: IssueCode::InvalidType("string"),
-              path: disc_path,
-              message: "Discriminator field must be a string",
-              input: json,
-            },
-          ])
-      }
-    }
-    _ => {
-      let path = format_path(path_stack)
-      Err([
-        RawIssue::{
-          code: IssueCode::InvalidType("object"),
-          path,
-          message: "Expected object for discriminated union",
-          input: json,
-        },
-      ])
-    }
-  }
-  // Check rules on the DU schema itself (for .refine() and chained rules)
-  match dispatch_result {
-    Ok(v) => {
-      let raw : Array[RawIssue] = []
-      collect_raw_errors(raw, path_stack, json, self.rules)
-      if raw.is_empty() {
-        Ok(v)
-      } else {
-        Err(raw)
-      }
-    }
-    Err(dispatch_raw) => {
-      let raw : Array[RawIssue] = []
-      for r in dispatch_raw {
-        raw.push(r)
-      }
-      collect_raw_errors(raw, path_stack, json, self.rules)
-      Err(raw)
-    }
-  }
+  parse_inner(
+    { ..self, schema_type: DiscriminatedUnionType(discriminator, options), },
+    json,
+    path_stack,
+  )
 }

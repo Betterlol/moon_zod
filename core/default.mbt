@@ -16,14 +16,15 @@ pub fn Schema::default(self : Schema, value : Json) -> Schema {
 
 ///|
 pub fn Schema::parse_default(
-  _self : Schema,
+  self : Schema,
   inner : Schema,
   default_val : Json,
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  match json {
-    Null => Ok(default_val)
-    _ => parse_inner(inner, json, path_stack)
-  }
+  parse_inner(
+    { ..self, schema_type: DefaultType(inner, default_val), },
+    json,
+    path_stack,
+  )
 }

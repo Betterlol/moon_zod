@@ -231,88 +231,9 @@ pub fn Schema::parse_object(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  match json {
-    Object(input_map) => {
-      let raw : Array[RawIssue] = []
-      let parsed_fields : Map[String, Json] = Map([])
-      for field_name in spec.keys() {
-        match spec.get(field_name) {
-          Some(field_schema) => {
-            path_stack.push(field_name)
-            match input_map.get(field_name) {
-              None =>
-                if !is_optional_schema(field_schema) {
-                  let path = format_path(path_stack)
-                  let req_msg = if !field_schema.required_error.is_empty() {
-                    field_schema.required_error
-                  } else {
-                    "Required"
-                  }
-                  raw.push(RawIssue::{
-                    code: IssueCode::MissingRequired(field_name.to_string()),
-                    path,
-                    message: req_msg,
-                    input: Json::null(),
-                  })
-                }
-              Some(field_json) => {
-                let result = parse_inner(field_schema, field_json, path_stack)
-                match result {
-                  Err(field_raw) =>
-                    for e in field_raw {
-                      raw.push(e)
-                    }
-                  Ok(parsed) => parsed_fields.set(field_name, parsed)
-                }
-              }
-            }
-            let _ = path_stack.pop()
-          }
-          None => ()
-        }
-      }
-      match mode {
-        Strict =>
-          for key in input_map.keys() {
-            match input_map.get(key) {
-              Some(value) =>
-                if !spec.contains(key) {
-                  path_stack.push(key)
-                  let path = format_path(path_stack)
-                  let _ = path_stack.pop()
-                  raw.push(RawIssue::{
-                    code: IssueCode::UnrecognizedKeys([key]),
-                    path,
-                    message: "Unexpected field",
-                    input: value,
-                  })
-                }
-              None => ()
-            }
-          }
-        _ => ()
-      }
-      collect_raw_errors(raw, path_stack, json, self.rules)
-      if raw.is_empty() {
-        match mode {
-          Strip => Ok(Json::object(parsed_fields))
-          _ => Ok(json)
-        }
-      } else {
-        Err(raw)
-      }
-    }
-    _ => {
-      let path = format_path(path_stack)
-      let message = type_msg(self)
-      Err([
-        RawIssue::{
-          code: IssueCode::InvalidType(type_origin(self.schema_type)),
-          path,
-          message,
-          input: json,
-        },
-      ])
-    }
-  }
+  parse_inner(
+    { ..self, schema_type: ObjectType(spec, mode), },
+    json,
+    path_stack,
+  )
 }
