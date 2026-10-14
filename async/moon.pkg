@@ -2,6 +2,8 @@ import {
   "Betterlol/moon_zod/core",
   "moonbitlang/async/io",
   "moonbitlang/core/json",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/encoding/utf8",
 }
 
 import {

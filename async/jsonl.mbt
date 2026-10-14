@@ -7,13 +7,14 @@ pub(all) enum JsonlEvent {
   Valid(Int32, Json)
   InvalidJson(Int32, String)
   InvalidSchema(Int32, Array[@core.ValidationError])
+  ExecutionFailed(Int32, Array[AsyncCheckError], Array[@core.ValidationError])
 }
 
 ///|
 /// Callback invoked for each non-blank JSON Lines record.
 ///
-/// The next record is not read until this callback finishes, providing natural
-/// backpressure to the upstream reader.
+/// Records are delivered sequentially, awaiting each callback. Input read-ahead
+/// is at most 4 KiB, and the caller retains responsibility for closing the reader.
 pub type JsonlHandler = async (JsonlEvent) -> Unit
 
 ///|
@@ -24,6 +25,7 @@ pub(all) struct JsonlSummary {
   valid : Int32
   invalid_json : Int32
   invalid_schema : Int32
+  execution_failed : Int32
   skipped : Int32
 }
 
@@ -42,7 +44,14 @@ pub async fn validate_jsonl(
   schema : @core.Schema,
   on_event : JsonlHandler,
   root_path~ : String = "",
+  limits~ : StreamReadLimits = StreamReadLimits::default(),
 ) -> JsonlSummary {
+  limits.check()
+  let lines = LineReader::new(
+    reader,
+    sse=false,
+    max_line_bytes=limits.max_line_bytes,
+  )
   let mut lines_read = 0
   let mut records = 0
   let mut valid = 0
@@ -50,7 +59,7 @@ pub async fn validate_jsonl(
   let mut invalid_schema = 0
   let mut skipped = 0
 
-  while reader.read_until("\n") is Some(line) {
+  while lines.next() is Some((line, _)) {
     lines_read = lines_read + 1
     let source = line.trim().to_owned()
     if source.is_empty() {
@@ -78,7 +87,15 @@ pub async fn validate_jsonl(
     }
   }
 
-  { lines_read, records, valid, invalid_json, invalid_schema, skipped, }
+  {
+    lines_read,
+    records,
+    valid,
+    invalid_json,
+    invalid_schema,
+    execution_failed: 0,
+    skipped,
+  }
 }
 
 ///|
@@ -92,15 +109,23 @@ pub async fn AsyncSchema::validate_jsonl(
   reader : &@io.Reader,
   on_event : JsonlHandler,
   root_path~ : String = "",
+  limits~ : StreamReadLimits = StreamReadLimits::default(),
 ) -> JsonlSummary {
+  limits.check()
+  let lines = LineReader::new(
+    reader,
+    sse=false,
+    max_line_bytes=limits.max_line_bytes,
+  )
   let mut lines_read = 0
   let mut records = 0
   let mut valid = 0
   let mut invalid_json = 0
   let mut invalid_schema = 0
+  let mut execution_failed = 0
   let mut skipped = 0
 
-  while reader.read_until("\n") is Some(line) {
+  while lines.next() is Some((line, _)) {
     lines_read = lines_read + 1
     let source = line.trim().to_owned()
     if source.is_empty() {
@@ -121,12 +146,24 @@ pub async fn AsyncSchema::validate_jsonl(
         valid = valid + 1
         on_event(Valid(lines_read, clean))
       }
-      Err(errors) => {
+      Err(Validation(errors)) => {
         invalid_schema = invalid_schema + 1
         on_event(InvalidSchema(lines_read, errors))
+      }
+      Err(Execution(execution_errors, errors)) => {
+        execution_failed = execution_failed + 1
+        on_event(ExecutionFailed(lines_read, execution_errors, errors))
       }
     }
   }
 
-  { lines_read, records, valid, invalid_json, invalid_schema, skipped, }
+  {
+    lines_read,
+    records,
+    valid,
+    invalid_json,
+    invalid_schema,
+    execution_failed,
+    skipped,
+  }
 }

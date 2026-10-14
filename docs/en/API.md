@@ -25,7 +25,7 @@
 | Method | Applies To | Description |
 |---|---|---|
 | `.parse(Json, path?)` | All | Validate, returns `Ok(Json)` or `Err(Array[ValidationError])` |
-| `.parse_stream(path?)` | All | Create a synchronous parser for one tokenized JSON document |
+| `.parse_stream(path?, max_length?, max_depth?)` | All | Create a bounded synchronous parser for one tokenized JSON document |
 | `.min(n[, msg])` | string / number / array | Minimum length / value |
 | `.max(n[, msg])` | string / number / array | Maximum length / value |
 | `.length(n[, msg])` | string / array / tuple | Exact length |
@@ -79,11 +79,17 @@
 ### Single-JSON Streaming
 
 Call `schema.parse_stream()` and pass each text chunk to `parser.feed(chunk)`.
-It returns `StreamPending` until the root document completes, then either
-`StreamValid(Json)`, `StreamInvalidJson(String)`, or
-`StreamInvalidSchema(Array[ValidationError])`. Call `parser.finish()` at end of
-input to resolve scalar roots and unfinished JSON. The parser is synchronous
-and accepts one JSON document only.
+`feed()` returns `StreamPending` until the document is finalized, or
+`StreamInvalidJson(String)` on malformed input or exceeded limits. Continue
+feeding after the root closes so trailing non-whitespace can be rejected.
+Call `parser.finish()` at end of input to return `StreamValid(Json)`,
+`StreamInvalidJson(String)`, or `StreamInvalidSchema(Array[ValidationError])`.
+Schema rules run once at `finish()`; terminal results are cached.
+
+The parser buffers one document, with defaults of 1,048,576 UTF-16 code units
+(`max_length`, including whitespace) and 128 object/array nesting levels
+(`max_depth`, range 1..=1024). Invalid limit configuration aborts; invalid data
+is returned through `StreamInvalidJson`. The parser state is opaque.
 
 ### Standalone Functions
 

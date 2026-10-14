@@ -1,8 +1,9 @@
 ///|
 /// The result of advancing a single-JSON streaming parser.
 ///
-/// `StreamPending` means more input is required. A parser becomes terminal after
-/// it returns any other variant; do not feed more tokens after that point.
+/// `StreamPending` means the document has not been finalized. Only `finish()`
+/// returns success; `feed()` can reject malformed input early. Other variants
+/// are terminal and subsequent calls return the same result.
 pub(all) enum StreamParseResult {
   StreamPending
   StreamValid(Json)
@@ -15,17 +16,21 @@ pub(all) enum StreamParseResult {
 ///
 /// Create this value with `Schema::parse_stream()`, feed arbitrary text chunks
 /// with `feed()`, then call `finish()` when the upstream token stream ends.
-pub(all) struct StreamParser {
-  schema : Schema
-  root_path : String
-  source : StringBuilder
-  mut stack : Array[Char]
-  mut started : Bool
-  mut in_string : Bool
-  mut escaped : Bool
-  mut root_scalar : Bool
-  mut complete : Bool
-  mut result : StreamParseResult?
+pub struct StreamParser {
+  priv schema : Schema
+  priv root_path : String
+  priv mut source : StringBuilder
+  priv stack : Array[Char]
+  priv mut started : Bool
+  priv mut in_string : Bool
+  priv mut escaped : Bool
+  priv mut root_scalar : Bool
+  priv mut complete : Bool
+  priv mut parsed : Json?
+  priv mut source_length : Int32
+  priv max_length : Int32
+  priv max_depth : Int32
+  priv mut result : StreamParseResult?
 }
 
 ///|
@@ -33,9 +38,22 @@ pub(all) struct StreamParser {
 ///
 /// Each call to `StreamParser::feed()` may contain one LLM token, part of a
 /// token, or multiple tokens. JSON strings and escape sequences may cross
-/// chunk boundaries. Schema rules run as soon as the complete root value is
-/// available; use `finish()` to report an unfinished or scalar-root document.
-pub fn Schema::parse_stream(self : Schema, path~ : String = "") -> StreamParser {
+/// chunk boundaries. Continue feeding until EOF, then call `finish()` to run
+/// schema rules exactly once and confirm that no trailing content was received.
+///
+/// `max_length` bounds all input in UTF-16 code units (default 1 Mi units).
+/// `max_depth` bounds object/array nesting (default 128, range 1..=1024).
+/// `max_length` must be positive.
+/// Text is buffered until the root closes; whitespace after it is not retained.
+pub fn Schema::parse_stream(
+  self : Schema,
+  path~ : String = "",
+  max_length~ : Int32 = 1048576,
+  max_depth~ : Int32 = 128,
+) -> StreamParser {
+  if max_length <= 0 || max_depth <= 0 || max_depth > 1024 {
+    abort("parse_stream requires max_length > 0 and max_depth in 1..=1024")
+  }
   {
     schema: self,
     root_path: path,
@@ -46,6 +64,10 @@ pub fn Schema::parse_stream(self : Schema, path~ : String = "") -> StreamParser 
     escaped: false,
     root_scalar: false,
     complete: false,
+    parsed: None,
+    source_length: 0,
+    max_length,
+    max_depth,
     result: None,
   }
 }
@@ -63,15 +85,19 @@ pub fn StreamParser::feed(
   match self.result {
     Some(result) => result
     None => {
-      self.source.write_string(token)
-      for c in token.to_array() {
+      if token.length() > self.max_length - self.source_length {
+        return self.reject("JSON input exceeds max_length")
+      }
+      self.source_length = self.source_length + token.length()
+      if !self.complete {
+        self.source.write_string(token)
+      }
+      for c in token.iter() {
         if self.complete {
           if !is_json_whitespace(c) {
-            let result = StreamInvalidJson(
+            return self.reject(
               "Unexpected content after the complete JSON value",
             )
-            self.result = Some(result)
-            return result
           }
           continue
         }
@@ -83,11 +109,7 @@ pub fn StreamParser::feed(
           self.started = true
           match c {
             '{' | '[' => self.stack.push(c)
-            '}' | ']' => {
-              let result = StreamInvalidJson("Unexpected closing delimiter")
-              self.result = Some(result)
-              return result
-            }
+            '}' | ']' => return self.reject("Unexpected closing delimiter")
             '"' => self.in_string = true
             _ => self.root_scalar = true
           }
@@ -112,44 +134,41 @@ pub fn StreamParser::feed(
           if is_json_whitespace(c) {
             self.complete = true
           } else if c == '}' || c == ']' {
-            let result = StreamInvalidJson(
+            return self.reject(
               "Unexpected closing delimiter after a JSON scalar",
             )
-            self.result = Some(result)
-            return result
           }
           continue
         }
 
         match c {
           '"' => self.in_string = true
-          '{' | '[' => self.stack.push(c)
+          '{' | '[' => {
+            if self.stack.length() >= self.max_depth {
+              return self.reject("JSON nesting exceeds max_depth")
+            }
+            self.stack.push(c)
+          }
           '}' =>
             match self.stack.pop() {
               Some('{') => if self.stack.is_empty() { self.complete = true }
-              _ => {
-                let result = StreamInvalidJson("Mismatched closing delimiter")
-                self.result = Some(result)
-                return result
-              }
+              _ => return self.reject("Mismatched closing delimiter")
             }
           ']' =>
             match self.stack.pop() {
               Some('[') => if self.stack.is_empty() { self.complete = true }
-              _ => {
-                let result = StreamInvalidJson("Mismatched closing delimiter")
-                self.result = Some(result)
-                return result
-              }
+              _ => return self.reject("Mismatched closing delimiter")
             }
           _ => ()
         }
       }
-      if self.complete {
-        self.complete_result()
-      } else {
-        StreamPending
+      if self.complete && self.parsed is None {
+        match self.parse_source() {
+          Err(result) => return result
+          Ok(json) => self.parsed = Some(json)
+        }
       }
+      StreamPending
     }
   }
 }
@@ -157,42 +176,59 @@ pub fn StreamParser::feed(
 ///|
 /// Mark the upstream token stream as finished and return its final result.
 ///
-/// This is required for root scalar values such as `42`, `true`, and `null`,
-/// whose boundary is the end of input rather than a closing delimiter.
+/// Required for every root type: success is final only at end of input.
 pub fn StreamParser::finish(self : StreamParser) -> StreamParseResult {
   match self.result {
     Some(result) => result
     None => {
       if !self.started {
-        let result = StreamInvalidJson("Expected a JSON value")
-        self.result = Some(result)
-        return result
+        return self.reject("Expected a JSON value")
       }
       if self.in_string || !self.stack.is_empty() {
-        let result = StreamInvalidJson("Incomplete JSON input")
-        self.result = Some(result)
-        return result
+        return self.reject("Incomplete JSON input")
       }
       self.complete = true
-      self.complete_result()
+      let json = match self.parsed {
+        Some(json) => json
+        None =>
+          match self.parse_source() {
+            Ok(json) => json
+            Err(result) => return result
+          }
+      }
+      let result = match self.schema.parse(json, path=self.root_path) {
+        Ok(value) => StreamValid(value)
+        Err(errors) => StreamInvalidSchema(errors)
+      }
+      self.parsed = None
+      self.result = Some(result)
+      result
     }
   }
 }
 
 ///|
-/// Parse the completed JSON source and apply the schema once.
-fn StreamParser::complete_result(self : StreamParser) -> StreamParseResult {
+/// Parse a closed root once, releasing its source buffer afterward.
+fn StreamParser::parse_source(
+  self : StreamParser,
+) -> Result[Json, StreamParseResult] {
   let json = @json.parse(self.source.to_string()) catch {
-    _ => {
-      let result = StreamInvalidJson("Invalid JSON input")
-      self.result = Some(result)
-      return result
-    }
+    _ => return Err(self.reject("Invalid JSON input"))
   }
-  let result = match self.schema.parse(json, path=self.root_path) {
-    Ok(value) => StreamValid(value)
-    Err(errors) => StreamInvalidSchema(errors)
-  }
+  self.source = StringBuilder()
+  Ok(json)
+}
+
+///|
+/// Cache a terminal failure and release partially buffered input.
+fn StreamParser::reject(
+  self : StreamParser,
+  message : String,
+) -> StreamParseResult {
+  let result = StreamInvalidJson(message)
+  self.source = StringBuilder()
+  self.stack.clear()
+  self.parsed = None
   self.result = Some(result)
   result
 }
