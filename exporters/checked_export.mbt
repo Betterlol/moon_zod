@@ -212,7 +212,20 @@ fn project_view(
         )
       }
       match project_many(items, view, depth) {
-        Ok(items) => IntersectionType(items)
+        Ok(items) => {
+          if output {
+            return match merge_output_shapes(items) {
+              Ok(merged) =>
+                Ok({
+                  ..merged,
+                  name: schema.name,
+                  rules: merged.rules + schema.rules,
+                })
+              Err(message) => Err(message)
+            }
+          }
+          IntersectionType(items)
+        }
         Err(message) => return Err(message)
       }
     }
