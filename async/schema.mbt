@@ -31,6 +31,11 @@ pub fn async_issue(
 pub type AsyncCheck = async (Json) -> AsyncIssue?
 
 ///|
+/// An asynchronous refinement that returns all issues found in cleaned JSON.
+/// Return an empty array to accept the value. Issues retain their array order.
+pub type AsyncSuperCheck = async (Json) -> Array[AsyncIssue]
+
+///|
 /// An execution error raised by the refinement at zero-based `index`.
 /// The original error is preserved so callers can distinguish service failures.
 pub(all) struct AsyncCheckError {
@@ -57,9 +62,9 @@ pub type AsyncParseResult = Result[Json, AsyncParseError]
 /// Core schema parsing remains synchronous. This wrapper first calls the
 /// wrapped schema, including its transformations and Strip-mode cleanup, then
 /// runs every asynchronous refinement in declaration order.
-pub(all) struct AsyncSchema {
-  schema : @core.Schema
-  checks : Array[AsyncCheck]
+pub struct AsyncSchema {
+  priv schema : @core.Schema
+  priv checks : Array[AsyncSuperCheck]
 }
 
 ///|
@@ -76,6 +81,23 @@ pub fn async_schema(schema : @core.Schema) -> AsyncSchema {
 pub fn AsyncSchema::refine_async(
   self : AsyncSchema,
   check : AsyncCheck,
+) -> AsyncSchema {
+  self.super_refine_async(value => {
+    match check(value) {
+      None => []
+      Some(issue) => [issue]
+    }
+  })
+}
+
+///|
+/// Add a refinement that can report multiple issues for one value.
+/// Checks and their issues are collected in declaration order. A raised error
+/// reports this callback's index, rather than an index for each returned issue.
+/// Like `refine_async`, adding a check leaves the original wrapper unchanged.
+pub fn AsyncSchema::super_refine_async(
+  self : AsyncSchema,
+  check : AsyncSuperCheck,
 ) -> AsyncSchema {
   { ..self, checks: self.checks + [check], }
 }
@@ -108,21 +130,19 @@ async fn AsyncSchema::check_clean_async(
   let errors : Array[@core.ValidationError] = []
   let execution_errors : Array[AsyncCheckError] = []
   for index, check in self.checks {
-    let issue = check(clean) catch {
+    let issues = check(clean) catch {
       error => {
         execution_errors.push({ index, error, })
         continue
       }
     }
-    match issue {
-      None => ()
-      Some(issue) =>
-        errors.push({
-          code: @core.IssueCode::Custom,
-          path: join_async_path(root_path, issue.path),
-          message: issue.message,
-          got: issue.got,
-        })
+    for issue in issues {
+      errors.push({
+        code: @core.IssueCode::Custom,
+        path: join_async_path(root_path, issue.path),
+        message: issue.message,
+        got: issue.got,
+      })
     }
   }
   if !execution_errors.is_empty() {
