@@ -8,7 +8,6 @@
 pub(all) struct ValidationError {
   code : IssueCode
   path : String
-  path_segments : Array[PathSegment]
   message : String
   got : Json
 } derive(Debug)

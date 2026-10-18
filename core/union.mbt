@@ -7,8 +7,7 @@ pub fn union(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
-    id: new_schema_id(),
-    schema_type: UnionType(schemas.copy()),
+    schema_type: UnionType(schemas),
     rules: [],
     description: "",
     required_error,
@@ -20,14 +19,29 @@ pub fn union(
 
 ///|
 pub fn Schema::parse_union(
-  self : Schema,
+  _self : Schema,
   schemas : Array[Schema],
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  parse_inner(
-    { ..self, id: new_schema_id(), schema_type: UnionType(schemas.copy()), },
-    json,
-    path_stack,
-  )
+  let all_branch_errors : Array[String] = []
+  for s in schemas {
+    match parse_inner(s, json, path_stack) {
+      Ok(v) => return Ok(v)
+      Err(raw) => if raw.length() > 0 { all_branch_errors.push(raw[0].message) }
+    }
+  }
+  let path = format_path(path_stack)
+  let branches = all_branch_errors.join(", ")
+  let message = "Expected union type, but all branches failed. Branches: [" +
+    branches +
+    "]"
+  Err([
+    RawIssue::{
+      code: IssueCode::InvalidUnion(all_branch_errors),
+      path,
+      message,
+      input: json,
+    },
+  ])
 }

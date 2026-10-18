@@ -37,7 +37,6 @@ pub extend NamedPromptRenderer with StringRenderer::{
   render_unknown,
   render_tuple,
   render_preprocess,
-  render_lazy,
 }
 
 ///|
@@ -100,16 +99,10 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_null(
 pub impl StringRenderer for NamedPromptRenderer with fn render_optional(
   self : NamedPromptRenderer,
   inner : @core.Schema,
-  schema : @core.Schema,
+  _schema : @core.Schema,
   indent : Int32,
 ) -> String {
-  render_type_named(
-    self,
-    without_inherited_name(schema, inner),
-    indent,
-    self.named_schemas,
-  ) +
-  " | undefined"
+  render_type_named(self, inner, indent, self.named_schemas) + " | null"
 }
 
 ///|
@@ -117,15 +110,10 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_default(
   self : NamedPromptRenderer,
   inner : @core.Schema,
   _default_val : Json,
-  schema : @core.Schema,
+  _schema : @core.Schema,
   indent : Int32,
 ) -> String {
-  render_type_named(
-    self,
-    without_inherited_name(schema, inner),
-    indent,
-    self.named_schemas,
-  )
+  render_type_named(self, inner, indent, self.named_schemas) + " | null"
 }
 
 ///|
@@ -133,15 +121,10 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_transform(
   self : NamedPromptRenderer,
   inner : @core.Schema,
   _closure : @core.TransformClosure,
-  schema : @core.Schema,
+  _schema : @core.Schema,
   indent : Int32,
 ) -> String {
-  render_type_named(
-    self,
-    without_inherited_name(schema, inner),
-    indent,
-    self.named_schemas,
-  )
+  render_type_named(self, inner, indent, self.named_schemas)
 }
 
 ///|
@@ -325,7 +308,7 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_tuple(
 pub impl StringRenderer for NamedPromptRenderer with fn render_preprocess(
   self : NamedPromptRenderer,
   inner : @core.Schema,
-  schema : @core.Schema,
+  _schema : @core.Schema,
   indent : Int32,
 ) -> String {
   render_type(self, inner, indent)
@@ -334,10 +317,6 @@ pub impl StringRenderer for NamedPromptRenderer with fn render_preprocess(
 ///|
 /// Public API: convert a schema to a TypeScript-interface-style prompt @core.string.
 pub fn schema_to_prompt(schema : @core.Schema) -> String {
-  let _ = @core.collect_named_schemas(schema)
-  if contains_lazy(schema, Map([])) {
-    return schema_to_prompt_named(schema)
-  }
   schema_to_prompt_inline(schema, [])
 }
 
@@ -473,7 +452,7 @@ fn schema_to_interface_definition_with_names(
     return ""
   }
 
-  let ref_schemas = named_schemas
+  let ref_schemas = named_schemas.filter(fn(s) { s.name != schema.name })
   let renderer = NamedPromptRenderer(named_schemas=ref_schemas)
 
   match schema.schema_type {
@@ -507,12 +486,7 @@ fn schema_to_type_alias_with_names(
   schema : @core.Schema,
   renderer : NamedPromptRenderer,
 ) -> String {
-  let body_schema = match schema.schema_type {
-    StringType | NumberType | BooleanType | NullType | AnyType | UnknownType =>
-      { ..schema, name: "", }
-    _ => schema
-  }
-  let rendered = render_type(renderer, body_schema, 0)
+  let rendered = render_type(renderer, schema, 0)
   let comment = schema_comment(schema)
   let base = "export type " + schema.name + " = " + rendered
   if comment.is_empty() {
@@ -669,19 +643,4 @@ fn has_name_in(
     }
   }
   false
-}
-
-///|
-pub impl StringRenderer for NamedPromptRenderer with fn render_lazy(
-  self,
-  resolved,
-  schema,
-  indent,
-) {
-  render_type_named(
-    self,
-    without_inherited_name(schema, resolved),
-    indent,
-    self.named_schemas,
-  )
 }

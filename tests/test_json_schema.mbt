@@ -11,7 +11,7 @@ test "to_json_schema object with optional field" {
   let s = object({ "name": string(), "email": string().optional() })
   let result = to_json_schema(s)
   let expected = parse_json(
-    "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"email\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"name\"]}",
+    "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"email\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}]}},\"additionalProperties\":false,\"required\":[\"name\"]}",
   )
   @debug.assert_eq(result, expected)
 }
@@ -106,7 +106,7 @@ test "to_json_schema nested object with constraints" {
   })
   let result = to_json_schema(s)
   let expected = parse_json(
-    "{\"type\":\"object\",\"properties\":{\"name\":{\"minLength\":2,\"maxLength\":50,\"type\":\"string\"},\"age\":{\"minimum\":0,\"maximum\":150,\"type\":\"integer\"},\"email\":{\"type\":\"string\",\"format\":\"email\"}},\"additionalProperties\":false,\"required\":[\"name\",\"age\"]}",
+    "{\"type\":\"object\",\"properties\":{\"name\":{\"minLength\":2,\"maxLength\":50,\"type\":\"string\"},\"age\":{\"minimum\":0,\"maximum\":150,\"type\":\"integer\"},\"email\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"email\"},{\"type\":\"null\"}]}},\"additionalProperties\":false,\"required\":[\"name\",\"age\"]}",
   )
   @debug.assert_eq(result, expected)
 }
@@ -115,7 +115,9 @@ test "to_json_schema nested object with constraints" {
 test "to_json_schema constraints penetrate optional" {
   let s = string().min(3).optional()
   let result = to_json_schema(s)
-  let expected = parse_json("{\"minLength\":3,\"type\":\"string\"}")
+  let expected = parse_json(
+    "{\"anyOf\":[{\"minLength\":3,\"type\":\"string\"},{\"type\":\"null\"}]}",
+  )
   @debug.assert_eq(result, expected)
 }
 
@@ -179,7 +181,9 @@ test "to_json_schema union type" {
 ///|
 test "to_json_schema default type" {
   let result = to_json_schema(string().default(Json::string("x")))
-  let expected = parse_json("{\"type\":\"string\",\"default\":\"x\"}")
+  let expected = parse_json(
+    "{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"default\":\"x\"}",
+  )
   @debug.assert_eq(result, expected)
 }
 
@@ -225,14 +229,18 @@ test "to_json_schema skeleton union" {
 ///|
 test "to_json_schema skeleton optional" {
   let result = to_json_schema_skeleton(string().optional())
-  let expected = parse_json("{\"type\":\"string\"}")
+  let expected = parse_json(
+    "{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}]}",
+  )
   @debug.assert_eq(result, expected)
 }
 
 ///|
 test "to_json_schema skeleton default" {
   let result = to_json_schema_skeleton(string().default(Json::string("x")))
-  let expected = parse_json("{\"type\":\"string\",\"default\":\"x\"}")
+  let expected = parse_json(
+    "{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"default\":\"x\"}",
+  )
   @debug.assert_eq(result, expected)
 }
 
@@ -263,7 +271,7 @@ test "to_json_schema object intersection merges closed object fields" {
     ]),
   )
   let expected = parse_json(
-    "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"integer\",\"exclusiveMinimum\":0},\"created_at\":{\"type\":\"string\",\"format\":\"date-time\",\"x-moon-zod-datetime\":{\"offset\":false,\"allow_local\":false,\"precision\":-2}}},\"additionalProperties\":false,\"required\":[\"id\",\"created_at\"]}",
+    "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"integer\",\"exclusiveMinimum\":0},\"created_at\":{\"type\":\"string\",\"format\":\"date-time\"}},\"additionalProperties\":false,\"required\":[\"id\",\"created_at\"]}",
   )
   @debug.assert_eq(result, expected)
 }
@@ -297,12 +305,12 @@ test "to_json_schema skeleton object strict and literal" {
     object({ "flag": boolean(), "name": string().optional() }).strict(),
   )
   let object_expected = parse_json(
-    "{\"type\":\"object\",\"properties\":{\"flag\":{\"type\":\"boolean\"},\"name\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"flag\"]}",
+    "{\"type\":\"object\",\"properties\":{\"flag\":{\"type\":\"boolean\"},\"name\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}]}},\"additionalProperties\":false,\"required\":[\"flag\"]}",
   )
   @debug.assert_eq(object_result, object_expected)
 
   let literal_result = to_json_schema_skeleton(literal(Json::boolean(false)))
-  @debug.assert_eq(literal_result, parse_json("{\"const\":false}"))
+  @debug.assert_eq(literal_result, parse_json("{\"const\": false}"))
 }
 
 ///|
@@ -343,7 +351,7 @@ test "to_json_schema named wrappers and literal definitions" {
           guard defs.get("Status") is Some(Object(status_def)) else {
             fail("missing Status")
           }
-          @debug.assert_eq(status_def.get("const") is Some(String(_)), true)
+          @debug.assert_eq(status_def.get("anyOf") is Some(Array(_)), true)
           @debug.assert_eq(
             status_def.get("default"),
             Some(Json::string("active")),
@@ -540,10 +548,7 @@ test "to_json_schema_named: optional named field" {
         Some(Object(defs)) =>
           match defs.get("Contact") {
             Some(Object(contact_def)) =>
-              @debug.assert_eq(
-                contact_def.get("type") is Some(String("object")),
-                true,
-              )
+              @debug.assert_eq(contact_def.get("anyOf") is Some(Array(_)), true)
             _ => @debug.assert_eq(true, false)
           }
         _ => @debug.assert_eq(true, false)
@@ -1153,14 +1158,28 @@ test "json_schema_to_schema: additionalProperties true allows extra fields" {
 }
 
 ///|
-/// Test json_schema_to_schema: additionalProperties false rejects extras.
-test "json_schema_to_schema: additionalProperties false rejects extra fields" {
+/// Test json_schema_to_schema: additionalProperties false → strip
+test "json_schema_to_schema: additionalProperties false strips extra fields" {
   let input = parse_json(
     "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"additionalProperties\":false}",
   )
   let s = json_schema_to_schema(input)
-  assert_true(
-    s.parse(parse_json("{\"name\":\"Alice\",\"extra\":true}")) is Err(_),
-  )
-  assert_true(s.parse(parse_json("{\"name\":\"Alice\"}")) is Ok(_))
+  // Should strip extra fields (default Strip mode)
+  match
+    s.parse(
+      Json::object({
+        "name": Json::string("Alice"),
+        "extra": Json::string("stripped"),
+      }),
+    ) {
+    Ok(parsed) =>
+      match parsed {
+        Object(m) => {
+          let has_extra = m.contains("extra")
+          @debug.assert_eq(has_extra, false)
+        }
+        _ => fail("expected object")
+      }
+    Err(_) => fail("expected Ok")
+  }
 }

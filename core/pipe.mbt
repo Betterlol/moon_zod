@@ -15,10 +15,9 @@
 /// ```
 pub fn Schema::pipe(self : Schema, output : Schema) -> Schema {
   {
-    id: new_schema_id(),
     schema_type: PipeType(
       self,
-      TransformClosure::{ f: fn(v) { Ok(v) }, kind: IdentityTransform, },
+      TransformClosure::{ f: fn(v) { Ok(v) }, is_builtin: true, },
       output,
     ),
     rules: [],
@@ -32,20 +31,29 @@ pub fn Schema::pipe(self : Schema, output : Schema) -> Schema {
 
 ///|
 pub fn Schema::parse_pipe(
-  self : Schema,
+  _self : Schema,
   input_schema : Schema,
   bridge : TransformClosure,
   output_schema : Schema,
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  parse_inner(
-    {
-      ..self,
-      id: new_schema_id(),
-      schema_type: PipeType(input_schema, bridge, output_schema),
-    },
-    json,
-    path_stack,
-  )
+  match parse_inner(input_schema, json, path_stack) {
+    Err(e) => Err(e)
+    Ok(parsed) =>
+      match (bridge.f)(parsed) {
+        Err(msg) => {
+          let path = format_path(path_stack)
+          Err([
+            RawIssue::{
+              code: IssueCode::Custom,
+              path,
+              message: msg,
+              input: json,
+            },
+          ])
+        }
+        Ok(bridged) => parse_inner(output_schema, bridged, path_stack)
+      }
+  }
 }

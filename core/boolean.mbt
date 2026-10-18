@@ -5,7 +5,6 @@ pub fn boolean(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
-    id: new_schema_id(),
     schema_type: BooleanType,
     rules: [],
     description: "",

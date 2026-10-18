@@ -10,8 +10,7 @@ pub fn object(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
-    id: new_schema_id(),
-    schema_type: ObjectType(spec.copy(), Strip),
+    schema_type: ObjectType(spec, Strip),
     rules: [],
     description: "",
     required_error,
@@ -25,8 +24,7 @@ pub fn object(
 /// Reject fields not defined in the schema spec.
 pub fn Schema::strict(self : Schema) -> Schema {
   match self.schema_type {
-    ObjectType(spec, _) =>
-      { ..self, id: new_schema_id(), schema_type: ObjectType(spec, Strict), }
+    ObjectType(spec, _) => { ..self, schema_type: ObjectType(spec, Strict), }
     _ => abort("strict() is only valid for object schemas")
   }
 }
@@ -36,11 +34,7 @@ pub fn Schema::strict(self : Schema) -> Schema {
 pub fn Schema::passthrough(self : Schema) -> Schema {
   match self.schema_type {
     ObjectType(spec, _) =>
-      {
-        ..self,
-        id: new_schema_id(),
-        schema_type: ObjectType(spec, Passthrough),
-      }
+      { ..self, schema_type: ObjectType(spec, Passthrough), }
     _ => abort("passthrough() is only valid for object schemas")
   }
 }
@@ -50,12 +44,7 @@ pub fn Schema::passthrough(self : Schema) -> Schema {
 /// This is the default mode.
 pub fn Schema::strip(self : Schema) -> Schema {
   match self.schema_type {
-    ObjectType(spec, _) =>
-      {
-        ..self,
-        id: new_schema_id(),
-        schema_type: ObjectType(spec.copy(), Strip),
-      }
+    ObjectType(spec, _) => { ..self, schema_type: ObjectType(spec, Strip), }
     _ => abort("strip() is only valid for object schemas")
   }
 }
@@ -71,11 +60,6 @@ pub fn Schema::strip(self : Schema) -> Schema {
 /// s.parse(json)  // validates only field "a"
 /// ```
 pub fn Schema::pick(self : Schema, keys : Array[String]) -> Schema {
-  guard self.rules.is_empty() else {
-    abort(
-      "pick() cannot change the shape of a refined object; compose the shape before refine()",
-    )
-  }
   match self.schema_type {
     ObjectType(spec, mode) => {
       let new_spec : Map[String, Schema] = Map([])
@@ -86,7 +70,6 @@ pub fn Schema::pick(self : Schema, keys : Array[String]) -> Schema {
         }
       }
       {
-        id: new_schema_id(),
         schema_type: ObjectType(new_spec, mode),
         rules: self.rules,
         description: self.description,
@@ -110,11 +93,6 @@ pub fn Schema::pick(self : Schema, keys : Array[String]) -> Schema {
 /// s.parse(json)  // validates only field "a"
 /// ```
 pub fn Schema::omit(self : Schema, keys : Array[String]) -> Schema {
-  guard self.rules.is_empty() else {
-    abort(
-      "omit() cannot change the shape of a refined object; compose the shape before refine()",
-    )
-  }
   match self.schema_type {
     ObjectType(spec, mode) => {
       let new_spec : Map[String, Schema] = Map([])
@@ -127,7 +105,6 @@ pub fn Schema::omit(self : Schema, keys : Array[String]) -> Schema {
         }
       }
       {
-        id: new_schema_id(),
         schema_type: ObjectType(new_spec, mode),
         rules: self.rules,
         description: self.description,
@@ -152,11 +129,6 @@ pub fn Schema::omit(self : Schema, keys : Array[String]) -> Schema {
 /// s.parse(json)  // all fields are now optional
 /// ```
 pub fn Schema::partial(self : Schema) -> Schema {
-  guard self.rules.is_empty() else {
-    abort(
-      "partial() cannot change the shape of a refined object; compose the shape before refine()",
-    )
-  }
   match self.schema_type {
     ObjectType(spec, mode) => {
       let new_spec : Map[String, Schema] = Map([])
@@ -167,7 +139,6 @@ pub fn Schema::partial(self : Schema) -> Schema {
         }
       }
       {
-        id: new_schema_id(),
         schema_type: ObjectType(new_spec, mode),
         rules: self.rules,
         description: self.description,
@@ -188,11 +159,6 @@ pub fn Schema::extend_with(
   self : Schema,
   extension : Map[String, Schema],
 ) -> Schema {
-  guard self.rules.is_empty() else {
-    abort(
-      "extend_with() cannot change the shape of a refined object; compose the shape before refine()",
-    )
-  }
   match self.schema_type {
     ObjectType(spec, mode) => {
       let new_spec : Map[String, Schema] = Map([])
@@ -209,7 +175,6 @@ pub fn Schema::extend_with(
         }
       }
       {
-        id: new_schema_id(),
         schema_type: ObjectType(new_spec, mode),
         rules: self.rules,
         description: self.description,
@@ -228,11 +193,6 @@ pub fn Schema::extend_with(
 /// Fields from `other` override fields with the same name in `self`.
 /// The merged schema inherits the right schema's object mode.
 pub fn Schema::merge(self : Schema, other : Schema) -> Schema {
-  guard self.rules.is_empty() && other.rules.is_empty() else {
-    abort(
-      "merge() cannot change the shape of a refined object; compose the shape before refine()",
-    )
-  }
   match (self.schema_type, other.schema_type) {
     (ObjectType(spec, _), ObjectType(other_spec, other_mode)) => {
       let new_spec : Map[String, Schema] = Map([])
@@ -249,7 +209,6 @@ pub fn Schema::merge(self : Schema, other : Schema) -> Schema {
         }
       }
       {
-        id: new_schema_id(),
         schema_type: ObjectType(new_spec, other_mode),
         rules: self.rules,
         description: self.description,
@@ -272,9 +231,88 @@ pub fn Schema::parse_object(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  parse_inner(
-    { ..self, id: new_schema_id(), schema_type: ObjectType(spec, mode), },
-    json,
-    path_stack,
-  )
+  match json {
+    Object(input_map) => {
+      let raw : Array[RawIssue] = []
+      let parsed_fields : Map[String, Json] = Map([])
+      for field_name in spec.keys() {
+        match spec.get(field_name) {
+          Some(field_schema) => {
+            path_stack.push(field_name)
+            match input_map.get(field_name) {
+              None =>
+                if !is_optional_schema(field_schema) {
+                  let path = format_path(path_stack)
+                  let req_msg = if !field_schema.required_error.is_empty() {
+                    field_schema.required_error
+                  } else {
+                    "Required"
+                  }
+                  raw.push(RawIssue::{
+                    code: IssueCode::MissingRequired(field_name.to_string()),
+                    path,
+                    message: req_msg,
+                    input: Json::null(),
+                  })
+                }
+              Some(field_json) => {
+                let result = parse_inner(field_schema, field_json, path_stack)
+                match result {
+                  Err(field_raw) =>
+                    for e in field_raw {
+                      raw.push(e)
+                    }
+                  Ok(parsed) => parsed_fields.set(field_name, parsed)
+                }
+              }
+            }
+            let _ = path_stack.pop()
+          }
+          None => ()
+        }
+      }
+      match mode {
+        Strict =>
+          for key in input_map.keys() {
+            match input_map.get(key) {
+              Some(value) =>
+                if !spec.contains(key) {
+                  path_stack.push(key)
+                  let path = format_path(path_stack)
+                  let _ = path_stack.pop()
+                  raw.push(RawIssue::{
+                    code: IssueCode::UnrecognizedKeys([key]),
+                    path,
+                    message: "Unexpected field",
+                    input: value,
+                  })
+                }
+              None => ()
+            }
+          }
+        _ => ()
+      }
+      collect_raw_errors(raw, path_stack, json, self.rules)
+      if raw.is_empty() {
+        match mode {
+          Strip => Ok(Json::object(parsed_fields))
+          _ => Ok(json)
+        }
+      } else {
+        Err(raw)
+      }
+    }
+    _ => {
+      let path = format_path(path_stack)
+      let message = type_msg(self)
+      Err([
+        RawIssue::{
+          code: IssueCode::InvalidType(type_origin(self.schema_type)),
+          path,
+          message,
+          input: json,
+        },
+      ])
+    }
+  }
 }

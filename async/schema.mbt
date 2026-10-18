@@ -110,9 +110,6 @@ pub async fn AsyncSchema::parse_async(
             errors.push({
               code: @core.IssueCode::Custom,
               path: join_async_path(root_path, issue.path),
-              path_segments: @core.parse_path(
-                join_async_path(root_path, issue.path),
-              ),
               message: issue.message,
               got: issue.got,
             })

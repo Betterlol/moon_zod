@@ -21,11 +21,7 @@ pub fn Schema::transform(
   f : (Json) -> Result[Json, String],
 ) -> Schema {
   {
-    id: new_schema_id(),
-    schema_type: TransformType(self, TransformClosure::{
-      f,
-      kind: CustomTransform,
-    }),
+    schema_type: TransformType(self, TransformClosure::{ f, is_builtin: false, }),
     rules: [],
     description: self.description,
     required_error: self.required_error,
@@ -37,15 +33,36 @@ pub fn Schema::transform(
 
 ///|
 pub fn Schema::parse_transform(
-  self : Schema,
+  _self : Schema,
   inner : Schema,
   closure : TransformClosure,
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  parse_inner(
-    { ..self, id: new_schema_id(), schema_type: TransformType(inner, closure), },
-    json,
-    path_stack,
-  )
+  match parse_inner(inner, json, path_stack) {
+    Err(e) => Err(e)
+    Ok(validated) =>
+      match (closure.f)(validated) {
+        Ok(transformed) => {
+          let raw : Array[RawIssue] = []
+          collect_raw_errors(raw, path_stack, transformed, _self.rules)
+          if raw.is_empty() {
+            Ok(transformed)
+          } else {
+            Err(raw)
+          }
+        }
+        Err(msg) => {
+          let path = format_path(path_stack)
+          Err([
+            RawIssue::{
+              code: IssueCode::Custom,
+              path,
+              message: msg,
+              input: json,
+            },
+          ])
+        }
+      }
+  }
 }
