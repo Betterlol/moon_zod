@@ -35,7 +35,13 @@ jobs:
         run: moon build --target wasm --release
 
       - name: Run Tests
-        run: moon test
+        run: moon test --enable-coverage
+
+      - name: Check Native Async Package
+        run: moon check async --target native --deny-warn
+
+      - name: Run Native Async Tests
+        run: moon test async --target native --enable-coverage
 
       - name: Code Line Count (Unix)
         if: runner.os != 'Windows'
@@ -43,20 +49,22 @@ jobs:
         run: |
           echo "=== Source Code Lines ==="
           core=$(find core combinators -name "*.mbt" ! -name "*_wbtest*" | xargs wc -l | tail -1)
+          async_lines=$(find async -name "*.mbt" ! -name "*_test.mbt" | xargs wc -l | tail -1)
           exporters=$(find exporters -name "*.mbt" | xargs wc -l | tail -1)
           importers=$(find importers -name "*.mbt" | xargs wc -l | tail -1)
           cli=$(find cmd examples -name "*.mbt" | xargs wc -l | tail -1)
           tests=$(find tests -name "*.mbt" | xargs wc -l | tail -1)
           root=$(find . -maxdepth 1 -name "*.mbt" | xargs wc -l | tail -1)
-          total=$(( $(echo "$core" | awk '{print $1}') + $(echo "$exporters" | awk '{print $1}') + $(echo "$importers" | awk '{print $1}') + $(echo "$cli" | awk '{print $1}') + $(echo "$tests" | awk '{print $1}') + $(echo "$root" | awk '{print $1}') ))
+          total=$(( $(echo "$async_lines" | awk '{print $1}') + $(echo "$core" | awk '{print $1}') + $(echo "$exporters" | awk '{print $1}') + $(echo "$importers" | awk '{print $1}') + $(echo "$cli" | awk '{print $1}') + $(echo "$tests" | awk '{print $1}') + $(echo "$root" | awk '{print $1}') ))
           echo "  core/:           $core"
+          echo "  async/:          $async_lines"
           echo "  exporters/:      $exporters"
           echo "  importers/:      $importers"
           echo "  cmd/ + examples/: $cli"
           echo "  tests/:          $tests"
           echo "  root:            $root"
           echo "  Total:           $total"
-          echo "::notice title=Lines of Code::core: $core | exporters: $exporters | importers: $importers | tests: $tests"
+          echo "::notice title=Lines of Code::core: $core | async: $async_lines | exporters: $exporters | importers: $importers | tests: $tests"
 
       - name: Code Line Count (Windows)
         if: runner.os == 'Windows'
@@ -79,74 +87,26 @@ jobs:
 
           Write-Output "=== Source Code Lines ==="
           $core = Count-Lines @("core", "combinators") "*_wbtest*"
+          $async_lines = Count-Lines @("async") "*_test.mbt"
           $exporters = Count-Lines @("exporters")
           $importers = Count-Lines @("importers")
           $cli = Count-Lines @("cmd", "examples")
           $tests = Count-Lines @("tests")
           $root = (Get-ChildItem -Path . -Filter "*.mbt" -File | ForEach-Object { (Get-Content -Path $_.FullName).Count } | Measure-Object -Sum).Sum
           if ($null -eq $root) { $root = 0 }
-          $total = $core + $exporters + $importers + $cli + $tests + $root
+          $total = $core + $async_lines + $exporters + $importers + $cli + $tests + $root
           Write-Output "  core/:            $core"
+          Write-Output "  async/:           $async_lines"
           Write-Output "  exporters/:       $exporters"
           Write-Output "  importers/:       $importers"
           Write-Output "  cmd/ + examples/: $cli"
           Write-Output "  tests/:           $tests"
           Write-Output "  root:             $root"
           Write-Output "  Total:            $total"
-          Write-Output "::notice title=Lines of Code::core: $core | exporters: $exporters | importers: $importers | tests: $tests"
+          Write-Output "::notice title=Lines of Code::core: $core | async: $async_lines | exporters: $exporters | importers: $importers | tests: $tests"
 
-      - name: Coverage Analysis (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          moon coverage analyze > coverage_caret.log 2>&1
-          core_only='^(core/)'
-          core_report=$(moon coverage report -f summary 2>&1 | grep -E "$core_only")
-          include_pattern='^(core/|exporters/|importers/|combinators/|tests/)'
-          report=$(moon coverage report -f summary 2>&1 | grep -E "$include_pattern")
-          echo "=== Per-File Coverage (covered / total) ==="
-          echo "$report"
-          echo ""
-          core_total=$(echo "$core_report" | awk -F'[:/ ]+' '{c+=$(NF-1); t+=$NF} END{printf "%d/%d (%.1f%%)", c, t, 100*c/t}')
-          echo "::notice title=Core Coverage::Core: $core_total"
-          total=$(echo "$report" | awk -F'[:/ ]+' '{c+=$(NF-1); t+=$NF} END{printf "%d/%d (%.1f%%)", c, t, 100*c/t}')
-          echo "::notice title=Coverage::Total: $total"
+      - name: Test Coverage Summary
+        run: python -m unittest discover -s .github/scripts -p test_coverage_summary.py
 
-      - name: Coverage Analysis (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          & moon coverage analyze *> coverage_caret.log
-          if ($LASTEXITCODE -ne 0) {
-            Write-Output "::warning title=Coverage::moon coverage analyze is not available on Windows, skipping"
-            Get-Content coverage_caret.log | ForEach-Object { Write-Output $_ }
-            exit 0
-          }
-
-          function Sum-Coverage($lines) {
-            $covered = 0
-            $total = 0
-            foreach ($line in $lines) {
-              $numbers = [regex]::Matches($line, "\d+")
-              if ($numbers.Count -ge 2) {
-                $covered += [int]$numbers[$numbers.Count - 2].Value
-                $total += [int]$numbers[$numbers.Count - 1].Value
-              }
-            }
-            if ($total -eq 0) { return "0/0 (0.0%)" }
-            return ("{0}/{1} ({2:N1}%)" -f $covered, $total, (100 * $covered / $total))
-          }
-
-          $summary = & moon coverage report -f summary 2>&1
-          # Match lines starting with core/, core\ etc.
-          $core_report = $summary | Select-String -Pattern "^core[\\/]" | ForEach-Object { $_.Line }
-          $report = $summary | Select-String -Pattern "^(core|exporters|importers|combinators|tests)[\\/]" | ForEach-Object { $_.Line }
-          Write-Output "=== Per-File Coverage (covered / total) ==="
-          if ($report.Count -eq 0) {
-            Write-Output "  (no matching files in coverage report)"
-          } else {
-            $report | ForEach-Object { Write-Output $_ }
-          }
-          Write-Output ""
-          Write-Output "::notice title=Core Coverage::Core: $(Sum-Coverage $core_report)"
-          Write-Output "::notice title=Coverage::Total: $(Sum-Coverage $report)"
+      - name: Report Line Coverage
+        run: python .github/scripts/coverage_summary.py

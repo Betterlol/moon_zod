@@ -157,7 +157,13 @@ moon_zod/
 │
 ├── async/                    # Optional async extensions
 │   ├── schema.mbt            # Async post-parse refinements
-│   └── jsonl.mbt             # Backpressure-aware JSON Lines validation
+│   ├── issue.mbt             # Async issue values and factory
+│   ├── jsonl.mbt             # Backpressure-aware JSON Lines validation
+│   ├── sse.mbt               # SSE framing and metadata
+│   ├── sse_json.mbt          # Per-frame JSON validation
+│   ├── sse_json_stream.mbt   # Assembled JSON and async refinements
+│   ├── line_reader.mbt       # Bounded UTF-8 chunk reading
+│   └── stream_limits.mbt     # Line/frame buffering budgets
 │
 ├── exporters/                # Code/schema export tools
 │   ├── prompt.mbt            # schema_to_prompt() / schema_to_prompt_named()
@@ -260,7 +266,7 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
 - **Custom error messages**: `msg?` parameter on all validators, `.message(text)` override method, type-level `required_error` / `invalid_type_error`
 - **Error collection**: Collects **all** validation errors in one pass, perfect for LLM self-correction loops
 - **Full-path error reporting**: Every error includes exact field path (`users[0].profile.age`)
-- **Optional async extensions**: `Betterlol/moon_zod/async` adds async refinements and incremental JSON Lines validation while keeping the core API synchronous
+- **Optional async extensions**: `Betterlol/moon_zod/async` adds single/multi-issue async refinements, JSON Lines, and single/multi-frame SSE JSON validation while keeping the core API synchronous. See the [async guide](async/README.mbt.md)
 - **LLM prompt generation**:
   - `schema_to_prompt(schema)` — inline TypeScript-interface with constraint comments
   - `schema_to_prompt_named(schema, include_names?)` — modular interfaces with topological sorting and type name references

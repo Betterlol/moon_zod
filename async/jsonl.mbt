@@ -46,56 +46,7 @@ pub async fn validate_jsonl(
   root_path~ : String = "",
   limits~ : StreamReadLimits = StreamReadLimits::default(),
 ) -> JsonlSummary {
-  limits.check()
-  let lines = LineReader::new(
-    reader,
-    sse=false,
-    max_line_bytes=limits.max_line_bytes,
-  )
-  let mut lines_read = 0
-  let mut records = 0
-  let mut valid = 0
-  let mut invalid_json = 0
-  let mut invalid_schema = 0
-  let mut skipped = 0
-
-  while lines.next() is Some((line, _)) {
-    lines_read = lines_read + 1
-    let source = line.trim().to_owned()
-    if source.is_empty() {
-      skipped = skipped + 1
-      continue
-    }
-
-    records = records + 1
-    let json = @json.parse(source) catch {
-      _ => {
-        invalid_json = invalid_json + 1
-        on_event(InvalidJson(lines_read, source))
-        continue
-      }
-    }
-    match schema.parse(json, path=root_path) {
-      Ok(clean) => {
-        valid = valid + 1
-        on_event(Valid(lines_read, clean))
-      }
-      Err(errors) => {
-        invalid_schema = invalid_schema + 1
-        on_event(InvalidSchema(lines_read, errors))
-      }
-    }
-  }
-
-  {
-    lines_read,
-    records,
-    valid,
-    invalid_json,
-    invalid_schema,
-    execution_failed: 0,
-    skipped,
-  }
+  async_schema(schema).validate_jsonl(reader, on_event, root_path~, limits~)
 }
 
 ///|

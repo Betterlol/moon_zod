@@ -54,16 +54,28 @@ flowchart TB
 
 ### 可选异步扩展
 
-`Betterlol/moon_zod/async` 是独立的可选子包，不改变核心
-`Schema::parse()` 的同步语义。它提供两项附加能力：
+`Betterlol/moon_zod/async` 是独立的可选子包，核心 `Schema::parse()`
+保持同步。扩展提供以下能力：
 
-- `AsyncSchema`：先运行完整的同步校验、转换和 Strip 清洗，再运行异步
-  refine；所有异步失败会以 `IssueCode::Custom` 聚合返回。
-- `validate_jsonl()`：通过 `@io.Reader` 一行一行读取 JSON Lines，在调用者
-  处理完当前事件前不会读取下一行，形成自然背压。
+- `AsyncSchema`：先完成同步规则、转换和 Strip 清洗，再按声明顺序执行
+  `refine_async()`（单问题）和 `super_refine_async()`（多问题）。普通失败
+  返回 `AsyncParseResult`：`Validation` 携带校验问题，`Execution` 保留
+  原始执行错误、回调索引及已收集的校验问题；任务取消继续传播。
+- `validate_jsonl()`：增量读取 JSON Lines；异步版本逐条执行 refine。
+- `read_sse()` / `validate_sse_json()`：解析 SSE 帧或逐帧校验 JSON。
+- `validate_sse_json_stream()`：跨 SSE 帧拼接一个原始 JSON 文档，在
+  DONE/EOF 时确认结果；异步版本在同步解析成功后执行 refine，转换和
+  同步规则只运行一次。执行失败单独计入 `execution_failed`。
 
-将异步 I/O 和运行时隔离在此子包中，保证普通用户和 Wasm 用户不需要为
-核心校验付出异步依赖或 API 迁移成本。
+同步与异步适配器共享读取和事件分发流程。回调顺序等待，预取量有界；
+reader 的关闭及超时由调用者负责。行/帧按 UTF-8 字节设限，跨帧文档
+另有 UTF-16 长度和嵌套深度限制。逐块字节视图减少行读取的中间复制。
+
+`AsyncSchema` 通过工厂和链式方法创建，内部状态私有。异步检查作用于
+整个清洗后的值，可用相对路径报告字段问题。字段级异步 Schema 组合、
+异步转换和自动并发需要另行设计输出 Schema、效果顺序与取消语义，
+当前保留顺序执行的行为。核心校验继续无需依赖异步运行时。
+
 
 ### 1. parse 路由 + 可变路径栈
 

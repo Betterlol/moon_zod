@@ -1,34 +1,15 @@
 ///|
-/// A failure reported by an asynchronous refinement.
-///
-/// `path` is relative to the root path passed to `parse_async`. `got` should
-/// contain the value that caused the refinement to fail.
-pub(all) struct AsyncIssue {
-  path : String
-  message : String
-  got : Json
-}
-
-///|
-/// Create an asynchronous validation failure.
-///
-/// The default path identifies the value being checked. Pass a relative path
-/// such as `"email"` or `"items[0]"` for a more precise error location.
-pub fn async_issue(
-  message : String,
-  path~ : String = "",
-  got~ : Json = Json::null(),
-) -> AsyncIssue {
-  { path, message, got, }
-}
-
-///|
 /// A non-blocking refinement run after a schema has successfully parsed.
 ///
 /// The callback receives the cleaned JSON returned by the synchronous schema
 /// parser. Return `Some(issue)` to report a custom validation failure, or
 /// `None` when the value is accepted.
 pub type AsyncCheck = async (Json) -> AsyncIssue?
+
+///|
+/// An asynchronous refinement that returns all issues found in cleaned JSON.
+/// Return an empty array to accept the value. Issues retain their array order.
+pub type AsyncSuperCheck = async (Json) -> Array[AsyncIssue]
 
 ///|
 /// An execution error raised by the refinement at zero-based `index`.
@@ -57,9 +38,9 @@ pub type AsyncParseResult = Result[Json, AsyncParseError]
 /// Core schema parsing remains synchronous. This wrapper first calls the
 /// wrapped schema, including its transformations and Strip-mode cleanup, then
 /// runs every asynchronous refinement in declaration order.
-pub(all) struct AsyncSchema {
-  schema : @core.Schema
-  checks : Array[AsyncCheck]
+pub struct AsyncSchema {
+  priv schema : @core.Schema
+  priv checks : Array[AsyncSuperCheck]
 }
 
 ///|
@@ -76,6 +57,23 @@ pub fn async_schema(schema : @core.Schema) -> AsyncSchema {
 pub fn AsyncSchema::refine_async(
   self : AsyncSchema,
   check : AsyncCheck,
+) -> AsyncSchema {
+  self.super_refine_async(value => {
+    match check(value) {
+      None => []
+      Some(issue) => [issue]
+    }
+  })
+}
+
+///|
+/// Add a refinement that can report multiple issues for one value.
+/// Checks and their issues are collected in declaration order. A raised error
+/// reports this callback's index, rather than an index for each returned issue.
+/// Like `refine_async`, adding a check leaves the original wrapper unchanged.
+pub fn AsyncSchema::super_refine_async(
+  self : AsyncSchema,
+  check : AsyncSuperCheck,
 ) -> AsyncSchema {
   { ..self, checks: self.checks + [check], }
 }
@@ -94,35 +92,41 @@ pub async fn AsyncSchema::parse_async(
 ) -> AsyncParseResult noraise {
   match self.schema.parse(json, path=root_path) {
     Err(errors) => Err(Validation(errors))
-    Ok(clean) => {
-      let errors : Array[@core.ValidationError] = []
-      let execution_errors : Array[AsyncCheckError] = []
-      for index, check in self.checks {
-        let issue = check(clean) catch {
-          error => {
-            execution_errors.push({ index, error, })
-            continue
-          }
-        }
-        match issue {
-          None => ()
-          Some(issue) =>
-            errors.push({
-              code: @core.IssueCode::Custom,
-              path: join_async_path(root_path, issue.path),
-              message: issue.message,
-              got: issue.got,
-            })
-        }
-      }
-      if !execution_errors.is_empty() {
-        Err(Execution(execution_errors, errors))
-      } else if errors.is_empty() {
-        Ok(clean)
-      } else {
-        Err(Validation(errors))
+    Ok(clean) => self.check_clean_async(clean, root_path~)
+  }
+}
+
+///|
+/// Run refinements on already parsed output without repeating schema effects.
+async fn AsyncSchema::check_clean_async(
+  self : AsyncSchema,
+  clean : Json,
+  root_path~ : String,
+) -> AsyncParseResult noraise {
+  let errors : Array[@core.ValidationError] = []
+  let execution_errors : Array[AsyncCheckError] = []
+  for index, check in self.checks {
+    let issues = check(clean) catch {
+      error => {
+        execution_errors.push({ index, error, })
+        continue
       }
     }
+    for issue in issues {
+      errors.push({
+        code: @core.IssueCode::Custom,
+        path: join_async_path(root_path, issue.path),
+        message: issue.message,
+        got: issue.got,
+      })
+    }
+  }
+  if !execution_errors.is_empty() {
+    Err(Execution(execution_errors, errors))
+  } else if errors.is_empty() {
+    Ok(clean)
+  } else {
+    Err(Validation(errors))
   }
 }
 
