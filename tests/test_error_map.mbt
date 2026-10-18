@@ -106,7 +106,7 @@ test "error_map none uses default message" {
 }
 
 ///|
-test "schema message takes priority over empty error_map" {
+test "error_map empty string falls back to inline or schema default" {
   let s = string(invalid_type_error="custom type error")
   let params = ParseParams::{
     path: "",
@@ -124,7 +124,7 @@ test "schema message takes priority over empty error_map" {
 }
 
 ///|
-test "error_map preserves an explicit empty message" {
+test "error_map empty string falls back to hardcoded default" {
   let s = string()
   let params = ParseParams::{
     path: "",
@@ -136,7 +136,7 @@ test "error_map preserves an explicit empty message" {
     }),
   }
   match s.safe_parse(Json::number(42.0), params) {
-    Err(errors) => @debug.assert_eq(errors[0].message, "")
+    Err(errors) => @debug.assert_eq(errors[0].message, "Expected string")
     Ok(_) => fail("expected Err")
   }
 }
@@ -167,7 +167,7 @@ test "error_map multiple errors in one parse" {
 }
 
 ///|
-test "schema message takes priority: schema type error" {
+test "error_map priority over invalid_type_error" {
   let s = string(invalid_type_error="schema type error")
   let params = ParseParams::{
     path: "",
@@ -179,7 +179,7 @@ test "schema message takes priority: schema type error" {
     }),
   }
   match s.safe_parse(Json::number(42.0), params) {
-    Err(errors) => @debug.assert_eq(errors[0].message, "schema type error")
+    Err(errors) => @debug.assert_eq(errors[0].message, "map type error")
     Ok(_) => fail("expected Err")
   }
 }
@@ -223,7 +223,7 @@ test "error_map array elements" {
 }
 
 ///|
-test "schema message takes priority: custom type error" {
+test "error_map priority over type error inline" {
   let s = string(invalid_type_error="custom type error")
   let params = ParseParams::{
     path: "",
@@ -235,7 +235,7 @@ test "schema message takes priority: custom type error" {
     }),
   }
   match s.safe_parse(Json::number(42.0), params) {
-    Err(errors) => @debug.assert_eq(errors[0].message, "custom type error")
+    Err(errors) => @debug.assert_eq(errors[0].message, "map type error")
     Ok(_) => fail("expected Err")
   }
 }

@@ -37,10 +37,10 @@ test "schema_to_prompt leaf types" {
 
 ///|
 test "schema_to_prompt optional and default" {
-  @debug.assert_eq(schema_to_prompt(string().optional()), "string | undefined")
+  @debug.assert_eq(schema_to_prompt(string().optional()), "string | null")
   @debug.assert_eq(
     schema_to_prompt(string().default(Json::string("x"))),
-    "string",
+    "string | null",
   )
 }
 
@@ -125,11 +125,11 @@ test "schema_to_prompt union" {
 test "schema_to_prompt optional with constraints" {
   @debug.assert_eq(
     schema_to_prompt(string().min(3).optional()),
-    "string | undefined  // [min: 3]",
+    "string | null  // [min: 3]",
   )
   @debug.assert_eq(
     schema_to_prompt(number().int().optional()),
-    "number | undefined  // [int]",
+    "number | null  // [int]",
   )
 }
 
@@ -234,7 +234,7 @@ test "schema_to_prompt nonempty shows min constraint" {
 ///|
 test "schema_to_prompt default with constraints" {
   let s = string().min(3).default(Json::string("abc"))
-  @debug.assert_eq(schema_to_prompt(s), "string  // [min: 3]")
+  @debug.assert_eq(schema_to_prompt(s), "string | null  // [min: 3]")
 }
 
 ///|
@@ -257,7 +257,7 @@ test "schema_to_prompt describe with constraints" {
 test "schema_to_prompt describe on optional" {
   @debug.assert_eq(
     schema_to_prompt(string().min(3).optional().describe("昵称")),
-    "string | undefined  // [min: 3] — 昵称",
+    "string | null  // [min: 3] — 昵称",
   )
 }
 
@@ -265,7 +265,7 @@ test "schema_to_prompt describe on optional" {
 test "schema_to_prompt describe alone on optional" {
   @debug.assert_eq(
     schema_to_prompt(string().optional().describe("备注")),
-    "string | undefined  // 备注",
+    "string | null  // 备注",
   )
 }
 

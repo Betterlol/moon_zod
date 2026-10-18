@@ -127,9 +127,15 @@ test "json_infer_schema validates inferred object shape" {
 }
 
 ///|
-test "json_infer_schema leaves empty array elements unconstrained" {
-  let schema = json_infer_schema(Json::array([]))
-  assert_true(schema.parse(parse_json("[1,\"x\"]")) is Ok(_))
+test "json_infer_schema handles empty arrays as string arrays" {
+  let schema = json_infer_schema(parse_json("[]"))
+
+  guard schema.parse(parse_json("[\"x\"]")) is Ok(_) else {
+    fail("expected inferred empty array to accept strings")
+  }
+  guard schema.parse(parse_json("[1]")) is Err(_) else {
+    fail("expected inferred empty array to reject numbers")
+  }
 }
 
 ///|
@@ -191,7 +197,9 @@ test "schema_to_moon_zod_code best effort covers tuple" {
 }
 
 ///|
-test "checked source export rejects unserializable preprocess callbacks" {
+test "schema_to_moon_zod_code best effort covers preprocess placeholder" {
   let schema = preprocess(fn(x) { Ok(x) }, string().min(1))
-  assert_true(@exporters.try_schema_to_moon_zod_code(schema) is Err(_))
+  let code = schema_to_moon_zod_code(schema)
+  @debug.assert_eq(code.contains("@moon_zod.preprocess(fn(x) { Ok(x) }"), true)
+  @debug.assert_eq(code.contains("@moon_zod.string().min(1)"), true)
 }

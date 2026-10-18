@@ -46,18 +46,14 @@
 | `.ipv4([msg])` | string | Must be valid IPv4 |
 | `.ipv6([msg])` | string | Must be valid IPv6 |
 | `.ulid([msg])` | string | Must be valid ULID |
-| `.int([msg])` | number | Must be a safe integer within ±(2^53−1) |
+| `.int([msg])` | number | Must be integer |
 | `.positive([msg])` | number | Must be > 0 |
 | `.negative([msg])` | number | Must be < 0 |
 | `.multipleOf(n[, msg])` | number | Must be multiple of `n` |
 | `.finite([msg])` | number | Must be finite |
 | `.safe([msg])` | number | Must be a safe integer |
-| `.optional()` | any | Missing keys skip validation; explicit null is validated |
-| `.default(value)` | any | Fill missing input with an output fallback (skips inner checks/effects) |
-| `.prefault(value)` | any | Validate and transform an input fallback when missing |
-| `.nullable()` | any | Accept present null; key stays required |
-| `.nullish()` | any | Accept missing or null |
-| `.parse_missing()` | any | Parse root absence, returning `Result[Json?, Array[ValidationError]]` |
+| `.optional()` | any | Null or missing values skip validation |
+| `.default(value)` | any | Replace null with default |
 | `.strict()` | object | Reject undefined fields |
 | `.passthrough()` | object | Keep undefined fields as-is |
 | `.strip()` | object | Silently remove undefined fields (default) |
@@ -68,7 +64,7 @@
 | `.merge(Schema)` | object | **Phase 38**: Merge with another object schema (right side overrides) |
 | `.describe(text)` | any | **Phase 17**: Attach description for LLM prompts |
 | `.name(text)` | any | **Phase 25**: Assign a name for schema exports |
-| `.brand(text)` | any | **Phase 37**: Attach export metadata (does not create a nominal MoonBit type) |
+| `.brand(text)` | any | **Phase 37**: Assign a brand marker for nominal typing |
 | `.required_error(text)` | any | Override the error message when a required field is missing |
 | `.invalid_type_error(text)` | any | Override the error message when the input type does not match |
 | `.message(text)` | any | **Phase 19**: Override the last rule's error message |
@@ -129,7 +125,3 @@ pub enum ObjectMode {
 ```
 
 ---
-
-See [core migration](../CORE_MIGRATION.md) for nullable(), nullish(), prefault() and parse_missing().
-
-Generated nullable types use `JsonNullable[T]` (`JsonNull` / `JsonValue(T)`) with inline null-or-value ToJson/FromJson codecs; missing fields add an outer Option. See [migration](../CORE_MIGRATION.md).

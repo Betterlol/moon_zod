@@ -5,7 +5,6 @@ pub fn string(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
-    id: new_schema_id(),
     schema_type: StringType,
     rules: [],
     description: "",
@@ -17,26 +16,26 @@ pub fn string(
 }
 
 ///|
-fn schema_min_check(s : Schema, n : Double) -> (Json) -> Bool {
+fn schema_min_check(s : Schema, n : Int32) -> (Json) -> Bool {
   match inner_type(s.schema_type) {
     StringType =>
       fn(json) {
         match json {
-          String(s) => s.length().to_double() >= n
+          String(s) => s.length() >= n
           _ => false
         }
       }
     NumberType =>
       fn(json) {
         match json {
-          Number(v, ..) => v >= n
+          Number(v, ..) => v >= n.to_double()
           _ => false
         }
       }
     ArrayType(_) =>
       fn(json) {
         match json {
-          Array(arr) => arr.length().to_double() >= n
+          Array(arr) => arr.length() >= n
           _ => false
         }
       }
@@ -45,7 +44,7 @@ fn schema_min_check(s : Schema, n : Double) -> (Json) -> Bool {
 }
 
 ///|
-fn schema_min_msg(s : Schema, n : Double) -> String {
+fn schema_min_msg(s : Schema, n : Int32) -> String {
   match inner_type(s.schema_type) {
     StringType => "String must contain at least \{n} character(s)"
     NumberType => "Value must be >= \{n}"
@@ -56,20 +55,14 @@ fn schema_min_msg(s : Schema, n : Double) -> String {
 
 ///|
 /// Require the string length to be at least `n`.
-pub fn[N : NumericBound] Schema::min(
-  self : Schema,
-  n : N,
-  msg~ : String = "",
-) -> Schema {
-  let n = n.to_bound()
-  guard_sized_bound(self, n)
+pub fn Schema::min(self : Schema, n : Int32, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   let check = schema_min_check(self, n)
   let message = if msg.is_empty() { schema_min_msg(self, n) } else { msg }
   let annotation = match inner_type(self.schema_type) {
-    StringType => Json::object({ "minLength": Json::number(n) })
-    NumberType => Json::object({ "minimum": Json::number(n) })
-    ArrayType(_) => Json::object({ "minItems": Json::number(n) })
+    StringType => Json::object({ "minLength": Json::number(n.to_double()) })
+    NumberType => Json::object({ "minimum": Json::number(n.to_double()) })
+    ArrayType(_) => Json::object({ "minItems": Json::number(n.to_double()) })
     _ => Json::null()
   }
   let origin = match inner_type(self.schema_type) {
@@ -78,37 +71,36 @@ pub fn[N : NumericBound] Schema::min(
     ArrayType(_) => "array"
     _ => "value"
   }
-  append_builtin_rule(
+  append_rule_with_annotation(
     self,
     check,
     message,
-    IssueCode::TooSmall(origin, n, true),
+    IssueCode::TooSmall(origin, n.to_double(), true),
     annotation,
-    explicit_message=!msg.is_empty(),
   )
 }
 
 ///|
-fn schema_max_check(s : Schema, n : Double) -> (Json) -> Bool {
+fn schema_max_check(s : Schema, n : Int32) -> (Json) -> Bool {
   match inner_type(s.schema_type) {
     StringType =>
       fn(json) {
         match json {
-          String(s) => s.length().to_double() <= n
+          String(s) => s.length() <= n
           _ => false
         }
       }
     NumberType =>
       fn(json) {
         match json {
-          Number(v, ..) => v <= n
+          Number(v, ..) => v <= n.to_double()
           _ => false
         }
       }
     ArrayType(_) =>
       fn(json) {
         match json {
-          Array(arr) => arr.length().to_double() <= n
+          Array(arr) => arr.length() <= n
           _ => false
         }
       }
@@ -117,7 +109,7 @@ fn schema_max_check(s : Schema, n : Double) -> (Json) -> Bool {
 }
 
 ///|
-fn schema_max_msg(s : Schema, n : Double) -> String {
+fn schema_max_msg(s : Schema, n : Int32) -> String {
   match inner_type(s.schema_type) {
     StringType => "String must contain at most \{n} character(s)"
     NumberType => "Value must be <= \{n}"
@@ -128,20 +120,14 @@ fn schema_max_msg(s : Schema, n : Double) -> String {
 
 ///|
 /// Require the string length to be at most `n`.
-pub fn[N : NumericBound] Schema::max(
-  self : Schema,
-  n : N,
-  msg~ : String = "",
-) -> Schema {
-  let n = n.to_bound()
-  guard_sized_bound(self, n)
+pub fn Schema::max(self : Schema, n : Int32, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   let check = schema_max_check(self, n)
   let message = if msg.is_empty() { schema_max_msg(self, n) } else { msg }
   let annotation = match inner_type(self.schema_type) {
-    StringType => Json::object({ "maxLength": Json::number(n) })
-    NumberType => Json::object({ "maximum": Json::number(n) })
-    ArrayType(_) => Json::object({ "maxItems": Json::number(n) })
+    StringType => Json::object({ "maxLength": Json::number(n.to_double()) })
+    NumberType => Json::object({ "maximum": Json::number(n.to_double()) })
+    ArrayType(_) => Json::object({ "maxItems": Json::number(n.to_double()) })
     _ => Json::null()
   }
   let origin = match inner_type(self.schema_type) {
@@ -150,14 +136,36 @@ pub fn[N : NumericBound] Schema::max(
     ArrayType(_) => "array"
     _ => "value"
   }
-  append_builtin_rule(
+  append_rule_with_annotation(
     self,
     check,
     message,
-    IssueCode::TooBig(origin, n, true),
+    IssueCode::TooBig(origin, n.to_double(), true),
     annotation,
-    explicit_message=!msg.is_empty(),
   )
+}
+
+///|
+fn find_unquoted_at(chars : Array[Char]) -> Int32 {
+  let mut i = 0
+  let n = chars.length()
+  while i < n {
+    if chars[i] == '"' {
+      // Skip quoted content
+      i = i + 1
+      while i < n && chars[i] != '"' {
+        i = i + 1
+      }
+      if i < n {
+        i = i + 1 // skip closing quote
+      }
+    } else if chars[i] == '@' {
+      return i
+    } else {
+      i = i + 1
+    }
+  }
+  -1
 }
 
 ///|
@@ -171,51 +179,86 @@ fn chars_to_string(chars : Array[Char], start : Int32, end : Int32) -> String {
 
 ///|
 fn is_valid_email(s : String) -> Bool {
-  let parts = s.split("@").to_array()
-  if parts.length() != 2 || parts[0].is_empty() {
+  let chars = s.to_array()
+  let n = chars.length()
+  if n < 3 {
     return false
   }
-  let local_part = parts[0].to_array()
-  if local_part[0] == '.' || local_part[local_part.length() - 1] == '.' {
+  // Find @, respecting quoted local parts
+  let at_pos = find_unquoted_at(chars)
+  if at_pos <= 0 || at_pos >= n - 1 {
     return false
   }
-  let mut previous_dot = false
-  for c in local_part {
-    if c == '.' && previous_dot {
+  // Validate local part
+  // Quoted local: starts with " and ends with " at at_pos-1
+  if chars[0] == '"' {
+    if chars[at_pos - 1] != '"' {
       return false
     }
-    if !((c >= 'a' && c <= 'z') ||
-      (c >= 'A' && c <= 'Z') ||
-      (c >= '0' && c <= '9') ||
-      c == '_' ||
-      c == '+' ||
-      c == '-' ||
-      c == '\'' ||
-      c == '.') {
+    // Content between quotes is valid (any char except unescaped quote)
+  } else {
+    // Unquoted local: alphanumeric, dots, +, -, _
+    if chars[0] == '.' || chars[at_pos - 1] == '.' {
       return false
     }
-    previous_dot = c == '.'
-  }
-  let labels = parts[1].split(".").to_array()
-  if labels.length() < 2 {
-    return false
-  }
-  for label in labels {
-    if label.is_empty() || label[0] == '-' {
-      return false
-    }
-    for c in label.to_array() {
-      if !((c >= 'a' && c <= 'z') ||
+    for i = 0; i < at_pos; i = i + 1 {
+      let c = chars[i]
+      let valid = (c >= 'a' && c <= 'z') ||
         (c >= 'A' && c <= 'Z') ||
         (c >= '0' && c <= '9') ||
-        c == '-') {
+        c == '.' ||
+        c == '+' ||
+        c == '-' ||
+        c == '_'
+      if !valid {
         return false
       }
     }
   }
-  let tld = labels[labels.length() - 1]
-  tld.length() >= 2 &&
-  tld.to_array().all(fn(c) { (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') })
+  // Validate domain part
+  if chars[at_pos + 1] == '.' || chars[n - 1] == '.' {
+    return false
+  }
+  // No additional @ in domain
+  for i = at_pos + 1; i < n; i = i + 1 {
+    if chars[i] == '@' {
+      return false
+    }
+  }
+  // Check for IP literal domain: [IPv6:...] or [192.168.1.1]
+  if chars[at_pos + 1] == '[' {
+    if chars[n - 1] != ']' {
+      return false
+    }
+    // Check for IPv6: prefix
+    if n - at_pos >= 10 &&
+      chars[at_pos + 2] == 'I' &&
+      chars[at_pos + 3] == 'P' &&
+      chars[at_pos + 4] == 'v' &&
+      chars[at_pos + 5] == '6' &&
+      chars[at_pos + 6] == ':' {
+      let ipv6_str = chars_to_string(chars, at_pos + 7, n - 1)
+      return is_valid_ipv6(ipv6_str)
+    }
+    let ipv4_str = chars_to_string(chars, at_pos + 2, n - 1)
+    return is_valid_ipv4(ipv4_str)
+  }
+  // Regular domain: find dots, validate last segment (TLD) >= 2 chars
+  let mut last_dot = -1
+  for i = at_pos + 1; i < n; i = i + 1 {
+    if chars[i] == '.' {
+      last_dot = i
+    }
+  }
+  if last_dot < 0 {
+    return false // no dot in domain
+  }
+  // TLD must be at least 2 chars
+  let tld_len = n - 1 - last_dot
+  if tld_len < 2 {
+    return false
+  }
+  true
 }
 
 ///|
@@ -231,7 +274,7 @@ pub fn Schema::email(self : Schema, msg~ : String = "") -> Schema {
   } else {
     msg
   }
-  append_builtin_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -242,210 +285,143 @@ pub fn Schema::email(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("email"),
     Json::object({ "format": Json::string("email") }),
-    explicit_message=!msg.is_empty(),
   )
 }
 
 ///|
 fn is_valid_url(s : String) -> Bool {
   let chars = s.to_array()
-  let mut colon = -1
-  for i = 0; i < chars.length(); i = i + 1 {
-    if chars[i] == ':' {
-      colon = i
-      break
-    }
+  let n = chars.length()
+  if n < 8 {
+    return false // minimum: x://x.xx
   }
-  if colon <= 0 {
+  // Find ://
+  if n < 4 {
     return false
   }
-  if !((chars[0] >= 'a' && chars[0] <= 'z') ||
-    (chars[0] >= 'A' && chars[0] <= 'Z')) {
-    return false
-  }
-  for i = 1; i < colon; i = i + 1 {
-    let c = chars[i]
-    if !((c >= 'a' && c <= 'z') ||
-      (c >= 'A' && c <= 'Z') ||
-      (c >= '0' && c <= '9') ||
-      c == '+' ||
-      c == '-' ||
-      c == '.') {
-      return false
-    }
-  }
-  let scheme = chars_to_string(chars, 0, colon).to_lower()
-  let special = scheme == "http" || scheme == "https" || scheme == "ftp"
-  let has_authority = colon + 2 < chars.length() &&
-    chars[colon + 1] == '/' &&
-    chars[colon + 2] == '/'
-  if !has_authority {
-    return !special && valid_uri_tail(chars, colon + 1)
-  }
-  let start = colon + 3
-  let mut end = start
-  while end < chars.length() &&
-        chars[end] != '/' &&
-        chars[end] != '?' &&
-        chars[end] != '#' {
-    end = end + 1
-  }
-  if !valid_uri_tail(chars, end) {
-    return false
-  }
-  if end == start {
-    return scheme == "file"
-  }
-  let mut host_start = start
-  let mut userinfo = false
-  for i = start; i < end; i = i + 1 {
-    if chars[i] == '@' {
-      if userinfo || !valid_uri_component(chars, start, i, ":") {
+  // Scheme: must be http or https
+  let scheme_end = if chars[0] == 'h' &&
+    chars[1] == 't' &&
+    chars[2] == 't' &&
+    chars[3] == 'p' {
+    if n > 5 && chars[4] == 's' {
+      if n > 7 && chars[5] == ':' && chars[6] == '/' && chars[7] == '/' {
+        8
+      } else {
         return false
       }
-      userinfo = true
-      host_start = i + 1
-    }
-  }
-  if host_start >= end {
-    return false
-  }
-  let mut port_start = end
-  if chars[host_start] == '[' {
-    let mut closing = host_start + 1
-    while closing < end && chars[closing] != ']' {
-      closing = closing + 1
-    }
-    if closing == end ||
-      !is_valid_ipv6(chars_to_string(chars, host_start + 1, closing)) {
+    } else if chars[4] == ':' && chars[5] == '/' && chars[6] == '/' {
+      7
+    } else {
       return false
-    }
-    if closing + 1 < end {
-      if chars[closing + 1] != ':' {
-        return false
-      }
-      port_start = closing + 2
     }
   } else {
-    let mut host_end = end
-    for i = host_start; i < end; i = i + 1 {
-      if chars[i] == ':' {
+    return false
+  }
+  // Host part: between // and / or : or ? or # or end
+  let mut host_end = n
+  let mut port_start = -1
+  let mut path_start = -1
+  let mut query_start = -1
+  let mut fragment_start = -1
+  for i = scheme_end; i < n; i = i + 1 {
+    if chars[i] == ':' && port_start < 0 {
+      port_start = i
+      host_end = i
+    } else if chars[i] == '/' && path_start < 0 && port_start < 0 {
+      path_start = i
+      host_end = i
+    } else if chars[i] == '/' && path_start < 0 && port_start >= 0 {
+      path_start = i
+    } else if chars[i] == '?' && query_start < 0 {
+      query_start = i
+      if host_end == n {
         host_end = i
-        port_start = i + 1
-        break
+      }
+      if path_start < 0 {
+        path_start = i
+      }
+    } else if chars[i] == '#' && fragment_start < 0 {
+      fragment_start = i
+      if host_end == n {
+        host_end = i
+      }
+      if path_start < 0 {
+        path_start = i
+      }
+      if query_start < 0 {
+        query_start = i
       }
     }
-    if host_end == host_start {
+  }
+  if host_end == n {
+    host_end = if port_start >= 0 { port_start } else { n }
+  }
+  // Validate host
+  if host_end <= scheme_end {
+    return false
+  }
+  let host_part = chars_to_string(chars, scheme_end, host_end)
+  if host_part == "localhost" || is_valid_ipv4(host_part) {
+    // valid
+  } else {
+    // Domain: at least one dot, no leading/trailing dot
+    let host_chars = host_part.to_array()
+    let hn = host_chars.length()
+    if hn < 1 || host_chars[0] == '.' || host_chars[hn - 1] == '.' {
       return false
     }
-    let host = chars_to_string(chars, host_start, host_end)
-    let mut numeric_host = true
-    for c in host.to_array() {
-      if !((c >= 'a' && c <= 'z') ||
+    let mut has_dot = false
+    for c in host_chars {
+      let valid = (c >= 'a' && c <= 'z') ||
         (c >= 'A' && c <= 'Z') ||
         (c >= '0' && c <= '9') ||
         c == '.' ||
-        c == '-' ||
-        c == '_') {
+        c == '-'
+      if !valid {
         return false
       }
-      if !(c >= '0' && c <= '9') && c != '.' {
-        numeric_host = false
+      if c == '.' {
+        has_dot = true
       }
     }
-    if numeric_host && host.contains(".") && !is_valid_ipv4(host) {
+    if !has_dot {
       return false
     }
   }
-  if port_start < end {
-    let mut port = 0
-    for i = port_start; i < end; i = i + 1 {
-      if chars[i] < '0' || chars[i] > '9' {
+  // Validate port
+  if port_start >= 0 {
+    let mut port_end = if path_start >= 0 { path_start } else { n }
+    if query_start >= 0 && query_start < port_end {
+      port_end = query_start
+    }
+    if fragment_start >= 0 && fragment_start < port_end {
+      port_end = fragment_start
+    }
+    let port_str = chars_to_string(chars, port_start + 1, port_end)
+    if port_str.is_empty() {
+      return false
+    }
+    let mut port_val = 0
+    for i = 0; i < port_str.length(); i = i + 1 {
+      let c = port_str[i]
+      if c < '0' || c > '9' {
         return false
       }
-      port = port * 10 + chars[i].to_int() - 48
-      if port > 65535 {
-        return false
-      }
+      port_val = port_val * 10 + (c.to_int() - 48)
+    }
+    if port_val < 1 || port_val > 65535 {
+      return false
     }
   }
+  // Path is already structurally valid (/anything)
+  // Query is structurally valid (?anything)
+  // Fragment is structurally valid (#anything)
   true
 }
 
 ///|
-/// RFC 3986 unreserved/sub-delims, plus each component's permitted delimiters.
-fn valid_uri_component(
-  chars : Array[Char],
-  start : Int32,
-  end : Int32,
-  extra : String,
-) -> Bool {
-  let mut i = start
-  while i < end {
-    let c = chars[i]
-    if c == '%' {
-      if i + 2 >= end ||
-        !is_hex_digit(chars[i + 1]) ||
-        !is_hex_digit(chars[i + 2]) {
-        return false
-      }
-      i = i + 3
-      continue
-    }
-    let unreserved = (c >= 'a' && c <= 'z') ||
-      (c >= 'A' && c <= 'Z') ||
-      (c >= '0' && c <= '9') ||
-      c == '-' ||
-      c == '.' ||
-      c == '_' ||
-      c == '~'
-    let subdelim = c == '!' ||
-      c == '$' ||
-      c == '&' ||
-      c.to_int() == 39 ||
-      c == '(' ||
-      c == ')' ||
-      c == '*' ||
-      c == '+' ||
-      c == ',' ||
-      c == ';' ||
-      c == '='
-    if !unreserved && !subdelim && !extra.to_array().contains(c) {
-      return false
-    }
-    i = i + 1
-  }
-  true
-}
-
-///|
-fn valid_uri_tail(chars : Array[Char], start : Int32) -> Bool {
-  let mut end = start
-  while end < chars.length() && chars[end] != '?' && chars[end] != '#' {
-    end = end + 1
-  }
-  if !valid_uri_component(chars, start, end, ":@/") {
-    return false
-  }
-  if end < chars.length() && chars[end] == '?' {
-    let query = end + 1
-    end = query
-    while end < chars.length() && chars[end] != '#' {
-      end = end + 1
-    }
-    if !valid_uri_component(chars, query, end, ":@/?") {
-      return false
-    }
-  }
-  if end < chars.length() {
-    return valid_uri_component(chars, end + 1, chars.length(), ":@/?")
-  }
-  true
-}
-
-///|
-/// Require an absolute URI; authority validation supports IPv4/IPv6 and ports.
-/// This portable validator does not perform WHATWG URL normalization.
+/// Require the string to be a valid URL with http:// or https:// scheme.
 pub fn Schema::url(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
@@ -453,7 +429,7 @@ pub fn Schema::url(self : Schema, msg~ : String = "") -> Schema {
     _ => abort("url() is only valid for string schemas")
   }
   let message = if msg.is_empty() { "String must be a valid URL" } else { msg }
-  append_builtin_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -464,7 +440,6 @@ pub fn Schema::url(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("url"),
     Json::object({ "format": Json::string("uri") }),
-    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -488,7 +463,7 @@ pub fn Schema::regex(
   let re = @regexp.compile(pattern) catch {
     _ => abort("Invalid regex pattern: \{pattern}")
   }
-  append_builtin_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -499,7 +474,6 @@ pub fn Schema::regex(
     message,
     IssueCode::InvalidFormat("regex"),
     Json::object({ "pattern": Json::string(pattern) }),
-    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -520,7 +494,7 @@ pub fn Schema::startsWith(
   } else {
     msg
   }
-  append_builtin_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -530,9 +504,7 @@ pub fn Schema::startsWith(
     },
     message,
     IssueCode::Custom,
-    Json::object({ "pattern": Json::string("^" + escape_regex_literal(prefix)) }),
-    explicit_message=!msg.is_empty(),
-    constraint=Some(Prefix(prefix)),
+    Json::object({ "pattern": Json::string("^" + prefix) }),
   )
 }
 
@@ -553,7 +525,7 @@ pub fn Schema::endsWith(
   } else {
     msg
   }
-  append_builtin_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -563,9 +535,7 @@ pub fn Schema::endsWith(
     },
     message,
     IssueCode::Custom,
-    Json::object({ "pattern": Json::string(escape_regex_literal(suffix) + "$") }),
-    explicit_message=!msg.is_empty(),
-    constraint=Some(Suffix(suffix)),
+    Json::object({ "pattern": Json::string(suffix + "$") }),
   )
 }
 
@@ -586,7 +556,7 @@ pub fn Schema::includes(
   } else {
     msg
   }
-  append_builtin_rule(
+  append_rule(
     self,
     fn(json) {
       match json {
@@ -596,9 +566,6 @@ pub fn Schema::includes(
     },
     message,
     IssueCode::Custom,
-    Json::object({ "pattern": Json::string(escape_regex_literal(substring)) }),
-    explicit_message=!msg.is_empty(),
-    constraint=Some(Contains(substring)),
   )
 }
 
@@ -608,7 +575,7 @@ fn is_hex_digit(c : Char) -> Bool {
 }
 
 ///|
-/// Require the string to be a valid RFC UUID.
+/// Require the string to be a valid UUID v4.
 /// Format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
 pub fn Schema::uuid(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
@@ -617,19 +584,15 @@ pub fn Schema::uuid(self : Schema, msg~ : String = "") -> Schema {
     _ => abort("uuid() is only valid for string schemas")
   }
   let message = if msg.is_empty() {
-    "String must be a valid RFC UUID"
+    "String must be a valid UUID v4"
   } else {
     msg
   }
-  append_builtin_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
         String(s) => {
-          if s == "00000000-0000-0000-0000-000000000000" ||
-            s == "ffffffff-ffff-ffff-ffff-ffffffffffff" {
-            return true
-          }
           let chars = s.to_array()
           if chars.length() != 36 {
             return false
@@ -642,7 +605,7 @@ pub fn Schema::uuid(self : Schema, msg~ : String = "") -> Schema {
             return false
           }
           // Version digit at position 14 must be '4'
-          if chars[14] < '1' || chars[14] > '8' {
+          if chars[14] != '4' {
             return false
           }
           // Variant at position 19 must be 8/9/a/b/A/B
@@ -671,7 +634,6 @@ pub fn Schema::uuid(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("uuid"),
     Json::object({ "format": Json::string("uuid") }),
-    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -684,7 +646,7 @@ pub fn Schema::cuid(self : Schema, msg~ : String = "") -> Schema {
     _ => abort("cuid() is only valid for string schemas")
   }
   let message = if msg.is_empty() { "String must be a valid CUID" } else { msg }
-  append_builtin_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -710,7 +672,6 @@ pub fn Schema::cuid(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("cuid"),
     Json::object({ "format": Json::string("cuid") }),
-    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -722,121 +683,95 @@ fn is_leap_year(year : Int32) -> Bool {
 ///|
 
 ///|
-fn is_valid_iso8601(
-  s : String,
-  offset : Bool,
-  allow_local : Bool,
-  precision : Int32,
-) -> Bool {
+fn is_valid_iso8601(s : String) -> Bool {
   let chars = s.to_array()
   let n = chars.length()
-  if n < 16 || chars[4] != '-' || chars[7] != '-' || chars[10] != 'T' {
+  if n < 10 {
+    return false
+  }
+  // Validate YYYY-MM-DD structure
+  if chars[4] != '-' || chars[7] != '-' {
     return false
   }
   for i = 0; i < 10; i = i + 1 {
-    if i != 4 && i != 7 && (chars[i] < '0' || chars[i] > '9') {
+    if i == 4 || i == 7 {
+      continue
+    }
+    if chars[i] < '0' || chars[i] > '9' {
       return false
     }
   }
   let year = (chars[0].to_int() - 48) * 1000 +
     (chars[1].to_int() - 48) * 100 +
     (chars[2].to_int() - 48) * 10 +
-    chars[3].to_int() -
-    48
-  let month = (chars[5].to_int() - 48) * 10 + chars[6].to_int() - 48
-  let day = (chars[8].to_int() - 48) * 10 + chars[9].to_int() - 48
-  let days = match month {
+    (chars[3].to_int() - 48)
+  let month = (chars[5].to_int() - 48) * 10 + (chars[6].to_int() - 48)
+  let day = (chars[8].to_int() - 48) * 10 + (chars[9].to_int() - 48)
+  if year < 1 || month < 1 || month > 12 || day < 1 {
+    return false
+  }
+  let days_in_month = match month {
     1 | 3 | 5 | 7 | 8 | 10 | 12 => 31
     4 | 6 | 9 | 11 => 30
     2 => if is_leap_year(year) { 29 } else { 28 }
     _ => 0
   }
-  if day < 1 ||
-    day > days ||
-    !valid_clock_pair(chars, 11, 23) ||
-    chars[13] != ':' ||
-    !valid_clock_pair(chars, 14, 59) {
+  if day > days_in_month {
     return false
   }
-  let mut pos = 16
-  let has_seconds = pos < n && chars[pos] == ':'
-  if has_seconds {
-    if !valid_clock_pair(chars, 17, 59) {
+  if n == 10 {
+    return true
+  }
+  if chars[10] != 'T' {
+    return false
+  }
+  if n < 16 {
+    return false
+  }
+  // Find timezone marker: 'Z' or +/- starting from position 19 (after HH:mm:ss)
+  let mut tz_start = n
+  if chars[n - 1] == 'Z' {
+    tz_start = n - 1
+  } else {
+    for i = 19; i < n; i = i + 1 {
+      if chars[i] == '+' || chars[i] == '-' {
+        tz_start = i
+        break
+      }
+    }
+  }
+  // Validate time part: chars[11..tz_start)
+  let time_len = tz_start - 11
+  if time_len != 5 && time_len != 8 {
+    return false
+  }
+  // Check HH:mm or HH:mm:ss
+  for i = 11; i < tz_start; i = i + 1 {
+    if i == 13 || i == 16 {
+      if chars[i] != ':' {
+        return false
+      }
+    } else if chars[i] < '0' || chars[i] > '9' {
       return false
     }
-    pos = 19
   }
-  if precision == -1 && has_seconds {
+  let hour = (chars[11].to_int() - 48) * 10 + (chars[12].to_int() - 48)
+  let minute = (chars[14].to_int() - 48) * 10 + (chars[15].to_int() - 48)
+  if hour < 0 || hour > 23 || minute < 0 || minute > 59 {
     return false
   }
-  if !has_seconds && precision != -1 && !allow_local {
-    return false
-  }
-  let mut decimals = 0
-  if pos < n && chars[pos] == '.' {
-    if !has_seconds {
-      return false
-    }
-    pos = pos + 1
-    while pos < n && chars[pos] >= '0' && chars[pos] <= '9' {
-      decimals = decimals + 1
-      pos = pos + 1
-    }
-    if decimals == 0 {
+  if time_len == 8 {
+    let second = (chars[17].to_int() - 48) * 10 + (chars[18].to_int() - 48)
+    if second < 0 || second > 59 {
       return false
     }
   }
-  if precision >= 0 && decimals != precision {
-    return false
-  }
-  if pos == n {
-    return allow_local
-  }
-  if chars[pos] == 'Z' {
-    return pos + 1 == n && (has_seconds || precision == -1)
-  }
-  if !offset ||
-    !has_seconds ||
-    pos + 6 != n ||
-    (chars[pos] != '+' && chars[pos] != '-') ||
-    chars[pos + 3] != ':' {
-    return false
-  }
-  valid_clock_pair(chars, pos + 1, 23) && valid_clock_pair(chars, pos + 4, 59)
-}
-
-///|
-fn valid_clock_pair(
-  chars : Array[Char],
-  start : Int32,
-  maximum : Int32,
-) -> Bool {
-  if start + 1 >= chars.length() {
-    return false
-  }
-  let a = chars[start]
-  let b = chars[start + 1]
-  a >= '0' &&
-  a <= '9' &&
-  b >= '0' &&
-  b <= '9' &&
-  (a.to_int() - 48) * 10 + b.to_int() - 48 <= maximum
+  true
 }
 
 ///|
 /// Require the string to be a valid ISO 8601 datetime.
-pub fn Schema::datetime(
-  self : Schema,
-  msg~ : String = "",
-  offset~ : Bool = false,
-  allow_local~ : Bool = false,
-  precision~ : Int32 = -2,
-) -> Schema {
-  if precision < -2 {
-    abort(
-      "datetime precision must be -2 (default), -1 (minutes), or nonnegative",
-    )
-  }
+pub fn Schema::datetime(self : Schema, msg~ : String = "") -> Schema {
   guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
@@ -847,25 +782,17 @@ pub fn Schema::datetime(
   } else {
     msg
   }
-  append_builtin_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
-        String(s) => is_valid_iso8601(s, offset, allow_local, precision)
+        String(s) => is_valid_iso8601(s)
         _ => false
       }
     },
     message,
     IssueCode::InvalidFormat("datetime"),
-    Json::object({
-      "format": Json::string("date-time"),
-      "x-moon-zod-datetime": Json::object({
-        "offset": Json::boolean(offset),
-        "allow_local": Json::boolean(allow_local),
-        "precision": Json::number(precision.to_double()),
-      }),
-    }),
-    explicit_message=!msg.is_empty(),
+    Json::object({ "format": Json::string("date-time") }),
   )
 }
 
@@ -923,56 +850,67 @@ fn is_valid_ipv4(s : String) -> Bool {
 
 ///|
 fn is_valid_ipv6(s : String) -> Bool {
-  let segments = s.split(":").to_array()
-  if segments.length() < 3 {
+  let chars = s.to_array()
+  let n = chars.length()
+  if n < 2 {
     return false
   }
-  let chars = s.to_array()
-  let mut compression = 0
+  // Count colons and detect :: (treat :: as one separator)
+  let mut colon_count = 0
+  let mut double_colon = false
   let mut i = 0
-  while i + 1 < chars.length() {
-    if chars[i] == ':' && chars[i + 1] == ':' {
-      compression = compression + 1
-      i = i + 2
-      if i < chars.length() && chars[i] == ':' {
-        return false
+  while i < n {
+    if chars[i] == ':' {
+      if i + 1 < n && chars[i + 1] == ':' {
+        double_colon = true
+        i = i + 2 // skip both ::
+      } else {
+        colon_count = colon_count + 1
+        i = i + 1
       }
     } else {
+      if !is_hex_digit(chars[i]) {
+        return false
+      }
       i = i + 1
     }
   }
-  if compression > 1 {
+  if double_colon && colon_count > 6 {
     return false
   }
-  if compression == 0 && (s.has_prefix(":") || s.has_suffix(":")) {
+  if !double_colon && colon_count != 7 {
     return false
   }
-  if s.has_prefix(":") && !s.has_prefix("::") {
-    return false
-  }
-  if s.has_suffix(":") && !s.has_suffix("::") {
-    return false
-  }
+  // Validate each hex group between colons
+  i = 0
+  let mut group_len = 0
   let mut groups = 0
-  for i = 0; i < segments.length(); i = i + 1 {
-    let segment = segments[i]
-    if segment.is_empty() {
-      continue
-    }
-    if segment.contains(".") {
-      if i != segments.length() - 1 || !is_valid_ipv4(segment.to_owned()) {
-        return false
+  while i < n {
+    if chars[i] == ':' {
+      if i + 1 < n && chars[i + 1] == ':' {
+        // :: counts as group separator
+        group_len = 0
+        i = i + 2 // skip both ::
+      } else {
+        if group_len > 0 || groups > 0 {
+          groups = groups + 1
+        }
+        group_len = 0
+        i = i + 1
       }
-      groups = groups + 2
     } else {
-      if segment.length() > 4 || !segment.to_array().all(is_hex_digit) {
+      group_len = group_len + 1
+      if group_len > 4 {
         return false
       }
-      groups = groups + 1
+      i = i + 1
     }
   }
-  if compression == 1 {
-    groups < 8
+  if group_len > 0 {
+    groups = groups + 1
+  }
+  if double_colon {
+    groups <= 8
   } else {
     groups == 8
   }
@@ -991,7 +929,7 @@ pub fn Schema::ipv4(self : Schema, msg~ : String = "") -> Schema {
   } else {
     msg
   }
-  append_builtin_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -1002,7 +940,6 @@ pub fn Schema::ipv4(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("ipv4"),
     Json::object({ "format": Json::string("ipv4") }),
-    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -1019,7 +956,7 @@ pub fn Schema::ipv6(self : Schema, msg~ : String = "") -> Schema {
   } else {
     msg
   }
-  append_builtin_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -1030,7 +967,6 @@ pub fn Schema::ipv6(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("ipv6"),
     Json::object({ "format": Json::string("ipv6") }),
-    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -1047,7 +983,7 @@ pub fn Schema::ip(self : Schema, msg~ : String = "") -> Schema {
   } else {
     msg
   }
-  append_builtin_rule(
+  append_rule(
     self,
     fn(json) {
       match json {
@@ -1057,14 +993,6 @@ pub fn Schema::ip(self : Schema, msg~ : String = "") -> Schema {
     },
     message,
     IssueCode::InvalidFormat("ip"),
-    Json::object({
-      "anyOf": Json::array([
-        Json::object({ "format": Json::string("ipv4") }),
-        Json::object({ "format": Json::string("ipv6") }),
-      ]),
-    }),
-    constraint=Some(Format("ip")),
-    explicit_message=!msg.is_empty(),
   )
 }
 
@@ -1119,7 +1047,7 @@ pub fn Schema::nonempty(self : Schema, msg~ : String = "") -> Schema {
     TupleType(_) => "tuple"
     _ => "value"
   }
-  append_builtin_rule(
+  append_rule(
     self,
     fn(json) {
       match json {
@@ -1130,25 +1058,17 @@ pub fn Schema::nonempty(self : Schema, msg~ : String = "") -> Schema {
     },
     message,
     IssueCode::TooSmall(origin, 1.0, true),
-    if origin == "string" {
-      Json::object({ "minLength": Json::number(1.0) })
-    } else {
-      Json::object({ "minItems": Json::number(1.0) })
-    },
-    explicit_message=!msg.is_empty(),
   )
 }
 
 ///|
 /// Trim leading and trailing whitespace from the string.
 pub fn Schema::trim(self : Schema) -> Schema {
-  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("trim() is only valid for string schemas")
   }
   {
-    id: new_schema_id(),
     schema_type: TransformType(self, TransformClosure::{
       f: fn(json) {
         match json {
@@ -1156,7 +1076,7 @@ pub fn Schema::trim(self : Schema) -> Schema {
           _ => Err("Expected string")
         }
       },
-      kind: TrimTransform,
+      is_builtin: true,
     }),
     rules: [],
     description: self.description,
@@ -1170,13 +1090,11 @@ pub fn Schema::trim(self : Schema) -> Schema {
 ///|
 /// Convert the string to lowercase.
 pub fn Schema::to_lower(self : Schema) -> Schema {
-  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("to_lower() is only valid for string schemas")
   }
   {
-    id: new_schema_id(),
     schema_type: TransformType(self, TransformClosure::{
       f: fn(json) {
         match json {
@@ -1184,7 +1102,7 @@ pub fn Schema::to_lower(self : Schema) -> Schema {
           _ => Err("Expected string")
         }
       },
-      kind: LowerTransform,
+      is_builtin: true,
     }),
     rules: [],
     description: self.description,
@@ -1198,13 +1116,11 @@ pub fn Schema::to_lower(self : Schema) -> Schema {
 ///|
 /// Convert the string to uppercase.
 pub fn Schema::to_upper(self : Schema) -> Schema {
-  guard_no_user_transform(self)
   match inner_type(self.schema_type) {
     StringType => ()
     _ => abort("to_upper() is only valid for string schemas")
   }
   {
-    id: new_schema_id(),
     schema_type: TransformType(self, TransformClosure::{
       f: fn(json) {
         match json {
@@ -1212,7 +1128,7 @@ pub fn Schema::to_upper(self : Schema) -> Schema {
           _ => Err("Expected string")
         }
       },
-      kind: UpperTransform,
+      is_builtin: true,
     }),
     rules: [],
     description: self.description,
@@ -1226,33 +1142,10 @@ pub fn Schema::to_upper(self : Schema) -> Schema {
 ///|
 /// Require the string or array to have exactly `n` items.
 pub fn Schema::length(self : Schema, n : Int32, msg~ : String = "") -> Schema {
-  guard_no_user_transform(self)
-  if n < 0 {
-    abort("length() requires a nonnegative length")
-  }
   let check = schema_length_check(self, n)
   let message = if msg.is_empty() { schema_length_msg(self, n) } else { msg }
-  let annotation = match inner_type(self.schema_type) {
-    StringType =>
-      Json::object({
-        "minLength": Json::number(n.to_double()),
-        "maxLength": Json::number(n.to_double()),
-      })
-    ArrayType(_) =>
-      Json::object({
-        "minItems": Json::number(n.to_double()),
-        "maxItems": Json::number(n.to_double()),
-      })
-    _ => abort("length() requires a string or array")
-  }
-  append_builtin_rule(
-    self,
-    check,
-    message,
-    IssueCode::Custom,
-    annotation,
-    explicit_message=!msg.is_empty(),
-  )
+  // No annotation — avoids conflict with minLength/maxLength
+  append_rule(self, check, message, IssueCode::Custom)
 }
 
 ///|
@@ -1272,7 +1165,7 @@ pub fn Schema::ulid(self : Schema, msg~ : String = "") -> Schema {
     _ => abort("ulid() is only valid for string schemas")
   }
   let message = if msg.is_empty() { "String must be a valid ULID" } else { msg }
-  append_builtin_rule(
+  append_rule_with_annotation(
     self,
     fn(json) {
       match json {
@@ -1298,21 +1191,5 @@ pub fn Schema::ulid(self : Schema, msg~ : String = "") -> Schema {
     message,
     IssueCode::InvalidFormat("ulid"),
     Json::object({ "format": Json::string("ulid") }),
-    explicit_message=!msg.is_empty(),
   )
-}
-
-///|
-fn guard_sized_bound(schema : Schema, bound : Double) -> Unit {
-  if bound.is_nan() || bound.is_inf() {
-    abort("bounds must be finite")
-  }
-  match inner_type(schema.schema_type) {
-    NumberType => ()
-    StringType | ArrayType(_) =>
-      if bound < 0.0 || bound != bound.floor() {
-        abort("length bounds must be nonnegative integers")
-      }
-    _ => abort("min()/max() require a string, number or array schema")
-  }
 }

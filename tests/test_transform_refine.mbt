@@ -90,7 +90,7 @@ test "transform validates before transforming" {
 }
 
 ///|
-test "transform with nullish accepts null" {
+test "transform with optional accepts null" {
   let s = string()
     .transform(fn(json) {
       match json {
@@ -98,7 +98,7 @@ test "transform with nullish accepts null" {
         _ => Err("expected string")
       }
     })
-    .nullish()
+    .optional()
   // null should bypass the transform
   match s.parse(Json::null()) {
     Ok(v) => @debug.assert_eq(v, Json::null())
