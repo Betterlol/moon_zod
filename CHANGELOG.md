@@ -19,6 +19,8 @@
 - Cover backpressure, reader/handler failure, cancellation and UTF-8 chunk
   boundaries. CI now checks/tests native async on all three operating systems
   and includes async files in coverage and source-line reports.
+- Compute CI line coverage from complete Cobertura reports, including fully
+  covered files.
 
 ### Migration from v0.9.1
 

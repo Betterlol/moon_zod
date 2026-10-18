@@ -105,58 +105,8 @@ jobs:
           Write-Output "  Total:            $total"
           Write-Output "::notice title=Lines of Code::core: $core | async: $async_lines | exporters: $exporters | importers: $importers | tests: $tests"
 
-      - name: Coverage Analysis (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          moon coverage analyze > coverage_caret.log 2>&1
-          core_only='^(core/)'
-          core_report=$(moon coverage report -f summary 2>&1 | grep -E "$core_only")
-          include_pattern='^(core/|async/|exporters/|importers/|combinators/|tests/)'
-          report=$(moon coverage report -f summary 2>&1 | grep -E "$include_pattern")
-          echo "=== Per-File Coverage (covered / total) ==="
-          echo "$report"
-          echo ""
-          core_total=$(echo "$core_report" | awk -F'[:/ ]+' '{c+=$(NF-1); t+=$NF} END{printf "%d/%d (%.1f%%)", c, t, 100*c/t}')
-          echo "::notice title=Core Coverage::Core: $core_total"
-          total=$(echo "$report" | awk -F'[:/ ]+' '{c+=$(NF-1); t+=$NF} END{printf "%d/%d (%.1f%%)", c, t, 100*c/t}')
-          echo "::notice title=Coverage::Total: $total"
+      - name: Test Coverage Summary
+        run: python -m unittest discover -s .github/scripts -p test_coverage_summary.py
 
-      - name: Coverage Analysis (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          & moon coverage analyze *> coverage_caret.log
-          if ($LASTEXITCODE -ne 0) {
-            Write-Output "::warning title=Coverage::moon coverage analyze is not available on Windows, skipping"
-            Get-Content coverage_caret.log | ForEach-Object { Write-Output $_ }
-            exit 0
-          }
-
-          function Sum-Coverage($lines) {
-            $covered = 0
-            $total = 0
-            foreach ($line in $lines) {
-              $numbers = [regex]::Matches($line, "\d+")
-              if ($numbers.Count -ge 2) {
-                $covered += [int]$numbers[$numbers.Count - 2].Value
-                $total += [int]$numbers[$numbers.Count - 1].Value
-              }
-            }
-            if ($total -eq 0) { return "0/0 (0.0%)" }
-            return ("{0}/{1} ({2:N1}%)" -f $covered, $total, (100 * $covered / $total))
-          }
-
-          $summary = & moon coverage report -f summary 2>&1
-          # Match lines starting with core/, core\ etc.
-          $core_report = $summary | Select-String -Pattern "^core[\\/]" | ForEach-Object { $_.Line }
-          $report = $summary | Select-String -Pattern "^(core|async|exporters|importers|combinators|tests)[\\/]" | ForEach-Object { $_.Line }
-          Write-Output "=== Per-File Coverage (covered / total) ==="
-          if ($report.Count -eq 0) {
-            Write-Output "  (no matching files in coverage report)"
-          } else {
-            $report | ForEach-Object { Write-Output $_ }
-          }
-          Write-Output ""
-          Write-Output "::notice title=Core Coverage::Core: $(Sum-Coverage $core_report)"
-          Write-Output "::notice title=Coverage::Total: $(Sum-Coverage $report)"
+      - name: Report Line Coverage
+        run: python .github/scripts/coverage_summary.py

@@ -166,6 +166,8 @@ CI exercises native async tests on Linux, macOS and Windows, alongside the defau
 Wasm tests. These tests use observable readers for backpressure, input/callback
 failures, cancellation and byte-boundary invariance. Runtime backend support is
 separate from core schema portability.
+CI line coverage includes fully covered files and merges repeated backend line
+entries; it is reported separately from the toolchain's expression coverage.
 
 ## Migration after v0.9.1
 
