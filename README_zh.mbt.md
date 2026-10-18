@@ -155,7 +155,13 @@ moon_zod/
 │
 ├── async/                    # 可选异步扩展
 │   ├── schema.mbt            # 解析后的异步 refine
-│   └── jsonl.mbt             # 带背压的 JSON Lines 校验
+│   ├── issue.mbt             # 异步问题类型与工厂
+│   ├── jsonl.mbt             # 带背压的 JSON Lines 校验
+│   ├── sse.mbt               # SSE 分帧与元数据
+│   ├── sse_json.mbt          # 逐帧 JSON 校验
+│   ├── sse_json_stream.mbt   # 跨帧 JSON 与异步校验
+│   ├── line_reader.mbt       # 有界 UTF-8 分块读取
+│   └── stream_limits.mbt     # 行与帧缓冲限制
 │
 ├── exporters/                # 代码/Schema 导出工具
 │   ├── prompt.mbt            # schema_to_prompt() / schema_to_prompt_named()
@@ -258,7 +264,7 @@ moon run examples/json2schema                        # JSON → moon_zod Schema 
 - **自定义错误消息**：所有校验器上的 `msg?` 参数、`.message(text)` 覆盖方法、类型级别的 `required_error` / `invalid_type_error`
 - **错误收集**：在一次遍历中收集**所有**校验错误，非常适合 LLM 自我纠正循环
 - **完整路径错误报告**：每个错误都包含确切的字段路径（`users[0].profile.age`）
-- **可选异步扩展**：`Betterlol/moon_zod/async` 提供异步 refine 和增量 JSON Lines 校验，同时保持核心 API 同步
+- **可选异步扩展**：`Betterlol/moon_zod/async` 提供单问题/多问题异步 refine、JSON Lines 和单帧/跨帧 SSE JSON 校验，同时保持核心 API 同步。详见[异步指南](async/README.mbt.md)
 - **LLM 提示生成**：
   - `schema_to_prompt(schema)` —— 内联 TypeScript 接口，带约束注释
   - `schema_to_prompt_named(schema, include_names?)` —— 模块化接口，带拓扑排序和类型名称引用

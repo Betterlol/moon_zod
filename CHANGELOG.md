@@ -4,6 +4,32 @@
 
 **To see the full details, please refer to docs in branch `doc`.**
 
+## Unreleased
+
+### Async validation
+
+- Add `AsyncSchema::validate_sse_json_stream()` for asynchronous checks on a JSON
+  document assembled across SSE frames. Schema rules and transformations run once;
+  async checks run only after successful finalization at DONE/EOF.
+- Add `AsyncSuperCheck` and `super_refine_async()` to report multiple issues per
+  callback, preserving issue order and callback-based execution error indices.
+- Share synchronous/asynchronous adapter pipelines, separate SSE framing and
+  validation modules, and decode chunk-contained lines without per-byte copying.
+  Add a reproducible native stream benchmark under `examples/async_bench`.
+- Cover backpressure, reader/handler failure, cancellation and UTF-8 chunk
+  boundaries. CI now checks/tests native async on all three operating systems
+  and includes async files in coverage and source-line reports.
+
+### Migration from v0.9.1
+
+- `AsyncSchema` fields are private. Replace direct struct construction or `checks`
+  mutation with `async_schema()`, `refine_async()` and `super_refine_async()`;
+  retain the synchronous schema separately when needed.
+- Add `SseStreamExecutionFailed(event, check_errors, validation_errors)` to
+  exhaustive stream-event matches. Initialize the new `execution_failed` field
+  in any `SseStreamValidationSummary` literals. An execution failure can also
+  contain validation issues and increments only `execution_failed`.
+
 ## v0.9.1 (2026-10-18)
 
 **Async Validation and JSON Stream Hardening**
