@@ -328,6 +328,11 @@ pub(all) enum SseStreamValidationEvent {
   SseStreamValid(SseEvent, Json)
   SseStreamInvalidJson(SseEvent, String)
   SseStreamInvalidSchema(SseEvent, Array[@core.ValidationError])
+  SseStreamExecutionFailed(
+    SseEvent,
+    Array[AsyncCheckError],
+    Array[@core.ValidationError]
+  )
 }
 
 ///|
@@ -347,6 +352,7 @@ pub(all) struct SseStreamValidationSummary {
   valid : Int32
   invalid_json : Int32
   invalid_schema : Int32
+  execution_failed : Int32
 }
 
 ///|
@@ -356,24 +362,47 @@ priv enum SseStreamResultKind {
   Valid
   InvalidJson
   InvalidSchema
+  ExecutionFailed
+}
+
+///|
+/// Terminal outcome counts shared by DONE, EOF and early failure handling.
+priv struct SseStreamCounts {
+  mut valid : Int32
+  mut invalid_json : Int32
+  mut invalid_schema : Int32
+  mut execution_failed : Int32
 }
 
 ///|
 /// Emit the public event for a completed incremental parser step.
 async fn emit_sse_stream_result(
+  schema : AsyncSchema,
   result : @core.StreamParseResult,
   event : SseEvent,
   on_event : SseStreamValidationHandler,
+  root_path : String,
 ) -> SseStreamResultKind {
   match result {
     StreamPending => {
       on_event(SseStreamPending(event))
       Pending
     }
-    StreamValid(value) => {
-      on_event(SseStreamValid(event, value))
-      Valid
-    }
+    StreamValid(value) =>
+      match schema.check_clean_async(value, root_path~) {
+        Ok(clean) => {
+          on_event(SseStreamValid(event, clean))
+          Valid
+        }
+        Err(Validation(errors)) => {
+          on_event(SseStreamInvalidSchema(event, errors))
+          InvalidSchema
+        }
+        Err(Execution(execution_errors, errors)) => {
+          on_event(SseStreamExecutionFailed(event, execution_errors, errors))
+          ExecutionFailed
+        }
+      }
     StreamInvalidJson(message) => {
       on_event(SseStreamInvalidJson(event, message))
       InvalidJson
@@ -387,18 +416,18 @@ async fn emit_sse_stream_result(
 
 ///|
 /// Update counters after one incremental parser result.
-fn apply_sse_stream_result(
+fn SseStreamCounts::record(
+  self : SseStreamCounts,
   kind : SseStreamResultKind,
-  valid : Int32,
-  invalid_json : Int32,
-  invalid_schema : Int32,
-) -> (Int32, Int32, Int32, Bool) {
+) -> Bool {
   match kind {
-    Pending => (valid, invalid_json, invalid_schema, false)
-    Valid => (valid + 1, invalid_json, invalid_schema, true)
-    InvalidJson => (valid, invalid_json + 1, invalid_schema, true)
-    InvalidSchema => (valid, invalid_json, invalid_schema + 1, true)
+    Pending => return false
+    Valid => self.valid += 1
+    InvalidJson => self.invalid_json += 1
+    InvalidSchema => self.invalid_schema += 1
+    ExecutionFailed => self.execution_failed += 1
   }
+  true
 }
 
 ///|
@@ -425,12 +454,40 @@ pub async fn validate_sse_json_stream(
   max_length~ : Int32 = 1048576,
   max_depth~ : Int32 = 128,
 ) -> SseStreamValidationSummary {
-  let parser = schema.parse_stream(path=root_path, max_length~, max_depth~)
+  async_schema(schema).validate_sse_json_stream(
+    reader,
+    on_event,
+    root_path~,
+    limits~,
+    max_length~,
+    max_depth~,
+  )
+}
+
+///|
+/// Assemble one SSE JSON document, then run asynchronous refinements exactly once.
+/// Checks receive schema-cleaned output only at DONE/EOF. Invalid JSON or a
+/// synchronous schema failure skips checks. Execution failures are reported as
+/// `SseStreamExecutionFailed`, preserving any validation issues. Reader ownership,
+/// buffering limits and cancellation follow `validate_sse_json_stream`.
+pub async fn AsyncSchema::validate_sse_json_stream(
+  self : AsyncSchema,
+  reader : &@io.Reader,
+  on_event : SseStreamValidationHandler,
+  root_path~ : String = "",
+  limits~ : StreamReadLimits = StreamReadLimits::default(),
+  max_length~ : Int32 = 1048576,
+  max_depth~ : Int32 = 128,
+) -> SseStreamValidationSummary {
+  let parser = self.schema.parse_stream(path=root_path, max_length~, max_depth~)
   let mut fragments = 0
   let mut done = false
-  let mut valid = 0
-  let mut invalid_json = 0
-  let mut invalid_schema = 0
+  let counts : SseStreamCounts = {
+    valid: 0,
+    invalid_json: 0,
+    invalid_schema: 0,
+    execution_failed: 0,
+  }
   let mut terminal = false
   let mut last_fragment : SseEvent? = None
 
@@ -440,13 +497,15 @@ pub async fn validate_sse_json_stream(
       if event.data == "[DONE]" {
         done = true
         if !terminal {
-          let kind = emit_sse_stream_result(parser.finish(), event, on_event)
-          let (next_valid, next_invalid_json, next_invalid_schema, next_terminal
-          ) = apply_sse_stream_result(kind, valid, invalid_json, invalid_schema)
-          valid = next_valid
-          invalid_json = next_invalid_json
-          invalid_schema = next_invalid_schema
-          terminal = next_terminal
+          terminal = counts.record(
+            emit_sse_stream_result(
+              self,
+              parser.finish(),
+              event,
+              on_event,
+              root_path,
+            ),
+          )
         }
         on_event(SseStreamDone(event))
         false
@@ -454,17 +513,13 @@ pub async fn validate_sse_json_stream(
         fragments = fragments + 1
         last_fragment = Some(event)
         let kind = emit_sse_stream_result(
+          self,
           parser.feed(event.data),
           event,
           on_event,
+          root_path,
         )
-        let (next_valid, next_invalid_json, next_invalid_schema, next_terminal) = apply_sse_stream_result(
-          kind, valid, invalid_json, invalid_schema,
-        )
-        valid = next_valid
-        invalid_json = next_invalid_json
-        invalid_schema = next_invalid_schema
-        terminal = next_terminal
+        terminal = counts.record(kind)
         !terminal
       } else {
         false
@@ -478,13 +533,17 @@ pub async fn validate_sse_json_stream(
       Some(event) => event
       None => empty_sse_event()
     }
-    let kind = emit_sse_stream_result(parser.finish(), event, on_event)
-    let (next_valid, next_invalid_json, next_invalid_schema, _) = apply_sse_stream_result(
-      kind, valid, invalid_json, invalid_schema,
+    ignore(
+      counts.record(
+        emit_sse_stream_result(
+          self,
+          parser.finish(),
+          event,
+          on_event,
+          root_path,
+        ),
+      ),
     )
-    valid = next_valid
-    invalid_json = next_invalid_json
-    invalid_schema = next_invalid_schema
   }
 
   {
@@ -493,9 +552,10 @@ pub async fn validate_sse_json_stream(
     comments: sse_summary.comments,
     fragments,
     done,
-    valid,
-    invalid_json,
-    invalid_schema,
+    valid: counts.valid,
+    invalid_json: counts.invalid_json,
+    invalid_schema: counts.invalid_schema,
+    execution_failed: counts.execution_failed,
   }
 }
 

@@ -94,35 +94,43 @@ pub async fn AsyncSchema::parse_async(
 ) -> AsyncParseResult noraise {
   match self.schema.parse(json, path=root_path) {
     Err(errors) => Err(Validation(errors))
-    Ok(clean) => {
-      let errors : Array[@core.ValidationError] = []
-      let execution_errors : Array[AsyncCheckError] = []
-      for index, check in self.checks {
-        let issue = check(clean) catch {
-          error => {
-            execution_errors.push({ index, error, })
-            continue
-          }
-        }
-        match issue {
-          None => ()
-          Some(issue) =>
-            errors.push({
-              code: @core.IssueCode::Custom,
-              path: join_async_path(root_path, issue.path),
-              message: issue.message,
-              got: issue.got,
-            })
-        }
-      }
-      if !execution_errors.is_empty() {
-        Err(Execution(execution_errors, errors))
-      } else if errors.is_empty() {
-        Ok(clean)
-      } else {
-        Err(Validation(errors))
+    Ok(clean) => self.check_clean_async(clean, root_path~)
+  }
+}
+
+///|
+/// Run refinements on already parsed output without repeating schema effects.
+async fn AsyncSchema::check_clean_async(
+  self : AsyncSchema,
+  clean : Json,
+  root_path~ : String,
+) -> AsyncParseResult noraise {
+  let errors : Array[@core.ValidationError] = []
+  let execution_errors : Array[AsyncCheckError] = []
+  for index, check in self.checks {
+    let issue = check(clean) catch {
+      error => {
+        execution_errors.push({ index, error, })
+        continue
       }
     }
+    match issue {
+      None => ()
+      Some(issue) =>
+        errors.push({
+          code: @core.IssueCode::Custom,
+          path: join_async_path(root_path, issue.path),
+          message: issue.message,
+          got: issue.got,
+        })
+    }
+  }
+  if !execution_errors.is_empty() {
+    Err(Execution(execution_errors, errors))
+  } else if errors.is_empty() {
+    Ok(clean)
+  } else {
+    Err(Validation(errors))
   }
 }
 
