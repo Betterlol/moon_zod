@@ -65,50 +65,49 @@ flowchart TB
 将异步 I/O 和运行时隔离在此子包中，保证普通用户和 Wasm 用户不需要为
 核心校验付出异步依赖或 API 迁移成本。
 
-### 1. 统一解析协议与路径栈
+### 1. parse 路由 + 可变路径栈
 
-公共 `parse()` / `safe_parse()` 复制输入后进入私有解析器。内部 `ParseOutput`
-同时保留已解析值、缺失状态、错误列表与不可继续标记。每个节点先解析结构，
-再运行自己的规则；类型错误阻止父级回调，普通约束错误允许继续收集错误。
-公开 parse helper 保留签名并转发到同一解析协议。
+```
+Schema::parse(json)                   ← 公共入口，创建 path_stack
+  └─ parse_inner(schema, json, stack) ← 内部转发枢纽（非 pub）
+       ├─ parse_object()              ← push/pop 字段名
+       ├─ parse_array()               ← push/pop [索引]
+       ├─ parse_optional()            ← 直接传递 stack
+       ├─ parse_default()             ← 直接传递 stack
+       ├─ parse_transform()           ← 先校验 inner，再应用变换
+       ├─ parse_enum()                ← format_path 后报错
+       ├─ parse_union()               ← 直接传递 stack
+       ├─ parse_intersection()        ← 直接传递 stack，合并对象字段
+       └─ 基本类型检查                ← format_path 后报错
+```
 
-对象、数组和 tuple 重建容器，所有对象模式都返回子节点转换后的值。
-union 和 intersection 的各分支使用独立输入，intersection 递归合并对象和
-数组，冲突返回结构化错误。此协议会分配容器和错误数组，不能宣称成功路径零分配。
+路径栈 (`Array[String]`) 在所有 parse helper 间共享，进入子结构 `push` / 返回 `let _ = pop()`。仅在产生 `ValidationError` 时调用 `format_path(stack)` 拼接字符串。**成功路径零堆分配**。
 
-路径栈进入子节点时 push，返回时 pop。特殊字段名用带引号的括号表示，
-`ValidationError.path_segments` 提供不混淆字段与索引的结构化路径。
+### 2. append_rule — 装饰器穿透
 
-### 2. 规则所属层与结构化元数据
+```
+pub fn append_rule(schema, check, message) -> Schema {
+  match schema.schema_type {
+    OptionalType(inner)  => 递归到 inner，新建 OptionalType 包裹
+    DefaultType(inner,_) => 递归到 inner，新建 DefaultType 包裹
+    _ => 直接追加到 rules
+  }
+}
+```
 
-泛型 `refine()` 附加在当前层，内建类型规则可穿透 optional、nullable、
-default、prefault 及 pipe 的输出层；`message()` 只修改最近规则的消息。
-`Rule` 保存 `Constraint` 与显式消息来源，`TransformClosure` 保存 `TransformKind`。
-源码导出使用这些元数据还原方法，遇到自定义闭包返回明确的不支持错误。
+使 `string().optional().min(3)` 的 `min(3)` 规则穿透 OptionalType 落在 StringType 上。`description` 在穿透时正确保留。
 
-### 3. 缺失与 null
+### 3. Strip 默认模式
 
-缺失输入通过私有协议处理，不把 null 作为缺失哨兵交给 JSON 回调。
-optional 允许缺失，nullable 允许显式 null，nullish 同时允许两者。
-default 填充输出值并跳过内层解析；prefault 把默认值作为输入继续校验和转换。
-包含默认值的缺失对象字段会出现在解析结果中。
+`object()` 默认 `Strip` 模式。parse 成功后只返回 spec 定义的字段（已递归校验清洗的值），未定义字段静默移除。嵌套对象递归剥离。
 
-### 4. Schema 图与组合器
+### 4. Schema 组合器 — pick / omit / partial
 
-工厂与修改器分配节点标识，构造器复制传入的可变集合。统一子节点遍历包含
-所有容器、wrapper、pipeline 与 lazy，lazy 解析缓存一次。命名导出可使用递归
-引用；名称冲突和不支持的匿名递归返回清楚的错误。
+- `pick(keys)` — 按 key 列表过滤 Object spec，保留 mode / rules / description
+- `omit(keys)` — 排除指定 key
+- `partial()` — 将所有字段包裹在 `OptionalType` 中
 
-pick、omit、partial、extend_with 和 merge 保留对象模式，但拒绝更改已附加
-refine 的对象形状，避免回调继续依赖被删除或改变的字段。应先组合形状再 refine。
-
-### 5. 导出阶段的契约
-
-旧 `to_json_schema()` 是面向生成任务的闭合结构契约。
-`try_to_json_schema(view=InputView/OutputView)` 明确区分原始输入与解析结果：
-输入 Strip 对象允许额外字段，输出 Strip 对象不含额外字段。无法表示的阶段
-返回 `Err`，不能把未知自定义转换当作恒等函数。详细边界见
-[迁移说明](docs/CORE_MIGRATION.md)。
+均保持原 schema 的 object mode（Strip/Passthrough/Strict）。
 
 ---
 

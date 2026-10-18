@@ -70,50 +70,6 @@ fn json_to_schema_impl(
 ) -> @core.Schema {
   match json {
     Object(m) => {
-      // Sibling constraints are conjunctive even when the root already has a type.
-      if m.contains("type") {
-        match m.get("allOf") {
-          Some(Array(branches)) => {
-            let base = m.copy()
-            base.remove("allOf")
-            let parts = [
-              json_to_schema_impl(
-                Json::object(base),
-                defs_json,
-                defs_cache,
-                visiting,
-              ),
-            ]
-            for branch in branches {
-              let branch = match branch {
-                Object(fields) =>
-                  if !fields.contains("type") &&
-                    !fields.contains("$ref") &&
-                    !fields.contains("anyOf") &&
-                    !fields.contains("oneOf") &&
-                    !fields.contains("allOf") &&
-                    !fields.contains("const") &&
-                    !fields.contains("enum") {
-                    let typed = fields.copy()
-                    match m.get("type") {
-                      Some(kind) => typed.set("type", kind)
-                      None => ()
-                    }
-                    Json::object(typed)
-                  } else {
-                    branch
-                  }
-                _ => branch
-              }
-              parts.push(
-                json_to_schema_impl(branch, defs_json, defs_cache, visiting),
-              )
-            }
-            return @core.intersection(parts)
-          }
-          _ => ()
-        }
-      }
       // 1. Check $ref
       match m.get("$ref") {
         Some(String(ref_str)) => {
@@ -229,7 +185,7 @@ fn json_to_schema_impl(
                 let mut obj_schema = @core.object(fields)
                 obj_schema = match m.get("additionalProperties") {
                   Some(True) => obj_schema.passthrough()
-                  Some(False) => obj_schema.strict()
+                  Some(False) => obj_schema.strip()
                   _ => obj_schema
                 }
                 obj_schema
@@ -316,11 +272,11 @@ fn apply_json_schema_constraints(
 
   // String/Array length constraints
   match m.get("minLength") {
-    Some(Number(v, ..)) => result = result.min(v)
+    Some(Number(v, ..)) => result = result.min(v.to_int())
     _ => ()
   }
   match m.get("maxLength") {
-    Some(Number(v, ..)) => result = result.max(v)
+    Some(Number(v, ..)) => result = result.max(v.to_int())
     _ => ()
   }
   match m.get("pattern") {
@@ -330,19 +286,7 @@ fn apply_json_schema_constraints(
   match m.get("format") {
     Some(String("email")) => result = result.email()
     Some(String("uri")) => result = result.url()
-    Some(String("date-time")) =>
-      match m.get("x-moon-zod-datetime") {
-        Some(Object(params)) => {
-          let offset = params.get("offset") is Some(True)
-          let allow_local = params.get("allow_local") is Some(True)
-          let precision = match params.get("precision") {
-            Some(Number(value, ..)) => value.to_int()
-            _ => -2
-          }
-          result = result.datetime(offset~, allow_local~, precision~)
-        }
-        _ => result = result.datetime(offset=true)
-      }
+    Some(String("date-time")) => result = result.datetime()
     Some(String("ipv4")) => result = result.ipv4()
     Some(String("ipv6")) => result = result.ipv6()
     Some(String("uuid")) => result = result.uuid()
@@ -351,33 +295,75 @@ fn apply_json_schema_constraints(
 
   // Number constraints
   match m.get("minimum") {
-    Some(Number(v, ..)) => result = result.min(v)
+    Some(Number(v, ..)) => result = result.min(v.to_int())
     _ => ()
   }
   match m.get("maximum") {
-    Some(Number(v, ..)) => result = result.max(v)
+    Some(Number(v, ..)) => result = result.max(v.to_int())
     _ => ()
   }
   match m.get("exclusiveMinimum") {
-    Some(Number(v, ..)) => result = result.gt(v)
+    Some(Number(v, ..)) =>
+      if v == 0.0 {
+        result = result.positive()
+      } else {
+        let int_val = v.to_int()
+        let is_integer = v == int_val.to_double()
+        let bound = if is_integer { int_val + 1 } else { int_val }
+        result = result.min(bound)
+        if !is_integer {
+          result = @core.append_rule(
+            result,
+            fn(json) {
+              match json {
+                Number(n, ..) => n > v
+                _ => false
+              }
+            },
+            "Value must be greater than \{v}",
+            @core.IssueCode::Custom,
+          )
+        }
+      }
     _ => ()
   }
   match m.get("exclusiveMaximum") {
-    Some(Number(v, ..)) => result = result.lt(v)
+    Some(Number(v, ..)) =>
+      if v == 0.0 {
+        result = result.negative()
+      } else {
+        let int_val = v.to_int()
+        let is_integer = v == int_val.to_double()
+        if is_integer {
+          result = result.max(int_val - 1)
+        } else {
+          result = @core.append_rule(
+            result,
+            fn(json) {
+              match json {
+                Number(n, ..) => n < v
+                _ => false
+              }
+            },
+            "Value must be less than \{v}",
+            @core.IssueCode::Custom,
+          )
+        }
+      }
     _ => ()
   }
   match m.get("multipleOf") {
-    Some(Number(v, ..)) => result = result.multipleOf(v)
+    Some(Number(v, ..)) => result = result.multipleOf(v.to_int())
     _ => ()
   }
 
   // Array constraints
   match m.get("minItems") {
-    Some(Number(v, ..)) => result = result.min(v)
+    Some(Number(v, ..)) => result = result.min(v.to_int())
     _ => ()
   }
   match m.get("maxItems") {
-    Some(Number(v, ..)) => result = result.max(v)
+    Some(Number(v, ..)) => result = result.max(v.to_int())
     _ => ()
   }
 

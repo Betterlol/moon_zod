@@ -7,7 +7,7 @@
 | **Named schema export** | `schema_to_prompt_named()` generates modular TypeScript interfaces with type name references | Inline expansion + duplication |
 | **JSON Schema export** | `to_json_schema()` generates standard schema for LLM API | Manual schema maintenance |
 | **Path precision** | Every error includes exact field path (`users[0].profile.age`) | Often just a flat message |
-| **Wasm-ready** | Shared path stack with error-path rendering | String-heavy allocation per parse |
+| **Wasm-ready** | Mutable path stack — zero heap allocation on success path | String-heavy allocation per parse |
 
 In LLM Tool Calling, the model often produces **multiple errors at once** and **hallucinates extra fields**. moon_zod collects every error in a single pass (so you can send them all back for self-correction), and strips unknown fields by default (no silent data corruption from hallucinated keys).
 
@@ -165,5 +165,5 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
   - `schema_to_moonbit_struct(schema)` — recursively generate MoonBit struct/enum definitions for every object/enum schema
   - `schema_to_moonbit_struct_full(schema)` — generate definitions plus static `Type::to_schema()` functions
 - **Lightweight dependencies**: Core MoonBit library plus official `moonbitlang/regexp` for regex validation
-- **WebAssembly-ready**: Shared path stack; parsed containers are rebuilt to preserve transformed values
-- **Historical performance (before core fixes)**: ~18.5k–56k validations/second; this does not measure the current parser
+- **WebAssembly-ready**: Mutable path stack for zero heap allocation on success path
+- **Performance**: ~18.5k-56k validations/second depending on schema complexity

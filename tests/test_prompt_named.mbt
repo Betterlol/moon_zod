@@ -163,10 +163,10 @@ test "schema_to_prompt_named emits named aliases for wrappers and containers" {
 
   @debug.assert_eq(prompt.contains("export type Tags = string[]"), true)
   @debug.assert_eq(
-    prompt.contains("export type MaybeText = string | undefined"),
+    prompt.contains("export type MaybeText = string | null"),
     true,
   )
-  @debug.assert_eq(prompt.contains("export type Count = number"), true)
+  @debug.assert_eq(prompt.contains("export type Count = number | null"), true)
   @debug.assert_eq(prompt.contains("export type Transformed = string"), true)
   @debug.assert_eq(prompt.contains("export type Pair = [string, number]"), true)
   @debug.assert_eq(prompt.contains("export type Anything = any"), true)
@@ -192,7 +192,7 @@ test "schema_to_prompt_named references named optional object wrappers" {
 
   @debug.assert_eq(
     prompt.contains("export type ProductMetadata = {") &&
-    prompt.contains("} | undefined"),
+    prompt.contains("} | null"),
     true,
   )
   @debug.assert_eq(prompt.contains("metadata?: ProductMetadata"), true)

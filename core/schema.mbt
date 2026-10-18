@@ -23,8 +23,6 @@ pub(all) enum SchemaType {
   ArrayType(Schema)
   TupleType(Array[Schema])
   OptionalType(Schema)
-  NullableType(Schema)
-  PrefaultType(Schema, Json)
   DefaultType(Schema, Json)
   EnumType(Array[String])
   UnionType(Array[Schema])
@@ -43,37 +41,9 @@ pub extend SchemaType with @debug.Debug::{to_repr}
 
 ///|
 /// Internal wrapper for a transform function stored in TransformType.
-pub(all) enum TransformKind {
-  CustomTransform
-  IdentityTransform
-  TrimTransform
-  LowerTransform
-  UpperTransform
-} derive(Debug)
-
-///|
-/// A built-in constraint's semantic identity, independent of rendered messages.
-pub(all) enum Constraint {
-  Minimum(String, Double, Bool)
-  Maximum(String, Double, Bool)
-  ExactLength(String, Int32)
-  Multiple(Double)
-  Integer
-  Format(String)
-  Pattern(String)
-  Prefix(String)
-  Suffix(String)
-  Contains(String)
-  Finite
-  SafeInteger
-  Opaque
-} derive(Debug)
-
-///|
-/// Transform callbacks carry an explicit kind for inspection and source export.
 pub(all) struct TransformClosure {
   f : (Json) -> Result[Json, String]
-  kind : TransformKind
+  is_builtin : Bool
 } derive(Debug)
 
 ///|
@@ -83,8 +53,6 @@ pub extend TransformClosure with @debug.Debug::{to_repr}
 ///|
 /// A single validation rule: a predicate + error message + optional JSON Schema annotation.
 pub(all) struct Rule {
-  constraint : Constraint
-  explicit_message : Bool
   check : (Json) -> Bool
   message : String
   code : IssueCode
@@ -98,7 +66,6 @@ pub extend Rule with @debug.Debug::{to_repr}
 ///|
 /// A schema defines the shape and constraints of JSON data.
 pub(all) struct Schema {
-  id : Int32
   schema_type : SchemaType
   rules : Array[Rule]
   description : String
@@ -117,7 +84,7 @@ pub extend Schema with @debug.Debug::{to_repr}
 /// The description is rendered by `schema_to_prompt()` alongside type and constraints,
 /// helping LLMs understand the semantic meaning of each field.
 pub fn Schema::describe(self : Schema, text : String) -> Schema {
-  { ..self, id: new_schema_id(), description: text, }
+  { ..self, description: text, }
 }
 
 ///|
@@ -125,43 +92,29 @@ pub fn Schema::describe(self : Schema, text : String) -> Schema {
 /// When used with `schema_to_prompt_named()`, named schemas are extracted as separate
 /// interface/type definitions in the generated prompt, supporting Object and Enum types.
 pub fn Schema::name(self : Schema, text : String) -> Schema {
-  { ..self, id: new_schema_id(), name: text, }
+  { ..self, name: text, }
 }
 
 ///|
 /// Assign a brand to a schema for nominal typing.
-/// Brands are metadata (e.g., `UserId`); they do not create nominal MoonBit types.
+/// Branded schemas carry a type-level marker that distinguishes
+/// structurally identical schemas (e.g., `UserId` vs `string`).
 /// The brand is rendered in prompt and JSON Schema exports.
 pub fn Schema::brand(self : Schema, text : String) -> Schema {
-  { ..self, id: new_schema_id(), brand: text, }
+  { ..self, brand: text, }
 }
 
 ///|
 /// Override the error message when a required field is missing.
 /// Only effective when this schema is used as an object field value.
 pub fn Schema::required_error(self : Schema, text : String) -> Schema {
-  { ..self, id: new_schema_id(), required_error: text, }
+  { ..self, required_error: text, }
 }
 
 ///|
 /// Override the error message when the input type does not match.
 pub fn Schema::invalid_type_error(self : Schema, text : String) -> Schema {
-  let schema_type = match self.schema_type {
-    OptionalType(inner) => OptionalType(inner.invalid_type_error(text))
-    NullableType(inner) => NullableType(inner.invalid_type_error(text))
-    DefaultType(inner, value) =>
-      DefaultType(inner.invalid_type_error(text), value)
-    PrefaultType(inner, value) =>
-      PrefaultType(inner.invalid_type_error(text), value)
-    TransformType(inner, closure) =>
-      TransformType(inner.invalid_type_error(text), closure)
-    PreprocessType(closure, inner) =>
-      PreprocessType(closure, inner.invalid_type_error(text))
-    PipeType(input, bridge, output) =>
-      PipeType(input, bridge, output.invalid_type_error(text))
-    other => other
-  }
-  { ..self, id: new_schema_id(), schema_type, invalid_type_error: text, }
+  { ..self, invalid_type_error: text, }
 }
 
 ///|
@@ -174,36 +127,81 @@ pub fn Schema::invalid_type_error(self : Schema, text : String) -> Schema {
 /// string().min(2).message("姓名至少需要 2 个字符")
 /// ```
 pub fn Schema::message(self : Schema, text : String) -> Schema {
-  if !self.rules.is_empty() {
-    let rules = self.rules.copy()
-    let i = rules.length() - 1
-    rules[i] = { ..rules[i], message: text, explicit_message: true, }
-    return { ..self, id: new_schema_id(), rules, }
+  match self.schema_type {
+    OptionalType(inner) => {
+      let new_inner = inner.message(text)
+      {
+        schema_type: OptionalType(new_inner),
+        rules: [],
+        description: self.description,
+        required_error: self.required_error,
+        invalid_type_error: self.invalid_type_error,
+        name: self.name,
+        brand: self.brand,
+      }
+    }
+    DefaultType(inner, val) => {
+      let new_inner = inner.message(text)
+      {
+        schema_type: DefaultType(new_inner, val),
+        rules: [],
+        description: self.description,
+        required_error: self.required_error,
+        invalid_type_error: self.invalid_type_error,
+        name: self.name,
+        brand: self.brand,
+      }
+    }
+    TransformType(inner, cls) => {
+      let new_inner = inner.message(text)
+      {
+        schema_type: TransformType(new_inner, cls),
+        rules: [],
+        description: self.description,
+        required_error: self.required_error,
+        invalid_type_error: self.invalid_type_error,
+        name: self.name,
+        brand: self.brand,
+      }
+    }
+    PipeType(input, bridge, output) => {
+      let new_output = output.message(text)
+      {
+        schema_type: PipeType(input, bridge, new_output),
+        rules: [],
+        description: self.description,
+        required_error: self.required_error,
+        invalid_type_error: self.invalid_type_error,
+        name: self.name,
+        brand: self.brand,
+      }
+    }
+    _ => {
+      let n = self.rules.length()
+      if n == 0 {
+        abort("message() must follow a rule method")
+      }
+      let new_rules : Array[Rule] = []
+      for i = 0; i < n; i = i + 1 {
+        if i == n - 1 {
+          new_rules.push({ ..self.rules[i], message: text, })
+        } else {
+          new_rules.push(self.rules[i])
+        }
+      }
+      { ..self, rules: new_rules, }
+    }
   }
-  let schema_type = match self.schema_type {
-    OptionalType(inner) => OptionalType(inner.message(text))
-    NullableType(inner) => NullableType(inner.message(text))
-    PrefaultType(inner, value) => PrefaultType(inner.message(text), value)
-    DefaultType(inner, value) => DefaultType(inner.message(text), value)
-    TransformType(inner, closure) => TransformType(inner.message(text), closure)
-    PreprocessType(closure, inner) =>
-      PreprocessType(closure, inner.message(text))
-    PipeType(input, bridge, output) =>
-      PipeType(input, bridge, output.message(text))
-    _ => abort("message() must follow a rule method")
-  }
-  { ..self, id: new_schema_id(), schema_type, }
 }
 
 ///|
 /// Peel OptionalType / DefaultType wrappers to find the effective base type.
 pub fn inner_type(t : SchemaType) -> SchemaType {
   match t {
-    OptionalType(inner) | NullableType(inner) | PrefaultType(inner, _) =>
-      inner_type(inner.schema_type)
-    DefaultType(inner, _) => inner_type(inner.schema_type)
-    PreprocessType(_, inner) => inner_type(inner.schema_type)
-    TransformType(inner, _) => inner_type(inner.schema_type)
+    OptionalType(inner) => inner.schema_type
+    DefaultType(inner, _) => inner.schema_type
+    PreprocessType(_, inner) => inner.schema_type
+    TransformType(inner, _) => inner.schema_type
     LazyType(_) | DiscriminatedUnionType(_, _) => t
     PipeType(_, _, output) => inner_type(output.schema_type)
     LiteralType(_) => t
@@ -233,14 +231,55 @@ pub fn append_rule_with_annotation(
   code : IssueCode,
   annotation : Json,
 ) -> Schema {
-  append_typed_rule(schema, {
-    check,
-    message,
-    code,
-    annotation,
-    constraint: Opaque,
-    explicit_message: true,
-  })
+  match schema.schema_type {
+    OptionalType(inner) => {
+      let new_inner = append_rule_with_annotation(
+        inner, check, message, code, annotation,
+      )
+      {
+        schema_type: OptionalType(new_inner),
+        rules: [],
+        description: schema.description,
+        required_error: schema.required_error,
+        invalid_type_error: schema.invalid_type_error,
+        name: schema.name,
+        brand: schema.brand,
+      }
+    }
+    DefaultType(inner, default_val) => {
+      let new_inner = append_rule_with_annotation(
+        inner, check, message, code, annotation,
+      )
+      {
+        schema_type: DefaultType(new_inner, default_val),
+        rules: [],
+        description: schema.description,
+        required_error: schema.required_error,
+        invalid_type_error: schema.invalid_type_error,
+        name: schema.name,
+        brand: schema.brand,
+      }
+    }
+    PipeType(input_schema, bridge, output_schema) => {
+      let new_output = append_rule_with_annotation(
+        output_schema, check, message, code, annotation,
+      )
+      {
+        schema_type: PipeType(input_schema, bridge, new_output),
+        rules: [],
+        description: schema.description,
+        required_error: schema.required_error,
+        invalid_type_error: schema.invalid_type_error,
+        name: schema.name,
+        brand: schema.brand,
+      }
+    }
+    _ =>
+      {
+        ..schema,
+        rules: schema.rules + [{ check, message, code, annotation, }],
+      }
+  }
 }
 
 ///|
@@ -248,20 +287,12 @@ pub fn append_rule_with_annotation(
 ///|
 fn guard_no_user_transform(schema : Schema) -> Unit {
   match schema.schema_type {
-    TransformType(inner, cls) =>
-      if cls.kind is CustomTransform {
+    TransformType(_, cls) =>
+      if !cls.is_builtin {
         abort(
           "cannot chain type-specific validation after transform(); use .pipe() instead",
         )
-      } else {
-        guard_no_user_transform(inner)
       }
-    OptionalType(inner)
-    | NullableType(inner)
-    | DefaultType(inner, _)
-    | PrefaultType(inner, _)
-    | PreprocessType(_, inner) => guard_no_user_transform(inner)
-    PipeType(_, _, output) => guard_no_user_transform(output)
     _ => ()
   }
 }
@@ -298,11 +329,9 @@ pub fn format_path(stack : Array[String]) -> String {
 ///|
 pub fn sub_path(path : String, name : String) -> String {
   if path.is_empty() {
-    path_key(name)
+    name
   } else {
-    path +
-    (if path_key(name).has_prefix("[") { "" } else { "." }) +
-    path_key(name)
+    "\{path}.\{name}"
   }
 }
 
@@ -317,38 +346,8 @@ pub fn sub_index(path : String, i : Int32) -> String {
 
 ///|
 pub fn is_optional_schema(s : Schema) -> Bool {
-  input_optional_impl(s, Map([]), 0)
-}
-
-///|
-fn input_optional_impl(
-  s : Schema,
-  visited : Map[Int32, Bool],
-  depth : Int32,
-) -> Bool {
-  if depth > 256 || visited.contains(s.id) {
-    return false
-  }
-  visited.set(s.id, true)
   match s.schema_type {
-    OptionalType(_) | DefaultType(_, _) | PrefaultType(_, _) => true
-    NullableType(inner) | TransformType(inner, _) | PreprocessType(_, inner) =>
-      input_optional_impl(inner, visited, depth + 1)
-    LazyType(resolve) => input_optional_impl(resolve(), visited, depth + 1)
-    PipeType(input, _, output) =>
-      missing_default_impl(input, visited.copy(), depth + 1) ||
-      (
-        input_optional_impl(input, visited.copy(), depth + 1) &&
-        input_optional_impl(output, visited, depth + 1)
-      )
-    UnionType(branches) =>
-      branches.any(fn(child) {
-        input_optional_impl(child, visited.copy(), depth + 1)
-      })
-    IntersectionType(branches) =>
-      branches.all(fn(child) {
-        input_optional_impl(child, visited.copy(), depth + 1)
-      })
+    OptionalType(_) | DefaultType(_, _) => true
     _ => false
   }
 }
@@ -361,11 +360,65 @@ fn parse_inner(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  let out = parse_output(schema, json, path_stack)
-  if out.issues.is_empty() {
-    Ok(out.value)
-  } else {
-    Err(out.issues)
+  match schema.schema_type {
+    ObjectType(spec, mode) => schema.parse_object(spec, mode, json, path_stack)
+    ArrayType(element_schema) =>
+      schema.parse_array(element_schema, json, path_stack)
+    TupleType(items) => schema.parse_tuple(items, json, path_stack)
+    AnyType | UnknownType => {
+      let raw : Array[RawIssue] = []
+      collect_raw_errors(raw, path_stack, json, schema.rules)
+      if raw.is_empty() {
+        Ok(json)
+      } else {
+        Err(raw)
+      }
+    }
+    OptionalType(inner) => schema.parse_optional(inner, json, path_stack)
+    DefaultType(inner, default_val) =>
+      schema.parse_default(inner, default_val, json, path_stack)
+    EnumType(values) => schema.parse_enum(values, json, path_stack)
+    UnionType(schemas) => schema.parse_union(schemas, json, path_stack)
+    IntersectionType(schemas) =>
+      schema.parse_intersection(schemas, json, path_stack)
+    PreprocessType(closure, inner) =>
+      schema.parse_preprocess(closure, inner, json, path_stack)
+    TransformType(inner, closure) =>
+      schema.parse_transform(inner, closure, json, path_stack)
+    LiteralType(expected) => schema.parse_literal(expected, json, path_stack)
+    LazyType(f) => schema.parse_lazy(f, json, path_stack)
+    DiscriminatedUnionType(disc, options) =>
+      schema.parse_discriminated_union(disc, options, json, path_stack)
+    PipeType(input_schema, bridge, output_schema) =>
+      schema.parse_pipe(input_schema, bridge, output_schema, json, path_stack)
+    _ => {
+      let valid = match (schema.schema_type, json) {
+        (StringType, String(_)) => true
+        (NumberType, Number(_)) => true
+        (BooleanType, True | False) => true
+        (NullType, Null) => true
+        _ => false
+      }
+      if !valid {
+        let path = format_path(path_stack)
+        let message = type_msg(schema)
+        return Err([
+          RawIssue::{
+            code: IssueCode::InvalidType(type_origin(schema.schema_type)),
+            path,
+            message,
+            input: json,
+          },
+        ])
+      }
+      let raw : Array[RawIssue] = []
+      collect_raw_errors(raw, path_stack, json, schema.rules)
+      if raw.is_empty() {
+        Ok(json)
+      } else {
+        Err(raw)
+      }
+    }
   }
 }
 
@@ -402,7 +455,7 @@ pub fn Schema::safe_parse(
   } else {
     [params.path]
   }
-  match parse_inner(self, copy_json(json), path_stack) {
+  match parse_inner(self, json, path_stack) {
     Ok(v) => Ok(v)
     Err(raw) => Err(finalize_issues(raw, params))
   }
@@ -416,7 +469,7 @@ pub fn json_infer_schema(json : Json) -> Schema {
     String(_) => string()
     Number(v, ..) =>
       // Check if it's an integer value
-      if is_safe_integer(v) {
+      if v == v.to_int().to_double() {
         number().int()
       } else {
         number()
@@ -424,13 +477,10 @@ pub fn json_infer_schema(json : Json) -> Schema {
     True | False => boolean()
     Null => null()
     Array(elements) => {
-      let branches = elements.map(json_infer_schema)
-      let elem_schema = if branches.is_empty() {
-        unknown()
-      } else if branches.length() == 1 {
-        branches[0]
+      let elem_schema = if elements.length() > 0 {
+        json_infer_schema(elements[0])
       } else {
-        union(branches)
+        string()
       }
       array(elem_schema)
     }
@@ -442,19 +492,5 @@ pub fn json_infer_schema(json : Json) -> Schema {
       }
       object(fields)
     }
-  }
-}
-
-///|
-/// Parse an absent value without conflating it with explicit JSON null.
-/// An absent optional result is None; a default/prefault result is Some(value).
-pub fn Schema::parse_missing(
-  self : Schema,
-) -> Result[Json?, Array[ValidationError]] {
-  let out = parse_absent(self, [])
-  if out.issues.is_empty() {
-    Ok(if out.missing { None } else { Some(out.value) })
-  } else {
-    Err(finalize_issues(out.issues, ParseParams::default()))
   }
 }
