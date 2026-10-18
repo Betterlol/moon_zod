@@ -11,6 +11,8 @@ and schema validation pipeline. It checks record counts, discards two warmups,
 and reports the median of seven runs. Payload construction is outside timing;
 reader creation and input encoding are included. No network or remote checks
 are involved. It is a manual benchmark, not a timing assertion in the test suite.
+Elapsed time uses the core monotonic clock and converts microseconds to
+milliseconds, so system clock adjustments cannot change the measured duration.
 
 One Windows run with MoonBit toolchain `0.1.20261012` compared the same workload
 before and after replacing per-byte accumulation with chunk views:

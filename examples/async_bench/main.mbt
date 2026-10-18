@@ -6,9 +6,11 @@ async fn measure(
   records : Int32,
   sse~ : Bool,
 ) -> Unit {
-  let samples : Array[Int64] = []
+  let samples : Array[Double] = []
   for run in 0..<9 {
-    let start = @moon_async.now()
+    // Allow coroutine cleanup between samples outside the timed region.
+    @moon_async.pause()
+    let start = @bench.monotonic_clock_start()
     let reader = @io.MemoryReader() <| writer => { writer.write(input) }
     defer reader.close()
     let valid = if sse {
@@ -17,7 +19,7 @@ async fn measure(
       @zod_async.validate_jsonl(reader, @core.unknown(), _ => ()).valid
     }
     assert_eq(valid, records)
-    let elapsed = @moon_async.now() - start
+    let elapsed = @bench.monotonic_clock_end(start) / 1000.0
     if run >= 2 {
       samples.push(elapsed)
     }

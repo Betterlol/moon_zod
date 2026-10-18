@@ -1,6 +1,7 @@
 import {
   "Betterlol/moon_zod/async" @zod_async,
   "Betterlol/moon_zod/core",
+  "moonbitlang/core/bench",
   "moonbitlang/async" @moon_async,
   "moonbitlang/async/io",
 }

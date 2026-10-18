@@ -21,6 +21,8 @@
   and includes async files in coverage and source-line reports.
 - Compute CI line coverage from complete Cobertura reports, including fully
   covered files.
+- Use a monotonic clock for the manual stream benchmark so system clock
+  adjustments cannot distort measured durations.
 
 ### Migration from v0.9.1
 
