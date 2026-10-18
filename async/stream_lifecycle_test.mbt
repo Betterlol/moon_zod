@@ -253,3 +253,72 @@ async test "SSE parsing is invariant across every byte split of UTF8 BOM and CRL
     assert_eq(events[0].id, Some("x"))
   }
 }
+
+///|
+async test "JSONL decodes UTF8 across read-ahead boundaries and an unterminated final line" {
+  let value = "a".repeat(4094) + "你" + "z"
+  let reader = @io.MemoryReader() <| writer => {
+    writer.write("\"" + value + "\"")
+  }
+  defer reader.close()
+  let events : Array[@async.JsonlEvent] = []
+  let summary = @async.validate_jsonl(reader, @core.string(), event => {
+    events.push(event)
+  })
+  assert_eq(summary.valid, 1)
+  guard events[0] is @async.Valid(1, String(clean)) else {
+    fail("expected trailing record")
+  }
+  assert_eq(clean, value)
+}
+
+///|
+async test "SSE spanning chunks enforces the exact raw frame budget" {
+  let payload = "a".repeat(4088) + "你"
+  let input = "data: " + payload + "\n\n"
+  // UTF-8 raw length is 4099 bytes, including two logical line endings.
+  let reader = @io.MemoryReader() <| writer => { writer.write(input) }
+  defer reader.close()
+  let events : Array[@async.SseEvent] = []
+  ignore(
+    @async.read_sse(reader, event => events.push(event), limits={
+      max_line_bytes: 5000,
+      max_frame_bytes: 4099,
+    }),
+  )
+  assert_eq(events[0].data, payload)
+  let oversized = @io.MemoryReader() <| writer => { writer.write(input) }
+  defer oversized.close()
+  let raised = try {
+    ignore(
+      @async.read_sse(oversized, _ => (), limits={
+        max_line_bytes: 5000,
+        max_frame_bytes: 4098,
+      }),
+    )
+    false
+  } catch {
+    @async.StreamLimitExceeded::FrameTooLarge(4098) => true
+    _ => false
+  }
+  assert_true(raised)
+}
+
+///|
+async test "JSONL rejects malformed UTF8 after a read-ahead boundary" {
+  let reader = @io.MemoryReader() <| writer => {
+    writer.write(b" ".repeat(4096))
+    writer.write(b"\xff\n")
+  }
+  defer reader.close()
+  let calls : Array[Int32] = []
+  let raised = try {
+    ignore(@async.validate_jsonl(reader, @core.unknown(), _ => calls.push(1)))
+    false
+  } catch {
+    @utf8.Malformed(_) => true
+    _ => false
+  }
+  assert_true(raised)
+  assert_eq(calls.length(), 0)
+}

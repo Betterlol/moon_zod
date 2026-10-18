@@ -34,15 +34,16 @@ async fn LineReader::next(
   self : LineReader,
   frame_limit~ : (Int32, Int32)? = None,
 ) -> (String, Int32)? {
-  let bytes : Array[Byte] = []
+  let parts : Array[BytesView] = []
+  let mut length = 0
   while true {
     if self.offset == self.chunk.length() {
       match self.reader.read_some(max_len=4096) {
         None => {
-          if bytes.is_empty() || self.sse {
+          if length == 0 || self.sse {
             return None
           }
-          return Some((self.decode(bytes), bytes.length()))
+          return Some((self.decode(parts, b"", length), length))
         }
         Some(chunk) => {
           if chunk.is_empty() {
@@ -53,37 +54,62 @@ async fn LineReader::next(
         }
       }
     }
-    let byte = self.chunk[self.offset]
-    self.offset = self.offset + 1
     if self.skip_lf {
       self.skip_lf = false
-      if byte == b'\n' {
+      if self.chunk[self.offset] == b'\n' {
+        self.offset += 1
         continue
       }
     }
-    if byte == b'\n' || (self.sse && byte == b'\r') {
-      if frame_limit is Some((remaining, limit)) && bytes.length() >= remaining {
+    let start = self.offset
+    while self.offset < self.chunk.length() {
+      let byte = self.chunk[self.offset]
+      let size = length + (self.offset - start)
+      if byte == b'\n' || (self.sse && byte == b'\r') {
+        if frame_limit is Some((remaining, limit)) && size >= remaining {
+          raise StreamLimitExceeded::FrameTooLarge(limit)
+        }
+        let tail = self.chunk[start:self.offset]
+        self.offset += 1
+        self.skip_lf = self.sse && byte == b'\r'
+        return Some((self.decode(parts, tail, size), size))
+      }
+      if size >= self.max_line_bytes {
+        raise StreamLimitExceeded::LineTooLong(self.max_line_bytes)
+      }
+      if frame_limit is Some((remaining, limit)) && size >= remaining - 1 {
         raise StreamLimitExceeded::FrameTooLarge(limit)
       }
-      self.skip_lf = self.sse && byte == b'\r'
-      return Some((self.decode(bytes), bytes.length()))
+      self.offset += 1
     }
-    if bytes.length() >= self.max_line_bytes {
-      raise StreamLimitExceeded::LineTooLong(self.max_line_bytes)
-    }
-    if frame_limit is Some((remaining, limit)) &&
-      bytes.length() >= remaining - 1 {
-      raise StreamLimitExceeded::FrameTooLarge(limit)
-    }
-    bytes.push(byte)
+    let part = self.chunk[start:self.offset]
+    parts.push(part)
+    length += part.length()
   } nobreak {
     None
   }
 }
 
 ///|
-fn LineReader::decode(self : LineReader, bytes : Array[Byte]) -> String raise {
-  let bytes = Bytes::from_array(bytes)
+/// Decode a contiguous line directly; join spanning chunks with one allocation.
+fn LineReader::decode(
+  self : LineReader,
+  parts : Array[BytesView],
+  tail : BytesView,
+  length : Int32,
+) -> String raise {
+  let bytes : BytesView = if parts.is_empty() {
+    tail
+  } else {
+    let buffer = FixedArray::make(length, b'\x00')
+    let mut offset = 0
+    for part in parts {
+      buffer.blit_from_bytesview(offset, part)
+      offset += part.length()
+    }
+    buffer.blit_from_bytesview(offset, tail)
+    buffer.unsafe_reinterpret_as_bytes()[:]
+  }
   let first_line = self.first_line
   self.first_line = false
   if self.sse {
