@@ -4,6 +4,75 @@
 
 **To see the full details, please refer to docs in branch `doc`.**
 
+## v0.9.1 (2026-10-18)
+
+**Async Validation and JSON Stream Hardening**
+
+This patch release includes breaking API and behavior changes for asynchronous
+validation and streaming consumers. Follow the migration notes below when
+upgrading from v0.9.0.
+
+### Fixes
+
+- Reject trailing non-whitespace after a JSON root, including content arriving
+  in later chunks or SSE frames. Run schema rules once when the document is
+  finalized, and keep `StreamParser` state private.
+- Preserve asynchronous refinement execution errors, their zero-based check
+  indices, and all collected validation failures while continuing later checks.
+  Task cancellation still propagates.
+- Follow SSE framing rules for CR/LF/CRLF, one leading UTF-8 BOM, malformed
+  UTF-8 replacement, persistent event IDs, empty ID resets, and NUL-containing
+  IDs. Bound line, frame, document length, and nesting depth.
+
+### Migration from v0.9.0
+
+1. **Finalize every core JSON stream.** `parser.feed(chunk)` now returns
+   `StreamPending` even after the root closes; it can still return
+   `StreamInvalidJson` early. Continue feeding through the end of the input and
+   handle `StreamValid` or `StreamInvalidSchema` from `parser.finish()`.
+   Omitting `finish()` leaves schema validation unperformed. Subsequent calls
+   return the cached terminal result. `StreamParser` fields are no longer
+   accessible; create parsers with `schema.parse_stream()`.
+2. **Match the new asynchronous error variants.** `parse_async()` now returns
+   `AsyncParseResult` (`Result[Json, AsyncParseError]`) with `noraise` for ordinary
+   errors. Replace `Err(errors)` handling with `Err(Validation(errors))` and
+   `Err(Execution(check_errors, validation_errors))`. Execution failures are
+   returned instead of raised; preserve both arrays when reporting failures.
+   A synchronous schema failure skips asynchronous checks.
+3. **Update exhaustive JSONL/SSE event matches and counters.** Handle
+   `ExecutionFailed(line, check_errors, validation_errors)` for JSONL and
+   `SseExecutionFailed(event, check_errors, validation_errors)` for SSE JSON.
+   These records increment `execution_failed`, not `invalid_schema`.
+4. **Terminate SSE frames with a blank line.** EOF now discards unfinished
+   frames, including an unterminated `[DONE]` frame. For example, write
+   `data: [DONE]\n\n`, not `data: [DONE]\n`. In
+   `validate_sse_json_stream()`, a closed JSON root still emits
+   `SseStreamPending`; success is confirmed only at a dispatched `[DONE]` or
+   EOF. Detected malformed JSON stops consumption immediately, so
+   `summary.done` may be false on failure.
+5. **Review the new finite defaults.** `parse_stream()` and
+   `validate_sse_json_stream()` default to `max_length=1048576` UTF-16 code
+   units, including whitespace, and `max_depth=128` object/array levels.
+   Override these parameters for larger documents; `max_length` must be
+   positive and `max_depth` must be in `1..=1024`. Reader APIs accept
+   `limits=StreamReadLimits::{ max_line_bytes, max_frame_bytes }`, defaulting to
+   65,536 UTF-8 bytes per line and 1,048,576 bytes per SSE frame. Frame accounting
+   includes comments, ignored fields, and one byte per logical line ending.
+   Both reader limits must be positive.
+6. **Handle reader errors and lifecycle separately.** Document length/depth
+   failures produce `StreamInvalidJson` or `SseStreamInvalidJson`, but line/frame
+   overflows raise `StreamLimitExceeded::LineTooLong(limit)` or
+   `StreamLimitExceeded::FrameTooLarge(limit)`. I/O and handler errors also
+   propagate from reader APIs; the `parse_async()` `noraise` contract does not
+   apply to these adapters. The caller owns and closes the reader on success
+   and failure. Up to 4 KiB may be prefetched beyond DONE or an early failure;
+   do not resume raw reading from the same reader afterward. Configure an idle
+   timeout and, when needed, a total request deadline; byte limits do not bound
+   stream duration.
+
+See [async package documentation](async/README.mbt.md) for usage examples and
+the complete reader contract.
+
 ## v0.8.2 (2026-07-12)
 
 ### Add README in exporters/ and importers/ subpackages
