@@ -4,7 +4,7 @@
 
 **To see the full details, please refer to docs in branch `doc`.**
 
-## Unreleased
+## v0.9.2 (2026-10-18)
 
 ### Async validation
 
