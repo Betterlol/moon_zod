@@ -73,21 +73,27 @@ match schema.parse(input_json) {
 ## Single-JSON token streams
 
 `parse_stream()` validates one JSON document as text arrives. Feed it arbitrary
-LLM token chunks synchronously; it detects structural JSON errors immediately
-and runs normal schema validation once the root document is complete. Call
-`finish()` when the token source ends, especially for scalar roots.
+LLM token chunks synchronously; it can reject malformed JSON early. Keep feeding
+until the token source ends, then call `finish()` to confirm success and run
+schema validation once. Trailing content is rejected across chunk boundaries.
 
 ```mbt nocheck
 let parser = @moon_zod.object({ "name": @moon_zod.string().min(2) }).parse_stream()
 
 parser.feed("{\"na") // StreamPending
-match parser.feed("me\":\"Ada\"}") {
+parser.feed("me\":\"Ada\"}") // StreamPending: still accepts trailing whitespace
+match parser.finish() {
   StreamValid(value) => println("valid: " + @debug.to_string(value))
   StreamInvalidSchema(errors) => // report validation errors
   StreamInvalidJson(message) => // report malformed JSON
   StreamPending => ()
 }
 ```
+
+Input defaults to at most 1,048,576 UTF-16 code units and 128 nesting levels.
+Set `max_length` and `max_depth` on `parse_stream()` to override these limits.
+The parser buffers one document and releases its source text when JSON parsing
+completes; successful schema validation is reported only by `finish()`.
 
 **Zero-code CLI validation:**
 ```bash

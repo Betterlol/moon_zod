@@ -13,8 +13,8 @@ pub(all) struct SseEvent {
 ///|
 /// Callback invoked for each Server-Sent Event frame containing data.
 ///
-/// The reader does not consume the next frame until this callback completes,
-/// preserving backpressure from the consumer to the input stream.
+/// Frames are delivered sequentially, awaiting each callback. Input may be
+/// prefetched by up to 4 KiB; no further read occurs while a callback is running.
 pub type SseHandler = async (SseEvent) -> Unit
 
 ///|
@@ -32,18 +32,24 @@ pub(all) struct SseSummary {
 ///|
 /// Read a Server-Sent Events stream one frame at a time.
 ///
-/// This follows the SSE framing rules: CRLF and LF are accepted, comment lines
+/// This follows the SSE framing rules: CR, CRLF and LF are accepted, comment lines
 /// are ignored, field values lose at most one leading space, and a frame is
-/// emitted only when it contains at least one `data:` line. A final unterminated
-/// frame is emitted at end of input.
+/// emitted only when it contains at least one `data:` line and ends in a blank
+/// line. EOF discards any unfinished frame. One leading UTF-8 BOM is ignored.
+/// The caller owns the reader; input may be prefetched by up to 4 KiB.
 pub async fn read_sse(
   reader : &@io.Reader,
   on_event : SseHandler,
+  limits~ : StreamReadLimits = StreamReadLimits::default(),
 ) -> SseSummary {
-  read_sse_until(reader, event => {
-    on_event(event)
-    true
-  })
+  read_sse_until(
+    reader,
+    event => {
+      on_event(event)
+      true
+    },
+    limits~,
+  )
 }
 
 ///|
@@ -51,17 +57,33 @@ pub async fn read_sse(
 async fn read_sse_until(
   reader : &@io.Reader,
   on_event : SseControlHandler,
+  limits~ : StreamReadLimits,
 ) -> SseSummary {
+  limits.check()
+  let lines = LineReader::new(
+    reader,
+    sse=true,
+    max_line_bytes=limits.max_line_bytes,
+  )
   let mut lines_read = 0
   let mut events = 0
   let mut comments = 0
   let mut data_lines : Array[String] = []
   let mut event_type = ""
   let mut last_event_id : String? = None
+  let mut frame_bytes = 0
 
-  while reader.read_until("\n") is Some(raw_line) {
+  while lines.next(
+          frame_limit=Some(
+            (limits.max_frame_bytes - frame_bytes, limits.max_frame_bytes),
+          ),
+        )
+        is Some((line, line_bytes)) {
     lines_read = lines_read + 1
-    let line = raw_line.trim_end(chars="\r").to_owned()
+    if line_bytes >= limits.max_frame_bytes - frame_bytes {
+      raise StreamLimitExceeded::FrameTooLarge(limits.max_frame_bytes)
+    }
+    frame_bytes = frame_bytes + line_bytes + 1
     if line.is_empty() {
       match
         emit_sse_event_until(event_type, data_lines, last_event_id, on_event) {
@@ -75,6 +97,7 @@ async fn read_sse_until(
       }
       data_lines = []
       event_type = ""
+      frame_bytes = 0
       continue
     }
     if line.has_prefix(":") {
@@ -86,15 +109,11 @@ async fn read_sse_until(
     match field {
       "data" => data_lines.push(value)
       "event" => event_type = value
-      "id" => last_event_id = Some(value)
+      "id" => if !value.contains("\u{0000}") { last_event_id = Some(value) }
       _ => ()
     }
   }
 
-  match emit_sse_event_until(event_type, data_lines, last_event_id, on_event) {
-    Some(_) => events = events + 1
-    None => ()
-  }
   { lines_read, events, comments, }
 }
 
@@ -146,6 +165,11 @@ pub(all) enum SseValidationEvent {
   SseValid(SseEvent, Json)
   SseInvalidJson(SseEvent)
   SseInvalidSchema(SseEvent, Array[@core.ValidationError])
+  SseExecutionFailed(
+    SseEvent,
+    Array[AsyncCheckError],
+    Array[@core.ValidationError]
+  )
 }
 
 ///|
@@ -162,6 +186,7 @@ pub(all) struct SseValidationSummary {
   valid : Int32
   invalid_json : Int32
   invalid_schema : Int32
+  execution_failed : Int32
 }
 
 ///|
@@ -176,37 +201,42 @@ pub async fn validate_sse_json(
   schema : @core.Schema,
   on_event : SseValidationHandler,
   root_path~ : String = "",
+  limits~ : StreamReadLimits = StreamReadLimits::default(),
 ) -> SseValidationSummary {
   let mut done = false
   let mut valid = 0
   let mut invalid_json = 0
   let mut invalid_schema = 0
-  let sse_summary = read_sse_until(reader, event => {
-    if event.data == "[DONE]" {
-      done = true
-      on_event(SseDone(event))
-      false
-    } else {
-      match parse_sse_json(event.data) {
-        None => {
-          invalid_json = invalid_json + 1
-          on_event(SseInvalidJson(event))
-        }
-        Some(json) =>
-          match schema.parse(json, path=root_path) {
-            Ok(clean) => {
-              valid = valid + 1
-              on_event(SseValid(event, clean))
-            }
-            Err(errors) => {
-              invalid_schema = invalid_schema + 1
-              on_event(SseInvalidSchema(event, errors))
-            }
+  let sse_summary = read_sse_until(
+    reader,
+    event => {
+      if event.data == "[DONE]" {
+        done = true
+        on_event(SseDone(event))
+        false
+      } else {
+        match parse_sse_json(event.data) {
+          None => {
+            invalid_json = invalid_json + 1
+            on_event(SseInvalidJson(event))
           }
+          Some(json) =>
+            match schema.parse(json, path=root_path) {
+              Ok(clean) => {
+                valid = valid + 1
+                on_event(SseValid(event, clean))
+              }
+              Err(errors) => {
+                invalid_schema = invalid_schema + 1
+                on_event(SseInvalidSchema(event, errors))
+              }
+            }
+        }
+        true
       }
-      true
-    }
-  })
+    },
+    limits~,
+  )
   {
     lines_read: sse_summary.lines_read,
     events: sse_summary.events,
@@ -215,6 +245,7 @@ pub async fn validate_sse_json(
     valid,
     invalid_json,
     invalid_schema,
+    execution_failed: 0,
   }
 }
 
@@ -225,37 +256,47 @@ pub async fn AsyncSchema::validate_sse_json(
   reader : &@io.Reader,
   on_event : SseValidationHandler,
   root_path~ : String = "",
+  limits~ : StreamReadLimits = StreamReadLimits::default(),
 ) -> SseValidationSummary {
   let mut done = false
   let mut valid = 0
   let mut invalid_json = 0
   let mut invalid_schema = 0
-  let sse_summary = read_sse_until(reader, event => {
-    if event.data == "[DONE]" {
-      done = true
-      on_event(SseDone(event))
-      false
-    } else {
-      match parse_sse_json(event.data) {
-        None => {
-          invalid_json = invalid_json + 1
-          on_event(SseInvalidJson(event))
-        }
-        Some(json) =>
-          match self.parse_async(json, root_path~) {
-            Ok(clean) => {
-              valid = valid + 1
-              on_event(SseValid(event, clean))
-            }
-            Err(errors) => {
-              invalid_schema = invalid_schema + 1
-              on_event(SseInvalidSchema(event, errors))
-            }
+  let mut execution_failed = 0
+  let sse_summary = read_sse_until(
+    reader,
+    event => {
+      if event.data == "[DONE]" {
+        done = true
+        on_event(SseDone(event))
+        false
+      } else {
+        match parse_sse_json(event.data) {
+          None => {
+            invalid_json = invalid_json + 1
+            on_event(SseInvalidJson(event))
           }
+          Some(json) =>
+            match self.parse_async(json, root_path~) {
+              Ok(clean) => {
+                valid = valid + 1
+                on_event(SseValid(event, clean))
+              }
+              Err(Validation(errors)) => {
+                invalid_schema = invalid_schema + 1
+                on_event(SseInvalidSchema(event, errors))
+              }
+              Err(Execution(execution_errors, errors)) => {
+                execution_failed = execution_failed + 1
+                on_event(SseExecutionFailed(event, execution_errors, errors))
+              }
+            }
+        }
+        true
       }
-      true
-    }
-  })
+    },
+    limits~,
+  )
   {
     lines_read: sse_summary.lines_read,
     events: sse_summary.events,
@@ -264,6 +305,7 @@ pub async fn AsyncSchema::validate_sse_json(
     valid,
     invalid_json,
     invalid_schema,
+    execution_failed,
   }
 }
 
@@ -278,7 +320,7 @@ fn parse_sse_json(source : String) -> Json? {
 /// An outcome from assembling one JSON value across multiple SSE `data:` frames.
 ///
 /// `SseStreamPending` is emitted for each accepted fragment until the JSON root
-/// value completes. `SseStreamDone` is emitted after the `[DONE]` sentinel has
+/// value is finalized. `SseStreamDone` is emitted after the `[DONE]` sentinel has
 /// finished the parser, so a scalar root can become valid immediately before it.
 pub(all) enum SseStreamValidationEvent {
   SseStreamPending(SseEvent)
@@ -291,8 +333,7 @@ pub(all) enum SseStreamValidationEvent {
 ///|
 /// Callback invoked while validating one JSON value assembled from SSE frames.
 ///
-/// The next SSE frame is not consumed until this callback finishes, preserving
-/// backpressure to the source reader.
+/// Each callback is awaited before advancing; input read-ahead is at most 4 KiB.
 pub type SseStreamValidationHandler = async (SseStreamValidationEvent) -> Unit
 
 ///|
@@ -366,8 +407,11 @@ fn apply_sse_stream_result(
 ///
 /// Each non-`[DONE]` frame contributes its `data` payload directly to the
 /// parser, so a fragment may end in the middle of a JSON string or escape
-/// sequence. `[DONE]` and end-of-file finalize the parser. Once the parser
-/// returns a valid or invalid terminal result, later data frames are ignored.
+/// sequence. `[DONE]` and end-of-file finalize the parser and confirm success.
+/// Non-whitespace after the JSON root is rejected even in a later frame.
+/// A terminal failure stops consumption immediately without waiting for DONE.
+/// The caller owns the reader and should close it on return or failure; up to
+/// 4 KiB may already have been prefetched. Use a caller timeout for idle streams.
 ///
 /// This accepts raw JSON fragments. Protocols such as OpenAI's chat-completion
 /// SSE, whose frames contain JSON envelopes around a delta, should call
@@ -377,8 +421,11 @@ pub async fn validate_sse_json_stream(
   schema : @core.Schema,
   on_event : SseStreamValidationHandler,
   root_path~ : String = "",
+  limits~ : StreamReadLimits = StreamReadLimits::default(),
+  max_length~ : Int32 = 1048576,
+  max_depth~ : Int32 = 128,
 ) -> SseStreamValidationSummary {
-  let parser = schema.parse_stream(path=root_path)
+  let parser = schema.parse_stream(path=root_path, max_length~, max_depth~)
   let mut fragments = 0
   let mut done = false
   let mut valid = 0
@@ -387,11 +434,30 @@ pub async fn validate_sse_json_stream(
   let mut terminal = false
   let mut last_fragment : SseEvent? = None
 
-  let sse_summary = read_sse_until(reader, event => {
-    if event.data == "[DONE]" {
-      done = true
-      if !terminal {
-        let kind = emit_sse_stream_result(parser.finish(), event, on_event)
+  let sse_summary = read_sse_until(
+    reader,
+    event => {
+      if event.data == "[DONE]" {
+        done = true
+        if !terminal {
+          let kind = emit_sse_stream_result(parser.finish(), event, on_event)
+          let (next_valid, next_invalid_json, next_invalid_schema, next_terminal
+          ) = apply_sse_stream_result(kind, valid, invalid_json, invalid_schema)
+          valid = next_valid
+          invalid_json = next_invalid_json
+          invalid_schema = next_invalid_schema
+          terminal = next_terminal
+        }
+        on_event(SseStreamDone(event))
+        false
+      } else if !terminal {
+        fragments = fragments + 1
+        last_fragment = Some(event)
+        let kind = emit_sse_stream_result(
+          parser.feed(event.data),
+          event,
+          on_event,
+        )
         let (next_valid, next_invalid_json, next_invalid_schema, next_terminal) = apply_sse_stream_result(
           kind, valid, invalid_json, invalid_schema,
         )
@@ -399,29 +465,13 @@ pub async fn validate_sse_json_stream(
         invalid_json = next_invalid_json
         invalid_schema = next_invalid_schema
         terminal = next_terminal
+        !terminal
+      } else {
+        false
       }
-      on_event(SseStreamDone(event))
-      false
-    } else if !terminal {
-      fragments = fragments + 1
-      last_fragment = Some(event)
-      let kind = emit_sse_stream_result(
-        parser.feed(event.data),
-        event,
-        on_event,
-      )
-      let (next_valid, next_invalid_json, next_invalid_schema, next_terminal) = apply_sse_stream_result(
-        kind, valid, invalid_json, invalid_schema,
-      )
-      valid = next_valid
-      invalid_json = next_invalid_json
-      invalid_schema = next_invalid_schema
-      terminal = next_terminal
-      true
-    } else {
-      true
-    }
-  })
+    },
+    limits~,
+  )
 
   if !done && !terminal {
     let event = match last_fragment {

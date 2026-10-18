@@ -31,6 +31,27 @@ pub fn async_issue(
 pub type AsyncCheck = async (Json) -> AsyncIssue?
 
 ///|
+/// An execution error raised by the refinement at zero-based `index`.
+/// The original error is preserved so callers can distinguish service failures.
+pub(all) struct AsyncCheckError {
+  index : Int32
+  error : Error
+}
+
+///|
+/// Validation failures and asynchronous execution failures are distinct.
+/// `Execution` carries every execution error and any collected validation errors.
+pub(all) enum AsyncParseError {
+  Validation(Array[@core.ValidationError])
+  Execution(Array[AsyncCheckError], Array[@core.ValidationError])
+}
+
+///|
+/// Result of asynchronous parsing; ordinary errors are returned, never raised.
+/// Task cancellation still propagates through the asynchronous runtime.
+pub type AsyncParseResult = Result[Json, AsyncParseError]
+
+///|
 /// A synchronous moon_zod schema with additional asynchronous refinements.
 ///
 /// Core schema parsing remains synchronous. This wrapper first calls the
@@ -51,7 +72,7 @@ pub fn async_schema(schema : @core.Schema) -> AsyncSchema {
 /// Add an asynchronous refinement.
 ///
 /// Refinements run only after the synchronous schema succeeds. All refinement
-/// failures are collected into the returned `SchemaResult`.
+/// failures are collected into the returned `AsyncParseResult`.
 pub fn AsyncSchema::refine_async(
   self : AsyncSchema,
   check : AsyncCheck,
@@ -62,20 +83,28 @@ pub fn AsyncSchema::refine_async(
 ///|
 /// Parse a JSON value and then run every asynchronous refinement.
 ///
-/// A synchronous parse failure is returned unchanged and skips asynchronous
+/// A synchronous parse failure is returned as `Validation` and skips asynchronous
 /// checks. Asynchronous failures use `IssueCode::Custom` and are appended in
-/// refinement declaration order.
+/// refinement declaration order. Raised check errors are collected separately
+/// as `Execution`; remaining checks still run. Cancellation is not caught.
 pub async fn AsyncSchema::parse_async(
   self : AsyncSchema,
   json : Json,
   root_path~ : String = "",
-) -> @core.SchemaResult {
+) -> AsyncParseResult noraise {
   match self.schema.parse(json, path=root_path) {
-    Err(errors) => Err(errors)
+    Err(errors) => Err(Validation(errors))
     Ok(clean) => {
       let errors : Array[@core.ValidationError] = []
-      for check in self.checks {
-        match check(clean) {
+      let execution_errors : Array[AsyncCheckError] = []
+      for index, check in self.checks {
+        let issue = check(clean) catch {
+          error => {
+            execution_errors.push({ index, error, })
+            continue
+          }
+        }
+        match issue {
           None => ()
           Some(issue) =>
             errors.push({
@@ -86,10 +115,12 @@ pub async fn AsyncSchema::parse_async(
             })
         }
       }
-      if errors.is_empty() {
+      if !execution_errors.is_empty() {
+        Err(Execution(execution_errors, errors))
+      } else if errors.is_empty() {
         Ok(clean)
       } else {
-        Err(errors)
+        Err(Validation(errors))
       }
     }
   }

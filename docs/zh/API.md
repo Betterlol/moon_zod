@@ -25,7 +25,7 @@
 | 方法 | 适用范围 | 描述 |
 |---|---|---|
 | `.parse(Json, path?)` | 全部 | 校验，返回 `Ok(Json)` 或 `Err(Array[ValidationError])` |
-| `.parse_stream(path?)` | 全部 | 为一个 token 化的 JSON 文档创建同步解析器 |
+| `.parse_stream(path?, max_length?, max_depth?)` | 全部 | 为一个 token 化的 JSON 文档创建有资源上限的同步解析器 |
 | `.min(n[, msg])` | string / number / array | 最小长度 / 值 |
 | `.max(n[, msg])` | string / number / array | 最大长度 / 值 |
 | `.length(n[, msg])` | string / array / tuple | 精确长度 |
@@ -75,9 +75,15 @@
 ### 单 JSON 流式校验
 
 调用 `schema.parse_stream()`，再将每个文本分片传给 `parser.feed(chunk)`。
-在根文档完整前，它返回 `StreamPending`；完成后返回 `StreamValid(Json)`、
+`feed()` 返回 `StreamPending`，或在发现错误 JSON、超过资源上限时返回
+`StreamInvalidJson(String)`。根值闭合后仍需继续喂入，以检查尾随非空白内容。
+输入结束时调用 `parser.finish()`，返回 `StreamValid(Json)`、
 `StreamInvalidJson(String)` 或 `StreamInvalidSchema(Array[ValidationError])`。
-输入结束时调用 `parser.finish()`，以处理标量根值和未完成 JSON。解析器为同步接口，且只接受一个 JSON 文档。
+Schema 规则在 `finish()` 时执行一次；终态结果会被缓存。
+
+解析器缓冲一个文档，默认上限为 1,048,576 个 UTF-16 代码单元（`max_length`，
+包括空白）和 128 层对象/数组嵌套（`max_depth`，范围 1..=1024）。错误的上限配置
+会 abort；输入错误通过 `StreamInvalidJson` 返回。解析器内部状态不再对外开放。
 
 ### 独立函数
 

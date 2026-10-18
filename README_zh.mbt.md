@@ -73,20 +73,25 @@ match schema.parse(input_json) {
 ## 单个 JSON 的 Token 流
 
 `parse_stream()` 可以在文本逐段到达时校验一个 JSON 文档。同步地喂入任意大小的
-LLM token 分片；它会立刻发现结构性 JSON 错误，并在根文档完整时执行正常的 Schema
-校验。token 流结束时请调用 `finish()`，标量根值尤其需要这一步。
+LLM token 分片；它可以提前拒绝错误 JSON。持续喂入直到输入结束，再调用 `finish()`
+确认成功并执行一次 Schema 校验。根值之后的多余内容即使跨分片也会被拒绝。
 
 ```mbt nocheck
 let parser = @moon_zod.object({ "name": @moon_zod.string().min(2) }).parse_stream()
 
 parser.feed("{\"na") // StreamPending
-match parser.feed("me\":\"Ada\"}") {
+parser.feed("me\":\"Ada\"}") // StreamPending：仍可接收尾随空白
+match parser.finish() {
   StreamValid(value) => println("有效：" + @debug.to_string(value))
   StreamInvalidSchema(errors) => // 处理 Schema 校验错误
   StreamInvalidJson(message) => // 处理 JSON 格式错误
   StreamPending => ()
 }
 ```
+
+默认上限为 1,048,576 个 UTF-16 代码单元和 128 层嵌套，可通过 `parse_stream()`
+的 `max_length` 和 `max_depth` 参数调整。解析器会缓冲一个文档，并在完成 JSON
+解析后释放原始文本；成功的 Schema 校验结果仅由 `finish()` 返回。
 
 **零代码 CLI 校验：**
 ```bash
