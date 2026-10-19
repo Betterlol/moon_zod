@@ -120,7 +120,7 @@ refine 的对象形状，避免回调继续依赖被删除或改变的字段。�
 `try_to_json_schema(view=InputView/OutputView)` 明确区分原始输入与解析结果：
 输入 Strip 对象允许额外字段，输出 Strip 对象不含额外字段。无法表示的阶段
 返回 `Err`，不能把未知自定义转换当作恒等函数。详细边界见
-[迁移说明](docs/CORE_MIGRATION.md)。
+[迁移说明](CHANGELOG.md#core-migration)。
 
 ---
 

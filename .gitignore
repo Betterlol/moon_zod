@@ -20,3 +20,8 @@ target
 tmp/
 branch_doc/
 doc_utils/
+
+# Local core review and planning documents
+/docs/superpowers/
+/docs/CORE_REVIEW.md
+/docs/CORE_MIGRATION.md

@@ -113,7 +113,7 @@ Schema ──► render_type(renderer, schema) ──► StringRenderer ──�
 - 当前 `moonbit_struct.mbt` 中 `TupleType` 仍回退为 `Json`，`any/unknown` 仅做最低限度映射。待后续整体重构时重新评估。
 - MoonBit 结构导出尚不支持 `tuple` / `intersection` / `union` 等复杂类型的精确类型映射，当前回退为 `Json // TODO`。
 - MoonZod 代码导出对 `TransformType` / `PreprocessType` 输出占位闭包 `fn(x) { Ok(x) }`，自定义闭包无法序列化。
-详见 [Core 迁移说明](../docs/CORE_MIGRATION.md)。使用 `try_to_json_schema(view=InputView/OutputView)` 区分结构阶段；生成源码的实际编译测试在 `scripts/check_generated_source.py`。
+详见 [Core 迁移说明](../CHANGELOG.md#core-migration)。使用 `try_to_json_schema(view=InputView/OutputView)` 区分结构阶段；生成源码的实际编译测试在 `scripts/check_generated_source.py`。
 
 `JsonNullable[T]` 使用 `JsonNull` / `JsonValue(T)`，提供 JSON 的 `null | 值`
 编解码。普通 Option 在数组中的标准编码为 `[值] | null`，不能用于生成这里的
