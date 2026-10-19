@@ -4,6 +4,61 @@
 
 **To see the full details, please refer to docs in branch `doc`.**
 
+## Unreleased — Core correctness and Zod 4 migration
+
+These changes are unreleased and build on v0.9.2. The published module version
+remains unchanged; see the migration notes below before upgrading.
+
+- Distinguish absence from null: optional/default handle missing values, with
+  nullable/nullish/prefault and parse_missing for explicit control.
+- Run refinements at every node; retain parsed container children, isolate branch
+  input and recursively merge intersection outputs without mutating callers.
+- Enforce finite numbers and safe integers, decimal numeric bounds/multiples,
+  complete datetime/IPv6/email/URI validation and ordered built-in effects.
+- Add structured constraint/effect metadata, checked source export and structural
+  input/output JSON Schema views. Unsupported custom callbacks fail explicitly.
+- Traverse every schema kind with node identities; cache lazy resolution, check
+  names and emit recursive JSON references and compilable recursive source.
+- Preserve escaped field paths, structured union issues and explicit Schema error
+  precedence. Guard shape edits on refined objects and retain discriminator tags.
+- Verify emitted schemas and recursive structs by compiling and running them on
+  Wasm GC and JS in CI. Historical allocation/performance claims are withdrawn.
+
+Follow-up review fixes: recursively merged checked intersection outputs, typed
+large numeric source bounds, pipeline output defaults under optional/partial,
+structured errors for interior tuple absence, recursive JsonNullable codecs and
+component-specific URI/percent-encoding checks. Independent output-contract and
+generated-type codec tests cover these combinations; README throughput is historical.
+
+
+### Core migration
+
+- `optional()` accepts missing values only. Use `nullable()` for explicit null
+  or `nullish()` for both. `parse_missing()` returns `Ok(None)` for absence and
+  `Ok(Some(value))` for a produced value. JSON callbacks skip missing values.
+- `default(value)` supplies an output value for absence without running the
+  inner parser. Use `prefault(value)` to validate and transform a fallback input.
+  Explicit null is validated by the inner schema. Parsed object defaults are
+  retained; tuple holes before later values return a positional error.
+- Numbers must be finite; integer rules enforce the safe integer range. Numeric
+  bounds and multiples retain decimal values. Format checks reject invalid dates,
+  IPv6 and URI components; URI validation does not perform WHATWG normalization.
+- Validation errors add `path_segments`; union errors preserve branch issues.
+  Update direct `Schema`, `Rule`, `TransformClosure`, `ConstraintInfo` and issue
+  construction for the new identity, constraint, effect and error metadata;
+  prefer schema factories and rule methods. Async error variants remain those
+  introduced in v0.9.1/v0.9.2.
+- Apply object shape operations before refinements. Discriminated union branches
+  must be objects with compatible literal tags. Intersection merge conflicts
+  return validation errors instead of silently overwriting parsed values.
+- Use `try_to_json_schema(view=InputView/OutputView)` for stage-aware structural
+  contracts and `try_schema_to_moon_zod_code()` for checked source generation.
+  Unsupported custom callbacks and unrepresentable compositions return `Err`;
+  the legacy source export aborts when it cannot preserve behavior.
+- Generated nullable values use `JsonNullable[T]` (`JsonNull` / `JsonValue(T)`)
+  with inline JSON codecs. Missing object fields add an outer `Option`.
+  MoonBit's standard non-field `Option` JSON encoding is not interchangeable.
+
 ## v0.9.2 (2026-10-18)
 
 ### Async validation

@@ -280,12 +280,11 @@ test "partial makes all fields optional" {
 }
 
 ///|
-test "partial allows null on all fields" {
+test "partial rejects explicit null on nonnullable fields" {
   let p = object({ "a": string(), "b": number() }).partial()
-  match p.parse(Json::object({ "a": Json::null(), "b": Json::null() })) {
-    Ok(_) => ()
-    Err(_) => fail("expected Ok")
-  }
+  assert_true(
+    p.parse(Json::object({ "a": Json::null(), "b": Json::null() })) is Err(_),
+  )
 }
 
 ///|

@@ -21,6 +21,16 @@ async test "super refinements preserve declaration order and multiple issue path
   assert_eq(errors[1].got, Json::string("taken"))
   assert_eq(errors[2].path, "request.items[0]")
   assert_eq(errors[3].path, "request[1]")
+  assert_eq(errors[1].path_segments, [
+    @core.Field("request"),
+    @core.Field("email"),
+  ])
+  assert_eq(errors[2].path_segments, [
+    @core.Field("request"),
+    @core.Field("items"),
+    @core.Index(0),
+  ])
+  assert_eq(errors[3].path_segments, [@core.Field("request"), @core.Index(1)])
   assert_eq(errors[4].message, "last")
   for error in errors {
     assert_true(error.code is @core.IssueCode::Custom)
