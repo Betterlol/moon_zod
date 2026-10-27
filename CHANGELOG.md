@@ -25,10 +25,44 @@ remains unchanged; see the migration notes below before upgrading.
   Wasm GC and JS in CI. Historical allocation/performance claims are withdrawn.
 
 Follow-up review fixes: recursively merged checked intersection outputs, typed
-large numeric source bounds, pipeline output defaults under optional/partial,
+large numeric source bounds, explicit pipeline input/output default handling,
 structured errors for interior tuple absence, recursive JsonNullable codecs and
 component-specific URI/percent-encoding checks. Independent output-contract and
 generated-type codec tests cover these combinations; README throughput is historical.
+
+### Local Zod 4.6.7 compatibility corrections
+
+- Reconcile only the current intersection's unknown object keys. A key rejected
+  by every branch remains invalid; nested Strict failures remain independent.
+  Transform/pipe effects preserve these issues while continuing, so a later
+  intersection can reconcile them without losing output validation failures.
+- Fractional integer failures stop subsequent refinements, while unsafe integral
+  values remain continuable range failures. Built-in string effects continue
+  after ordinary constraint failures; custom transformations still stop.
+- An absent optional can discard an invalid prefault. Defaults behind preprocess
+  or only in a pipeline's output no longer force an outer optional to run. A
+  pipeline without that outer optional can still fill its output default.
+- Count string lengths as Unicode code points; use Unicode 17.0 full default
+  case conversion, including expansions and final sigma, and ECMAScript trim.
+  Fix datetime precision/offset combinations and case-insensitive ULID validation.
+- Reject unknown pick/omit keys. Report the actual required tuple prefix, retain
+  present-item diagnostics for overlong tuples, and classify exact lengths and
+  substring constraints using structured issue codes.
+- Export safe-integer bounds for int(), escape named JSON references as JSON
+  Pointer URI fragments, and permit missing output after fallible optional defaults.
+
+The comparison oracle uses the local Zod source (4.6.7, `afdac65`) rather than an
+unrelated npm installation. Run `python scripts/check_zod_compat.py --zod-path PATH`
+to compare Wasm GC and JS behavior and verify the explicitly retained differences.
+Run `node scripts/generate_unicode_case.mjs --check` with Node 24.15.0 / Unicode
+17.0 to check the portable case tables; the script also supports a complete
+runtime casing oracle without committing the large fixture.
+
+The JSON-only callback protocol, Result errors, URI/CUID/email profiles, exact
+decimal multipleOf, enum and JSON-literal conveniences, conservative refined-object
+edits, discriminated-union/async scope and exporter view policy remain intentional
+port adaptations. Checked exports may conservatively reject unsupported projections;
+these corrections do not claim full Zod API or JavaScript-value equivalence.
 
 
 ### Core migration

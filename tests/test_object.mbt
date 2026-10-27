@@ -201,11 +201,8 @@ test "pick selects specific fields" {
 }
 
 ///|
-test "pick ignores keys not in original spec" {
-  let p = object({ "x": string() }).pick(["x", "y"])
-  guard p.parse(Json::object({ "x": Json::string("ok") })) is Ok(_) else {
-    fail("expected Ok")
-  }
+test "panic pick rejects keys not in original spec" {
+  let _ = object({ "x": string() }).pick(["x", "y"])
 }
 
 ///|

@@ -87,12 +87,12 @@ test "builtin output projection preserves optional absence" {
 }
 
 ///|
-test "checked input rejects unsafe strict intersection merging" {
+test "checked input conservatively refuses reconciled strict intersections" {
   let schema = intersection([
     object({ "a": string() }).strict(),
     object({ "b": string() }).strict(),
   ])
-  assert_true(schema.parse(parse_json("{\"a\":\"a\",\"b\":\"b\"}")) is Err(_))
+  assert_true(schema.parse(parse_json("{\"a\":\"a\",\"b\":\"b\"}")) is Ok(_))
   assert_true(try_to_json_schema(schema, view=InputView) is Err(_))
 }
 

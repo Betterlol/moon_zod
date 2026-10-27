@@ -95,9 +95,60 @@ pub fn[R : JsonSchemaRenderer] render_json_type_ref(
   if !schema.name.is_empty() {
     for n in named_names {
       if n == schema.name {
-        return Json::object({ "$ref": Json::string("#/$defs/" + schema.name) })
+        return Json::object({
+          "$ref": Json::string(
+            "#/$defs/" + reference_fragment_token(schema.name),
+          ),
+        })
       }
     }
   }
   render_json_type(renderer, schema)
+}
+
+///|
+// Escape a JSON Pointer token, then encode its UTF-8 bytes for a URI fragment.
+fn reference_fragment_token(name : String) -> String {
+  let result = StringBuilder()
+  let hex = "0123456789ABCDEF".to_array()
+  fn write_byte(value : Int32) {
+    result.write_char('%')
+    result.write_char(hex[value / 16])
+    result.write_char(hex[value % 16])
+  }
+  for c in name.to_array() {
+    if c == '~' {
+      result.write_string("~0")
+    } else if c == '/' {
+      result.write_string("~1")
+    } else if (c >= 'a' && c <= 'z') ||
+      (c >= 'A' && c <= 'Z') ||
+      (c >= '0' && c <= '9') ||
+      c == '-' ||
+      c == '.' ||
+      c == '_' {
+      result.write_char(c)
+    } else {
+      let code = c.to_int()
+      guard code < 0xD800 || code > 0xDFFF else {
+        abort("Export names must contain well-formed Unicode")
+      }
+      if code < 0x80 {
+        write_byte(code)
+      } else if code < 0x800 {
+        write_byte(0xC0 + code / 64)
+        write_byte(0x80 + code % 64)
+      } else if code < 0x10000 {
+        write_byte(0xE0 + code / 4096)
+        write_byte(0x80 + code / 64 % 64)
+        write_byte(0x80 + code % 64)
+      } else {
+        write_byte(0xF0 + code / 262144)
+        write_byte(0x80 + code / 4096 % 64)
+        write_byte(0x80 + code / 64 % 64)
+        write_byte(0x80 + code % 64)
+      }
+    }
+  }
+  result.to_string()
 }

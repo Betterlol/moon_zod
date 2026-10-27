@@ -58,7 +58,10 @@ test "schema_to_prompt string constraints" {
 
 ///|
 test "schema_to_prompt number constraints" {
-  @debug.assert_eq(schema_to_prompt(number().int()), "number  // [int]")
+  @debug.assert_eq(
+    schema_to_prompt(number().int()),
+    "number  // [int, -9007199254740991-9007199254740991]",
+  )
   @debug.assert_eq(
     schema_to_prompt(number().positive()),
     "number  // [positive]",
@@ -129,7 +132,7 @@ test "schema_to_prompt optional with constraints" {
   )
   @debug.assert_eq(
     schema_to_prompt(number().int().optional()),
-    "number | undefined  // [int]",
+    "number | undefined  // [int, -9007199254740991-9007199254740991]",
   )
 }
 
@@ -138,7 +141,10 @@ test "schema_to_prompt transform transparent" {
   let s = string().transform(fn(json) { Ok(json) })
   @debug.assert_eq(schema_to_prompt(s), "string")
   let s2 = number().int().transform(fn(j) { Ok(j) })
-  @debug.assert_eq(schema_to_prompt(s2), "number  // [int]")
+  @debug.assert_eq(
+    schema_to_prompt(s2),
+    "number  // [int, -9007199254740991-9007199254740991]",
+  )
 }
 
 ///|
@@ -336,7 +342,7 @@ test "schema_to_prompt partial" {
   let s = object({ "a": string().min(2), "b": number().int() }).partial()
   let expected = "{\n" +
     "  a?: string,  // [min: 2]\n" +
-    "  b?: number,  // [int]\n" +
+    "  b?: number,  // [int, -9007199254740991-9007199254740991]\n" +
     "}"
   @debug.assert_eq(schema_to_prompt(s), expected)
 }

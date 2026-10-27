@@ -22,7 +22,7 @@ fn schema_min_check(s : Schema, n : Double) -> (Json) -> Bool {
     StringType =>
       fn(json) {
         match json {
-          String(s) => s.length().to_double() >= n
+          String(s) => ecma_code_point_length(s).to_double() >= n
           _ => false
         }
       }
@@ -94,7 +94,7 @@ fn schema_max_check(s : Schema, n : Double) -> (Json) -> Bool {
     StringType =>
       fn(json) {
         match json {
-          String(s) => s.length().to_double() <= n
+          String(s) => ecma_code_point_length(s).to_double() <= n
           _ => false
         }
       }
@@ -529,7 +529,7 @@ pub fn Schema::startsWith(
       }
     },
     message,
-    IssueCode::Custom,
+    IssueCode::InvalidFormat("starts_with"),
     Json::object({ "pattern": Json::string("^" + escape_regex_literal(prefix)) }),
     explicit_message=!msg.is_empty(),
     constraint=Some(Prefix(prefix)),
@@ -562,7 +562,7 @@ pub fn Schema::endsWith(
       }
     },
     message,
-    IssueCode::Custom,
+    IssueCode::InvalidFormat("ends_with"),
     Json::object({ "pattern": Json::string(escape_regex_literal(suffix) + "$") }),
     explicit_message=!msg.is_empty(),
     constraint=Some(Suffix(suffix)),
@@ -595,7 +595,7 @@ pub fn Schema::includes(
       }
     },
     message,
-    IssueCode::Custom,
+    IssueCode::InvalidFormat("includes"),
     Json::object({ "pattern": Json::string(escape_regex_literal(substring)) }),
     explicit_message=!msg.is_empty(),
     constraint=Some(Contains(substring)),
@@ -769,7 +769,7 @@ fn is_valid_iso8601(
   if precision == -1 && has_seconds {
     return false
   }
-  if !has_seconds && precision != -1 && !allow_local {
+  if !has_seconds && (precision >= 0 || (precision != -1 && !allow_local)) {
     return false
   }
   let mut decimals = 0
@@ -796,7 +796,7 @@ fn is_valid_iso8601(
     return pos + 1 == n && (has_seconds || precision == -1)
   }
   if !offset ||
-    !has_seconds ||
+    (!has_seconds && precision != -1) ||
     pos + 6 != n ||
     (chars[pos] != '+' && chars[pos] != '-') ||
     chars[pos + 3] != ':' {
@@ -1074,7 +1074,7 @@ fn schema_length_check(s : Schema, n : Int32) -> (Json) -> Bool {
     StringType =>
       fn(json) {
         match json {
-          String(s) => s.length() == n
+          String(s) => ecma_code_point_length(s) == n
           _ => false
         }
       }
@@ -1152,7 +1152,7 @@ pub fn Schema::trim(self : Schema) -> Schema {
     schema_type: TransformType(self, TransformClosure::{
       f: fn(json) {
         match json {
-          String(s) => Ok(Json::string(s.trim().to_owned()))
+          String(s) => Ok(Json::string(ecma_trim(s)))
           _ => Err("Expected string")
         }
       },
@@ -1180,7 +1180,7 @@ pub fn Schema::to_lower(self : Schema) -> Schema {
     schema_type: TransformType(self, TransformClosure::{
       f: fn(json) {
         match json {
-          String(s) => Ok(Json::string(s.to_lower()))
+          String(s) => Ok(Json::string(ecma_case_convert(s, false)))
           _ => Err("Expected string")
         }
       },
@@ -1208,7 +1208,7 @@ pub fn Schema::to_upper(self : Schema) -> Schema {
     schema_type: TransformType(self, TransformClosure::{
       f: fn(json) {
         match json {
-          String(s) => Ok(Json::string(s.to_upper()))
+          String(s) => Ok(Json::string(ecma_case_convert(s, true)))
           _ => Err("Expected string")
         }
       },
@@ -1257,10 +1257,9 @@ pub fn Schema::length(self : Schema, n : Int32, msg~ : String = "") -> Schema {
 
 ///|
 fn is_crockford_base32(c : Char) -> Bool {
+  let c = c.to_ascii_uppercase()
   (c >= '0' && c <= '9') ||
-  (c >= 'A' && c <= 'H') ||
-  (c >= 'J' && c <= 'N') ||
-  (c >= 'P' && c <= 'Z')
+  (c >= 'A' && c <= 'Z' && c != 'I' && c != 'L' && c != 'O' && c != 'U')
 }
 
 ///|

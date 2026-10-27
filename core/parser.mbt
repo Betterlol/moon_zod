@@ -14,6 +14,68 @@ fn parsed(value : Json) -> ParseOutput {
 }
 
 ///|
+fn blocks_effect(issues : Array[RawIssue]) -> Bool {
+  issues.any(fn(issue) { !(issue.code is UnrecognizedKeys(_)) })
+}
+
+///|
+fn inherit_issues(out : ParseOutput, previous : Array[RawIssue]) -> ParseOutput {
+  { ..out, issues: previous + out.issues, }
+}
+
+///|
+fn rejected_keys(
+  issues : Array[RawIssue],
+  path : Array[String],
+) -> Map[String, Bool] {
+  let keys : Map[String, Bool] = Map([])
+  for issue in issues {
+    if issue.code is UnrecognizedKeys(rejected) {
+      for key in rejected {
+        if issue.path == sub_path(format_path(path), key) {
+          keys.set(key, true)
+        }
+      }
+    }
+  }
+  keys
+}
+
+///|
+fn reconcile_key_issues(
+  left : Array[RawIssue],
+  right : Array[RawIssue],
+  path : Array[String],
+) -> Array[RawIssue] {
+  let left_keys = rejected_keys(left, path)
+  let right_keys = rejected_keys(right, path)
+  let retained : Array[RawIssue] = []
+  for side in [left, right] {
+    for issue in side {
+      let root_key = match issue.code {
+        UnrecognizedKeys(keys) =>
+          keys.length() == 1 &&
+          issue.path == sub_path(format_path(path), keys[0])
+        _ => false
+      }
+      if !root_key {
+        retained.push(issue)
+      }
+    }
+  }
+  for issue in left {
+    if issue.code is UnrecognizedKeys(keys) &&
+      keys.length() == 1 &&
+      issue.path == sub_path(format_path(path), keys[0]) &&
+      left_keys.contains(keys[0]) &&
+      right_keys.contains(keys[0]) {
+      retained.push(issue)
+    }
+  }
+  retained
+}
+
+///|
 fn parse_failure(
   value : Json,
   code : IssueCode,
@@ -61,7 +123,8 @@ fn parse_output(
 ) -> ParseOutput {
   let out = parse_node(schema, input, path)
   if !out.aborted {
-    collect_raw_errors(out.issues, path, out.value, schema.rules)
+    let aborted = collect_node_errors(out.issues, path, out.value, schema.rules)
+    return { ..out, aborted, }
   }
   out
 }
@@ -83,13 +146,17 @@ fn parse_node(
       }
     TransformType(inner, closure) => {
       let out = parse_output(inner, input, path)
-      if !out.issues.is_empty() {
+      if out.aborted ||
+        (closure.kind is CustomTransform && blocks_effect(out.issues)) {
         return { ..out, aborted: true, }
       }
       match (closure.f)(out.value) {
-        Ok(value) => parsed(value)
+        Ok(value) => { ..parsed(value), issues: out.issues, }
         Err(message) =>
-          parse_failure(input, Custom, message, path, explicit_message=true)
+          inherit_issues(
+            parse_failure(input, Custom, message, path, explicit_message=true),
+            out.issues,
+          )
       }
     }
     PreprocessType(closure, inner) =>
@@ -100,13 +167,17 @@ fn parse_node(
       }
     PipeType(inner, bridge, output) => {
       let out = parse_output(inner, input, path)
-      if !out.issues.is_empty() {
+      if out.aborted || blocks_effect(out.issues) {
         return { ..out, aborted: true, }
       }
       match (bridge.f)(out.value) {
-        Ok(value) => parse_output(output, value, path)
+        Ok(value) =>
+          inherit_issues(parse_output(output, value, path), out.issues)
         Err(message) =>
-          parse_failure(input, Custom, message, path, explicit_message=true)
+          inherit_issues(
+            parse_failure(input, Custom, message, path, explicit_message=true),
+            out.issues,
+          )
       }
     }
     LazyType(resolve) => parse_output(resolve(), input, path)
@@ -115,9 +186,15 @@ fn parse_node(
       let issues : Array[RawIssue] = []
       let mut aborted = false
       let mut combined : Json? = None
-      for branch in branches {
+      for branch_index, branch in branches {
         let out = parse_output(branch, copy_json(input), path)
-        issues.append(out.issues)
+        let reconciled = if branch_index == 0 {
+          out.issues
+        } else {
+          reconcile_key_issues(issues, out.issues, path)
+        }
+        issues.clear()
+        issues.append(reconciled)
         aborted = aborted || out.aborted
         if !out.aborted {
           match combined {
@@ -192,7 +269,24 @@ fn parse_node(
         path.push(path_key(key))
         let out = match fields.get(key) {
           Some(value) => parse_output(child, value, path)
-          None => parse_absent(child, path)
+          None => {
+            let candidate = parse_absent(child, path)
+            if candidate.issues.is_empty() && !is_optional_schema(child) {
+              parse_failure(
+                Json::null(),
+                MissingRequired(key),
+                if child.required_error.is_empty() {
+                  "Required"
+                } else {
+                  child.required_error
+                },
+                path,
+                explicit_message=!child.required_error.is_empty(),
+              )
+            } else {
+              candidate
+            }
+          }
         }
         if !out.missing {
           output.set(key, out.value)
@@ -244,26 +338,31 @@ fn parse_node(
       guard input is Array(items) else {
         return type_failure(schema, input, "tuple", path)
       }
-      if items.length() > children.length() ||
-        (
-          items.length() < children.length() &&
-          !children[items.length():].to_owned().all(is_optional_schema)
-        ) {
-        let expected = children.length().to_double()
+      let mut minimum = children.length()
+      while minimum > 0 && is_optional_schema(children[minimum - 1]) {
+        minimum = minimum - 1
+      }
+      if items.length() < minimum {
         return parse_failure(
           input,
-          if items.length() < children.length() {
-            TooSmall("tuple", expected, true)
-          } else {
-            TooBig("tuple", expected, true)
-          },
-          "Expected tuple of length \{children.length()}",
+          TooSmall("tuple", minimum.to_double(), true),
+          "Expected tuple of length \{minimum}",
           path,
         )
       }
       let output : Array[Json] = []
       let issues : Array[RawIssue] = []
-      let mut aborted = false
+      let mut aborted = items.length() > children.length()
+      if items.length() > children.length() {
+        issues.append(
+          parse_failure(
+            input,
+            TooBig("tuple", children.length().to_double(), true),
+            "Expected tuple of length \{children.length()}",
+            path,
+          ).issues,
+        )
+      }
       for i = 0; i < children.length(); i = i + 1 {
         path.push("[\{i}]")
         let out = if i < items.length() {
@@ -429,39 +528,62 @@ fn parse_absent(schema : Schema, path : Array[String]) -> ParseOutput {
     PrefaultType(inner, value) => parse_output(inner, copy_json(value), path)
     OptionalType(inner) =>
       if has_missing_default(inner) {
-        parse_absent(inner, path)
+        let candidate = parse_absent(inner, path)
+        if candidate.issues.is_empty() {
+          candidate
+        } else {
+          { value: Json::null(), missing: true, issues: [], aborted: false, }
+        }
       } else {
         { value: Json::null(), missing: true, issues: [], aborted: false, }
       }
     NullableType(inner) | PreprocessType(_, inner) => parse_absent(inner, path)
     TransformType(inner, closure) => {
       let first = parse_absent(inner, path)
-      if !first.issues.is_empty() {
+      if first.aborted ||
+        (closure.kind is CustomTransform && blocks_effect(first.issues)) {
         { ..first, aborted: true, }
       } else if first.missing {
         first
       } else {
         match (closure.f)(first.value) {
-          Ok(value) => parsed(value)
+          Ok(value) => { ..parsed(value), issues: first.issues, }
           Err(message) =>
-            parse_failure(
-              first.value,
-              Custom,
-              message,
-              path,
-              explicit_message=true,
+            inherit_issues(
+              parse_failure(
+                first.value,
+                Custom,
+                message,
+                path,
+                explicit_message=true,
+              ),
+              first.issues,
             )
         }
       }
     }
-    PipeType(input, _, output) => {
+    PipeType(input, bridge, output) => {
       let first = parse_absent(input, path)
-      if !first.issues.is_empty() {
+      if first.aborted || blocks_effect(first.issues) {
         { ..first, aborted: true, }
       } else if first.missing {
         parse_absent(output, path)
       } else {
-        parse_output(output, first.value, path)
+        match (bridge.f)(first.value) {
+          Ok(value) =>
+            inherit_issues(parse_output(output, value, path), first.issues)
+          Err(message) =>
+            inherit_issues(
+              parse_failure(
+                first.value,
+                Custom,
+                message,
+                path,
+                explicit_message=true,
+              ),
+              first.issues,
+            )
+        }
       }
     }
     LazyType(resolve) => parse_absent(resolve(), path)
@@ -472,9 +594,15 @@ fn parse_absent(schema : Schema, path : Array[String]) -> ParseOutput {
       let mut first_missing : Bool? = None
       let mut missing = true
       let mut aborted = false
-      for branch in branches {
+      for branch_index, branch in branches {
         let candidate = parse_absent(branch, path)
-        issues.append(candidate.issues)
+        let reconciled = if branch_index == 0 {
+          candidate.issues
+        } else {
+          reconcile_key_issues(issues, candidate.issues, path)
+        }
+        issues.clear()
+        issues.append(reconciled)
         aborted = aborted || candidate.aborted
         if !candidate.aborted {
           match first_missing {
@@ -537,7 +665,8 @@ fn parse_absent(schema : Schema, path : Array[String]) -> ParseOutput {
     }
   }
   if !out.aborted && !out.missing {
-    collect_raw_errors(out.issues, path, out.value, schema.rules)
+    let aborted = collect_node_errors(out.issues, path, out.value, schema.rules)
+    return { ..out, aborted, }
   }
   out
 }
@@ -559,19 +688,11 @@ fn missing_default_impl(
   visited.set(schema.id, true)
   match schema.schema_type {
     DefaultType(_, _) | PrefaultType(_, _) => true
-    OptionalType(inner)
-    | NullableType(inner)
-    | TransformType(inner, _)
-    | PreprocessType(_, inner) =>
+    OptionalType(inner) | NullableType(inner) | TransformType(inner, _) =>
       missing_default_impl(inner, visited, depth + 1)
     LazyType(resolve) => missing_default_impl(resolve(), visited, depth + 1)
-    PipeType(input, _, output) =>
-      missing_default_impl(input, visited.copy(), depth + 1) ||
-      (
-        input_optional_impl(input, visited.copy(), depth + 1) &&
-        missing_default_impl(output, visited, depth + 1)
-      )
-    UnionType(branches) | IntersectionType(branches) =>
+    PipeType(input, _, _) => missing_default_impl(input, visited, depth + 1)
+    UnionType(branches) =>
       branches.any(fn(child) {
         missing_default_impl(child, visited.copy(), depth + 1)
       })

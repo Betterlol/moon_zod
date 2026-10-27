@@ -63,7 +63,7 @@ pub fn Schema::strip(self : Schema) -> Schema {
 ///|
 /// Select only the specified fields from an object schema.
 /// Returns a new object schema with the same mode (Strip/Passthrough/Strict).
-/// Keys not present in the original spec are silently ignored.
+/// Aborts if a requested key is not present in the original spec.
 ///
 /// # Example
 /// ```
@@ -82,7 +82,7 @@ pub fn Schema::pick(self : Schema, keys : Array[String]) -> Schema {
       for key in keys {
         match spec.get(key) {
           Some(s) => new_spec.set(key, s)
-          None => ()
+          None => abort("Unrecognized key: \"\{key}\"")
         }
       }
       {
@@ -103,6 +103,7 @@ pub fn Schema::pick(self : Schema, keys : Array[String]) -> Schema {
 ///|
 /// Omit the specified fields from an object schema.
 /// Returns a new object schema with the same mode (Strip/Passthrough/Strict).
+/// Aborts if a requested key is not present in the original spec.
 ///
 /// # Example
 /// ```
@@ -117,6 +118,11 @@ pub fn Schema::omit(self : Schema, keys : Array[String]) -> Schema {
   }
   match self.schema_type {
     ObjectType(spec, mode) => {
+      for key in keys {
+        if !spec.contains(key) {
+          abort("Unrecognized key: \"\{key}\"")
+        }
+      }
       let new_spec : Map[String, Schema] = Map([])
       for key in spec.keys() {
         if !value_in_array(key, keys) {

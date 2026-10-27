@@ -238,9 +238,15 @@ test "schema_to_prompt_named: intersection type export" {
   let prompt = schema_to_prompt_named(order_id_schema)
 
   @debug.assert_eq(prompt.contains("export interface PositiveId"), true)
-  @debug.assert_eq(prompt.contains("id: number,  // [int, positive]"), true)
+  @debug.assert_eq(
+    prompt.contains("id: number,  // [int, > 0, max: 9007199254740991]"),
+    true,
+  )
   @debug.assert_eq(prompt.contains("export interface BoundedId"), true)
-  @debug.assert_eq(prompt.contains("id: number,  // [int, max: 100]"), true)
+  @debug.assert_eq(
+    prompt.contains("id: number,  // [int, -9007199254740991-100]"),
+    true,
+  )
   @debug.assert_eq(
     prompt.contains("export type OrderId = PositiveId & BoundedId"),
     true,

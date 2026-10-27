@@ -53,6 +53,14 @@ fn walk_named(
   result : Array[Schema],
   all_nodes : Array[Schema],
 ) -> Result[Unit, String] {
+  let mut name_index = 0
+  while name_index < schema.name.length() {
+    let (point, width) = ecma_code_point_at(schema.name, name_index)
+    if point >= 0xd800 && point <= 0xdfff {
+      return Err("Export names must contain well-formed Unicode")
+    }
+    name_index = name_index + width
+  }
   if depth > 256 {
     return Err(
       "Schema traversal exceeded 256 levels; name recursive definitions to export references",
@@ -167,7 +175,8 @@ pub fn try_schema_nodes(schema : Schema) -> Result[Array[Schema], String] {
 }
 
 ///|
-/// Whether a successful parse of a missing field can leave that field absent.
+/// Whether parsed output may omit a field. Fallible fallbacks are conservative;
+/// projection never executes validation or transformation callbacks.
 pub fn output_is_optional(schema : Schema) -> Bool {
   output_optional_impl(schema, Map([]), 0)
 }
@@ -185,7 +194,8 @@ fn output_optional_impl(
   match schema.schema_type {
     OptionalType(inner) =>
       !missing_default_impl(inner, visited.copy(), depth + 1) ||
-      output_optional_impl(inner, visited, depth + 1)
+      output_optional_impl(inner, visited.copy(), depth + 1) ||
+      missing_default_can_fail(inner, visited, depth + 1)
     NullableType(inner) | TransformType(inner, _) | PreprocessType(_, inner) =>
       output_optional_impl(inner, visited, depth + 1)
     LazyType(resolve) => output_optional_impl(resolve(), visited, depth + 1)
@@ -202,5 +212,28 @@ fn output_optional_impl(
         output_optional_impl(child, visited.copy(), depth + 1)
       })
     _ => false
+  }
+}
+
+///|
+// Optional can suppress a failed fallback. Never run callbacks to project it.
+fn missing_default_can_fail(
+  schema : Schema,
+  visited : Map[Int32, Bool],
+  depth : Int32,
+) -> Bool {
+  if depth > 256 || visited.contains(schema.id) || !schema.rules.is_empty() {
+    return true
+  }
+  visited.set(schema.id, true)
+  match schema.schema_type {
+    DefaultType(_, _) | OptionalType(_) => false
+    NullableType(inner) => missing_default_can_fail(inner, visited, depth + 1)
+    LazyType(resolve) => missing_default_can_fail(resolve(), visited, depth + 1)
+    UnionType(branches) =>
+      branches.all(fn(child) {
+        missing_default_can_fail(child, visited.copy(), depth + 1)
+      })
+    _ => true
   }
 }

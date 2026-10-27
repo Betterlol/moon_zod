@@ -106,18 +106,55 @@ pub fn collect_raw_errors(
   json : Json,
   rules : Array[Rule],
 ) -> Unit {
+  let _ = collect_node_errors(out, path_stack, json, rules)
+}
+
+///|
+fn collect_node_errors(
+  out : Array[RawIssue],
+  path_stack : Array[String],
+  json : Json,
+  rules : Array[Rule],
+) -> Bool {
   for rule in rules {
     if !(rule.check)(json) {
+      let code = match (rule.constraint, json) {
+        (Integer | SafeInteger, Number(value, ..)) =>
+          if value != value.floor() {
+            InvalidType("int")
+          } else if value > 0.0 {
+            TooBig("int", 9007199254740991.0, true)
+          } else {
+            TooSmall("int", -9007199254740991.0, true)
+          }
+        (ExactLength(origin, length), value) => {
+          let actual = match value {
+            String(s) => ecma_code_point_length(s)
+            Array(items) => items.length()
+            _ => length
+          }
+          if actual < length {
+            TooSmall(origin, length.to_double(), true)
+          } else {
+            TooBig(origin, length.to_double(), true)
+          }
+        }
+        _ => rule.code
+      }
       out.push(RawIssue::{
-        code: rule.code,
+        code,
         path: format_path(path_stack),
         path_segments: stack_segments(path_stack),
         explicit_message: rule.explicit_message,
         message: rule.message,
         input: json,
       })
+      if code is InvalidType(_) {
+        return true
+      }
     }
   }
+  false
 }
 
 ///|

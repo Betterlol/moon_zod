@@ -345,10 +345,7 @@ fn input_optional_impl(
       branches.any(fn(child) {
         input_optional_impl(child, visited.copy(), depth + 1)
       })
-    IntersectionType(branches) =>
-      branches.all(fn(child) {
-        input_optional_impl(child, visited.copy(), depth + 1)
-      })
+    IntersectionType(_) => false
     _ => false
   }
 }
