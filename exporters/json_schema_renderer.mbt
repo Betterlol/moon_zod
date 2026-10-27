@@ -40,6 +40,7 @@ pub(open) trait JsonSchemaRenderer {
   fn render_unknown(Self, schema : @core.Schema) -> Json
   fn render_tuple(Self, items : Array[@core.Schema], schema : @core.Schema) -> Json
   fn render_preprocess(Self, inner : @core.Schema, schema : @core.Schema) -> Json
+  fn render_lazy(Self, resolved : @core.Schema, schema : @core.Schema) -> Json
 }
 
 ///|
@@ -59,6 +60,14 @@ pub fn[R : JsonSchemaRenderer] render_json_type(
     ArrayType(elem) => renderer.render_array(elem, schema)
     TupleType(items) => renderer.render_tuple(items, schema)
     OptionalType(inner) => renderer.render_optional(inner, schema)
+    NullableType(inner) =>
+      Json::object({
+        "anyOf": Json::array([
+          render_json_type(renderer, inner),
+          Json::object({ "type": Json::string("null") }),
+        ]),
+      })
+    PrefaultType(inner, value) => renderer.render_default(inner, value, schema)
     DefaultType(inner, default_val) =>
       renderer.render_default(inner, default_val, schema)
     EnumType(values) => renderer.render_enum(values, schema)
@@ -68,9 +77,11 @@ pub fn[R : JsonSchemaRenderer] render_json_type(
     TransformType(inner, closure) =>
       renderer.render_transform(inner, closure, schema)
     LiteralType(value) => renderer.render_literal(value, schema)
-    LazyType(f) => render_json_type(renderer, f())
-    DiscriminatedUnionType(_, _) => Json::null()
-    PipeType(_, _, output) => render_json_type(renderer, output)
+    LazyType(f) => renderer.render_lazy(f(), schema)
+    DiscriminatedUnionType(_, options) =>
+      renderer.render_union(options.values().collect(), schema)
+    PipeType(input, _, _) =>
+      render_json_type(renderer, without_inherited_name(schema, input))
   }
 }
 
@@ -84,9 +95,60 @@ pub fn[R : JsonSchemaRenderer] render_json_type_ref(
   if !schema.name.is_empty() {
     for n in named_names {
       if n == schema.name {
-        return Json::object({ "$ref": Json::string("#/$defs/" + schema.name) })
+        return Json::object({
+          "$ref": Json::string(
+            "#/$defs/" + reference_fragment_token(schema.name),
+          ),
+        })
       }
     }
   }
   render_json_type(renderer, schema)
+}
+
+///|
+// Escape a JSON Pointer token, then encode its UTF-8 bytes for a URI fragment.
+fn reference_fragment_token(name : String) -> String {
+  let result = StringBuilder()
+  let hex = "0123456789ABCDEF".to_array()
+  fn write_byte(value : Int32) {
+    result.write_char('%')
+    result.write_char(hex[value / 16])
+    result.write_char(hex[value % 16])
+  }
+  for c in name.to_array() {
+    if c == '~' {
+      result.write_string("~0")
+    } else if c == '/' {
+      result.write_string("~1")
+    } else if (c >= 'a' && c <= 'z') ||
+      (c >= 'A' && c <= 'Z') ||
+      (c >= '0' && c <= '9') ||
+      c == '-' ||
+      c == '.' ||
+      c == '_' {
+      result.write_char(c)
+    } else {
+      let code = c.to_int()
+      guard code < 0xD800 || code > 0xDFFF else {
+        abort("Export names must contain well-formed Unicode")
+      }
+      if code < 0x80 {
+        write_byte(code)
+      } else if code < 0x800 {
+        write_byte(0xC0 + code / 64)
+        write_byte(0x80 + code % 64)
+      } else if code < 0x10000 {
+        write_byte(0xE0 + code / 4096)
+        write_byte(0x80 + code / 64 % 64)
+        write_byte(0x80 + code % 64)
+      } else {
+        write_byte(0xF0 + code / 262144)
+        write_byte(0x80 + code / 4096 % 64)
+        write_byte(0x80 + code / 64 % 64)
+        write_byte(0x80 + code % 64)
+      }
+    }
+  }
+  result.to_string()
 }

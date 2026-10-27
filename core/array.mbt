@@ -8,6 +8,7 @@ pub fn array(
   invalid_type_error~ : String = "",
 ) -> Schema {
   {
+    id: new_schema_id(),
     schema_type: ArrayType(element_schema),
     rules: [],
     description: "",
@@ -25,41 +26,9 @@ pub fn Schema::parse_array(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  match json {
-    Array(elements) => {
-      let raw : Array[RawIssue] = []
-      let mut i = 0
-      for element in elements {
-        path_stack.push("[\{i}]")
-        let result = parse_inner(element_schema, element, path_stack)
-        match result {
-          Err(item_raw) =>
-            for e in item_raw {
-              raw.push(e)
-            }
-          _ => ()
-        }
-        let _ = path_stack.pop()
-        i = i + 1
-      }
-      collect_raw_errors(raw, path_stack, json, self.rules)
-      if raw.is_empty() {
-        Ok(json)
-      } else {
-        Err(raw)
-      }
-    }
-    _ => {
-      let path = format_path(path_stack)
-      let message = type_msg(self)
-      Err([
-        RawIssue::{
-          code: IssueCode::InvalidType(type_origin(self.schema_type)),
-          path,
-          message,
-          input: json,
-        },
-      ])
-    }
-  }
+  parse_inner(
+    { ..self, id: new_schema_id(), schema_type: ArrayType(element_schema), },
+    json,
+    path_stack,
+  )
 }

@@ -9,9 +9,15 @@ pub fn preprocess(
   required_error~ : String = "",
   invalid_type_error~ : String = "",
 ) -> Schema {
+  let inner = if invalid_type_error.is_empty() {
+    inner
+  } else {
+    inner.invalid_type_error(invalid_type_error)
+  }
   {
+    id: new_schema_id(),
     schema_type: PreprocessType(
-      TransformClosure::{ f, is_builtin: false, },
+      TransformClosure::{ f, kind: CustomTransform, },
       inner,
     ),
     rules: [],
@@ -31,25 +37,13 @@ pub fn Schema::parse_preprocess(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  match (closure.f)(json) {
-    Err(msg) => {
-      let path = format_path(path_stack)
-      Err([
-        RawIssue::{ code: IssueCode::Custom, path, message: msg, input: json, },
-      ])
-    }
-    Ok(preprocessed) =>
-      match parse_inner(inner, preprocessed, path_stack) {
-        Err(e) => Err(e)
-        Ok(parsed) => {
-          let raw : Array[RawIssue] = []
-          collect_raw_errors(raw, path_stack, parsed, self.rules)
-          if raw.is_empty() {
-            Ok(parsed)
-          } else {
-            Err(raw)
-          }
-        }
-      }
-  }
+  parse_inner(
+    {
+      ..self,
+      id: new_schema_id(),
+      schema_type: PreprocessType(closure, inner),
+    },
+    json,
+    path_stack,
+  )
 }

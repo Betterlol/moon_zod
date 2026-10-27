@@ -75,10 +75,10 @@ Schema ──► render_type(renderer, schema) ──► StringRenderer ──�
 - `NamedJsonRenderer` 的 `include_annotations` 参数统一三种模式：
   - `include_annotations=true` → `to_json_schema()`（完整约束）
   - `include_annotations=false` → `to_json_schema_skeleton()`（仅结构）
-- `optional()` / `default()` 导出 nullable 语义：`anyOf: [inner, {"type": "null"}]`
+- optional/default/prefault 影响对象必填列表；只有 nullable/nullish 添加 null 分支
 - `Strip` 模式导出 `additionalProperties: false`（与运行时幻觉防御对齐）
 - object intersection 合并为单个 closed object；同名字段用属性级 `allOf` 保留各自约束
-- `$defs` 渲染时排除自引用（`ref_names.filter(n => n != ns.name)`）
+- `$defs` 本体展开，子节点使用完整名称集合引用，包括合法的递归自引用
 
 ### 代码生成架构
 
@@ -89,7 +89,7 @@ Schema ──► render_type(renderer, schema) ──► StringRenderer ──�
 - `schema_to_moonbit_struct()` 将 `ObjectType` 映射为 `pub struct`，`EnumType` 映射为 `pub enum`
 - `schema_to_moonbit_struct_full()` 额外生成静态 `Type::to_schema() -> @moon_zod.Schema` 方法，实现 struct ↔ Schema 往返
 - 基础类型映射：`String → String`，`Number → Int64 / Double`（按 `.int()` 规则区分），`Boolean → Bool`
-- `ArrayType → Array[T]`，可空 `UnionType` 剥除 `null` 后映射
+- `ArrayType → Array[T]`；nullable 和可空 UnionType 递归映射为 `@moon_zod.JsonNullable[T]`，字段缺失另加外层 `?`
 - `AnyType / UnknownType` 当前回退为 `Json`
 - `TupleType` / 非可空 `UnionType` / `IntersectionType` 当前回退为 `Json // TODO`
 - 字段名和类型名自动转义（MoonBit 关键字、保留字、首字母数字）
@@ -101,10 +101,10 @@ Schema ──► render_type(renderer, schema) ──► StringRenderer ──�
 - 输出格式：`let name = @moon_zod.string().min(3).describe("...").name("name")`
 - 根 Schema 无 `name` 时自动赋予 `"Root"`
 - `schema_to_moon_zod_code_named()` 提取所有命名 Schema，拓扑排序后输出 `let name = ...` 定义列表
-- 规则注释通过 `Rule.annotation` 反推 `.min()` / `.max()` / `.email()` / `.url()` / `.int()` 等
+- 源码通过 `Rule.constraint` 和 `TransformKind` 还原规则、排他边界和内建转换
 - `json_to_literal()` 将 Json 值转为 MoonBit 构造函数调用（`Json::string(...)` / `Json::number(...)` / `true` / `false` / `null`）
-- `PreprocessType` / `TransformType` 输出占位闭包 `fn(x) { Ok(x) }`，标记为最佳代码输出（自定义闭包无法序列化）
-- `.required_error()` / `.invalid_type_error()` 链式方法仍会输出代码，但当前 `Schema` 工厂 API 未暴露这两个参数——round-trip 不安全
+- 自定义 preprocess/transform/refine 无法序列化，checked API 返回 Err，旧入口明确 abort；不再生成恒等占位闭包
+- 源码保留 required_error、invalid_type_error、显式规则消息和品牌元数据；递归节点生成辅助函数
 
 ---
 
@@ -113,3 +113,11 @@ Schema ──► render_type(renderer, schema) ──► StringRenderer ──�
 - 当前 `moonbit_struct.mbt` 中 `TupleType` 仍回退为 `Json`，`any/unknown` 仅做最低限度映射。待后续整体重构时重新评估。
 - MoonBit 结构导出尚不支持 `tuple` / `intersection` / `union` 等复杂类型的精确类型映射，当前回退为 `Json // TODO`。
 - MoonZod 代码导出对 `TransformType` / `PreprocessType` 输出占位闭包 `fn(x) { Ok(x) }`，自定义闭包无法序列化。
+详见 [Core 迁移说明](../CHANGELOG.md#core-migration)。使用 `try_to_json_schema(view=InputView/OutputView)` 区分结构阶段；生成源码的实际编译测试在 `scripts/check_generated_source.py`。
+
+`JsonNullable[T]` 使用 `JsonNull` / `JsonValue(T)`，提供 JSON 的 `null | 值`
+编解码。普通 Option 在数组中的标准编码为 `[值] | null`，不能用于生成这里的
+nullable 元素。生成类型的 `FromJson` 与 `ToJson` 往返已加入实际编译测试。
+checked OutputView 的 intersection 通过 `output_merge.mbt` 递归合并结构；涉及
+可缺失重叠值或无法表达的条件结构时返回 Err。独立校验器回归位于
+`scripts/check_output_contracts.py`（依赖 jsonschema 4.23.0）。

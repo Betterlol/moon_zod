@@ -8,5 +8,19 @@ pub fn Schema::refine(
   check : (Json) -> Bool,
   message : String,
 ) -> Schema {
-  append_rule(self, check, message, IssueCode::Custom)
+  {
+    ..self,
+    id: new_schema_id(),
+    rules: self.rules +
+    [
+      {
+        check,
+        message,
+        code: IssueCode::Custom,
+        annotation: Json::null(),
+        constraint: Opaque,
+        explicit_message: true,
+      },
+    ],
+  }
 }

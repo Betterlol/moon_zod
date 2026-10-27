@@ -4,6 +4,95 @@
 
 **To see the full details, please refer to docs in branch `doc`.**
 
+## Unreleased — Core correctness and Zod 4 migration
+
+These changes are unreleased and build on v0.9.2. The published module version
+remains unchanged; see the migration notes below before upgrading.
+
+- Distinguish absence from null: optional/default handle missing values, with
+  nullable/nullish/prefault and parse_missing for explicit control.
+- Run refinements at every node; retain parsed container children, isolate branch
+  input and recursively merge intersection outputs without mutating callers.
+- Enforce finite numbers and safe integers, decimal numeric bounds/multiples,
+  complete datetime/IPv6/email/URI validation and ordered built-in effects.
+- Add structured constraint/effect metadata, checked source export and structural
+  input/output JSON Schema views. Unsupported custom callbacks fail explicitly.
+- Traverse every schema kind with node identities; cache lazy resolution, check
+  names and emit recursive JSON references and compilable recursive source.
+- Preserve escaped field paths, structured union issues and explicit Schema error
+  precedence. Guard shape edits on refined objects and retain discriminator tags.
+- Verify emitted schemas and recursive structs by compiling and running them on
+  Wasm GC and JS in CI. Historical allocation/performance claims are withdrawn.
+
+Follow-up review fixes: recursively merged checked intersection outputs, typed
+large numeric source bounds, explicit pipeline input/output default handling,
+structured errors for interior tuple absence, recursive JsonNullable codecs and
+component-specific URI/percent-encoding checks. Independent output-contract and
+generated-type codec tests cover these combinations; README throughput is historical.
+
+### Local Zod 4.6.7 compatibility corrections
+
+- Reconcile only the current intersection's unknown object keys. A key rejected
+  by every branch remains invalid; nested Strict failures remain independent.
+  Transform/pipe effects preserve these issues while continuing, so a later
+  intersection can reconcile them without losing output validation failures.
+- Fractional integer failures stop subsequent refinements, while unsafe integral
+  values remain continuable range failures. Built-in string effects continue
+  after ordinary constraint failures; custom transformations still stop.
+- An absent optional can discard an invalid prefault. Defaults behind preprocess
+  or only in a pipeline's output no longer force an outer optional to run. A
+  pipeline without that outer optional can still fill its output default.
+- Count string lengths as Unicode code points; use Unicode 17.0 full default
+  case conversion, including expansions and final sigma, and ECMAScript trim.
+  Fix datetime precision/offset combinations and case-insensitive ULID validation.
+- Reject unknown pick/omit keys. Report the actual required tuple prefix, retain
+  present-item diagnostics for overlong tuples, and classify exact lengths and
+  substring constraints using structured issue codes.
+- Export safe-integer bounds for int(), escape named JSON references as JSON
+  Pointer URI fragments, and permit missing output after fallible optional defaults.
+
+The comparison oracle uses the local Zod source (4.6.7, `afdac65`) rather than an
+unrelated npm installation. Run `python scripts/check_zod_compat.py --zod-path PATH`
+to compare Wasm GC and JS behavior and verify the explicitly retained differences.
+Run `node scripts/generate_unicode_case.mjs --check` with Node 24.15.0 / Unicode
+17.0 to check the portable case tables; the script also supports a complete
+runtime casing oracle without committing the large fixture.
+
+The JSON-only callback protocol, Result errors, URI/CUID/email profiles, exact
+decimal multipleOf, enum and JSON-literal conveniences, conservative refined-object
+edits, discriminated-union/async scope and exporter view policy remain intentional
+port adaptations. Checked exports may conservatively reject unsupported projections;
+these corrections do not claim full Zod API or JavaScript-value equivalence.
+
+
+### Core migration
+
+- `optional()` accepts missing values only. Use `nullable()` for explicit null
+  or `nullish()` for both. `parse_missing()` returns `Ok(None)` for absence and
+  `Ok(Some(value))` for a produced value. JSON callbacks skip missing values.
+- `default(value)` supplies an output value for absence without running the
+  inner parser. Use `prefault(value)` to validate and transform a fallback input.
+  Explicit null is validated by the inner schema. Parsed object defaults are
+  retained; tuple holes before later values return a positional error.
+- Numbers must be finite; integer rules enforce the safe integer range. Numeric
+  bounds and multiples retain decimal values. Format checks reject invalid dates,
+  IPv6 and URI components; URI validation does not perform WHATWG normalization.
+- Validation errors add `path_segments`; union errors preserve branch issues.
+  Update direct `Schema`, `Rule`, `TransformClosure`, `ConstraintInfo` and issue
+  construction for the new identity, constraint, effect and error metadata;
+  prefer schema factories and rule methods. Async error variants remain those
+  introduced in v0.9.1/v0.9.2.
+- Apply object shape operations before refinements. Discriminated union branches
+  must be objects with compatible literal tags. Intersection merge conflicts
+  return validation errors instead of silently overwriting parsed values.
+- Use `try_to_json_schema(view=InputView/OutputView)` for stage-aware structural
+  contracts and `try_schema_to_moon_zod_code()` for checked source generation.
+  Unsupported custom callbacks and unrepresentable compositions return `Err`;
+  the legacy source export aborts when it cannot preserve behavior.
+- Generated nullable values use `JsonNullable[T]` (`JsonNull` / `JsonValue(T)`)
+  with inline JSON codecs. Missing object fields add an outer `Option`.
+  MoonBit's standard non-field `Option` JSON encoding is not interchangeable.
+
 ## v0.9.2 (2026-10-18)
 
 ### Async validation

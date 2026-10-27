@@ -37,10 +37,10 @@ test "schema_to_prompt leaf types" {
 
 ///|
 test "schema_to_prompt optional and default" {
-  @debug.assert_eq(schema_to_prompt(string().optional()), "string | null")
+  @debug.assert_eq(schema_to_prompt(string().optional()), "string | undefined")
   @debug.assert_eq(
     schema_to_prompt(string().default(Json::string("x"))),
-    "string | null",
+    "string",
   )
 }
 
@@ -58,7 +58,10 @@ test "schema_to_prompt string constraints" {
 
 ///|
 test "schema_to_prompt number constraints" {
-  @debug.assert_eq(schema_to_prompt(number().int()), "number  // [int]")
+  @debug.assert_eq(
+    schema_to_prompt(number().int()),
+    "number  // [int, -9007199254740991-9007199254740991]",
+  )
   @debug.assert_eq(
     schema_to_prompt(number().positive()),
     "number  // [positive]",
@@ -125,11 +128,11 @@ test "schema_to_prompt union" {
 test "schema_to_prompt optional with constraints" {
   @debug.assert_eq(
     schema_to_prompt(string().min(3).optional()),
-    "string | null  // [min: 3]",
+    "string | undefined  // [min: 3]",
   )
   @debug.assert_eq(
     schema_to_prompt(number().int().optional()),
-    "number | null  // [int]",
+    "number | undefined  // [int, -9007199254740991-9007199254740991]",
   )
 }
 
@@ -138,7 +141,10 @@ test "schema_to_prompt transform transparent" {
   let s = string().transform(fn(json) { Ok(json) })
   @debug.assert_eq(schema_to_prompt(s), "string")
   let s2 = number().int().transform(fn(j) { Ok(j) })
-  @debug.assert_eq(schema_to_prompt(s2), "number  // [int]")
+  @debug.assert_eq(
+    schema_to_prompt(s2),
+    "number  // [int, -9007199254740991-9007199254740991]",
+  )
 }
 
 ///|
@@ -234,7 +240,7 @@ test "schema_to_prompt nonempty shows min constraint" {
 ///|
 test "schema_to_prompt default with constraints" {
   let s = string().min(3).default(Json::string("abc"))
-  @debug.assert_eq(schema_to_prompt(s), "string | null  // [min: 3]")
+  @debug.assert_eq(schema_to_prompt(s), "string  // [min: 3]")
 }
 
 ///|
@@ -257,7 +263,7 @@ test "schema_to_prompt describe with constraints" {
 test "schema_to_prompt describe on optional" {
   @debug.assert_eq(
     schema_to_prompt(string().min(3).optional().describe("昵称")),
-    "string | null  // [min: 3] — 昵称",
+    "string | undefined  // [min: 3] — 昵称",
   )
 }
 
@@ -265,7 +271,7 @@ test "schema_to_prompt describe on optional" {
 test "schema_to_prompt describe alone on optional" {
   @debug.assert_eq(
     schema_to_prompt(string().optional().describe("备注")),
-    "string | null  // 备注",
+    "string | undefined  // 备注",
   )
 }
 
@@ -336,7 +342,7 @@ test "schema_to_prompt partial" {
   let s = object({ "a": string().min(2), "b": number().int() }).partial()
   let expected = "{\n" +
     "  a?: string,  // [min: 2]\n" +
-    "  b?: number,  // [int]\n" +
+    "  b?: number,  // [int, -9007199254740991-9007199254740991]\n" +
     "}"
   @debug.assert_eq(schema_to_prompt(s), expected)
 }
