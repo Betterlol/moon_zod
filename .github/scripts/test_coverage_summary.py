@@ -31,6 +31,9 @@ class CoverageSummaryTests(unittest.TestCase):
           <class filename=".mooncakes/vendor/dep.mbt"><lines>
             <line number="1" hits="0"/>
           </lines></class>
+          <class filename="async/benchmarks/main.mbt"><lines>
+            <line number="1" hits="0"/>
+          </lines></class>
         ''')
         self.assertEqual(summarize(coverage, {"async"}), (3, 4))
         self.assertEqual(summarize(coverage), (4, 5))
@@ -51,6 +54,21 @@ class CoverageSummaryTests(unittest.TestCase):
         for classes in ["", '<class filename="vendor/dep.mbt"><lines/></class>']:
             with self.subTest(classes=classes), self.assertRaises(ValueError):
                 self.read(classes)
+
+    def test_workspace_member_paths_are_counted_with_core_and_exporters(self):
+        coverage = self.read('''
+          <class filename="moon_zod/combinators/schema_combinators.mbt"><lines>
+            <line number="1" hits="1"/><line number="2" hits="0"/>
+          </lines></class>
+          <class filename="core/schema.mbt"><lines>
+            <line number="1" hits="1"/>
+          </lines></class>
+          <class filename="exporters/prompt.mbt"><lines>
+            <line number="1" hits="1"/>
+          </lines></class>
+        ''')
+        self.assertEqual(summarize(coverage, {"combinators"}), (1, 2))
+        self.assertEqual(summarize(coverage), (3, 4))
 
 
 if __name__ == "__main__":

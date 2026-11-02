@@ -22,7 +22,7 @@ See the submodule README for the full dependency setup for exporter validation a
 The MoonBit benchmark entry point remains available in this repository:
 
 ```sh
-moon run cmd/main
+moon run moon_zod/cmd/main
 ```
 
 ---

@@ -3,7 +3,7 @@
 Generate `@moon_zod` schema code instantly from any JSON payload — no need to write schemas by hand for real-world API data.
 
 ```bash
-moon run cmd/json2schema -- '{"hello": "world"}'
+moon run moon_zod/cmd/json2schema -- '{"hello": "world"}'
 ```
 
 Output (copy-paste ready moon_zod code):
@@ -16,7 +16,7 @@ Output (copy-paste ready moon_zod code):
 
 For verbose output with debug information:
 ```bash
-moon run cmd/json2schema -- --verbose '{"hello": "world"}'
+moon run moon_zod/cmd/json2schema -- --verbose '{"hello": "world"}'
 ```
 
 The generator recursively infers types (`string`, `number`, `boolean`, `null`, `array`, `object`) and safely escapes special characters in object keys. Empty arrays produce a `/* TODO: specify exact type */` comment to alert you when type inference lacked data.
@@ -29,7 +29,7 @@ Generate `@moon_zod` schema code from a standard **JSON Schema (draft-07)** defi
 
 **Inline mode** (JSON Schema as command argument):
 ```bash
-moon run cmd/json2schema -- --from-json-schema '{
+moon run moon_zod/cmd/json2schema -- --from-json-schema '{
   "type": "object",
   "properties": {
     "name": {"type": "string", "minLength": 2},
@@ -41,7 +41,7 @@ moon run cmd/json2schema -- --from-json-schema '{
 
 **File mode** (read JSON Schema from file):
 ```bash
-moon run cmd/json2schema -- --from-json-schema --schema-file schema.json
+moon run moon_zod/cmd/json2schema -- --from-json-schema --schema-file schema.json
 ```
 
 Output:
@@ -69,7 +69,7 @@ Output:
 Generate MoonBit struct definitions from any JSON Schema — struct definitions + static `Type::to_schema()` functions.
 
 ```bash
-moon run cmd/gen-struct -- --schema '{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}},"required":["name","age"]}'
+moon run moon_zod/cmd/gen-struct -- --schema '{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}},"required":["name","age"]}'
 ```
 
 Output:
@@ -101,17 +101,17 @@ Validate JSON data against a schema inferred from a sample — no code required.
 
 ```bash
 # Single JSON validation
-moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
+moon run moon_zod/cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
 # PASS
 
 # Batch validation with JSON Lines
-moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}\n{"age":30}'
+moon run moon_zod/cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}\n{"age":30}'
 # FAIL: line 3
 #   [name] Required (got: Null)
 # Results: 2 passed, 1 failed
 
 # File mode (JSON Schema as schema source)
-moon run cmd/validate -- --schema-file schema.json --sample-file data.json
+moon run moon_zod/cmd/validate -- --schema-file schema.json --sample-file data.json
 ```
 
 **Error output format**: `[field_path] message (got: value)`

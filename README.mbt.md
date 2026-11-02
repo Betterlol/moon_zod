@@ -98,11 +98,11 @@ completes; successful schema validation is reported only by `finish()`.
 **Zero-code CLI validation:**
 ```bash
 # Infer schema from sample, validate data
-moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
+moon run moon_zod/cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
 # PASS
 
 # Batch validation with JSON Lines
-moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
+moon run moon_zod/cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
 # Results: 2 passed, 0 failed
 ```
 
@@ -127,125 +127,64 @@ In LLM Tool Calling, the model often produces **multiple errors at once** and **
 
 ```
 moon_zod/
-├── core/                     # Core schema validation library
-│   ├── types.mbt             # ValidationError, SchemaResult, core types
-│   ├── schema.mbt            # Schema struct, parse dispatch, path stack
-│   ├── string.mbt            # string() factory + validators (trim, to_lower, to_upper)
-│   ├── number.mbt            # number() factory + validators
-│   ├── boolean.mbt           # boolean() factory
-│   ├── null.mbt              # null() factory
-│   ├── bigint.mbt            # bigint() factory
-│   ├── any_unknown.mbt       # any() / unknown() pass-through schemas
-│   ├── array.mbt             # array() factory + parse_array
-│   ├── tuple.mbt             # tuple() factory + parse_tuple
-│   ├── object.mbt            # object() + modes (strip/passthrough/strict), pick/omit/partial/extend/merge
-│   ├── optional.mbt          # optional() factory
-│   ├── default.mbt           # default() factory
-│   ├── enum.mbt              # enum_values() factory
-│   ├── literal.mbt           # literal() factory (constant values)
-│   ├── union.mbt             # union() factory
-│   ├── intersection.mbt      # intersection() / intersect()
-│   ├── refine.mbt            # refine() for custom validation
-│   ├── transform.mbt         # transform() for data transformation
-│   ├── preprocess.mbt        # preprocess() for input preprocessing
-│   ├── shared_utils.mbt      # Common utilities (unwrap_schema, peel_optional, etc.)
-│   ├── constraint_extractor.mbt  # Extract constraint info from rules
-│   └── moon_zod_wbtest.mbt   # White-box tests (path stack invariants)
-│
-├── combinators/              # Schema combinator utilities
-│   └── schema_combinators.mbt # Schema composition helpers
-│
-├── async/                    # Optional async extensions
-│   ├── schema.mbt            # Async post-parse refinements
-│   ├── issue.mbt             # Async issue values and factory
-│   ├── jsonl.mbt             # Backpressure-aware JSON Lines validation
-│   ├── sse.mbt               # SSE framing and metadata
-│   ├── sse_json.mbt          # Per-frame JSON validation
-│   ├── sse_json_stream.mbt   # Assembled JSON and async refinements
-│   ├── line_reader.mbt       # Bounded UTF-8 chunk reading
-│   └── stream_limits.mbt     # Line/frame buffering budgets
-│
-├── exporters/                # Code/schema export tools
-│   ├── prompt.mbt            # schema_to_prompt() / schema_to_prompt_named()
-│   ├── prompt_renderer.mbt   # Trait-based prompt rendering
-│   ├── json_schema.mbt       # to_json_schema() / to_json_schema_named()
-│   ├── json_schema_renderer.mbt # Trait-based JSON Schema rendering
-│   ├── moonbit_struct.mbt    # schema_to_moonbit_struct() + static to_schema() generation
-│   └── schema_exporter.mbt   # Shared exporter utilities
-│
-├── importers/                # Schema import tools
-│   └── from_json_schema.mbt  # json_schema_to_moon_zod() — reverse JSON Schema → moon_zod code generation
-│
-├── tests/                    # Test suite (479 tests)
-│   ├── test_string.mbt       # string() validator tests (trim, to_lower, to_upper, nonempty)
-│   ├── test_number.mbt       # number() validator tests
-│   ├── test_boolean_null.mbt # boolean/null tests
-│   ├── test_object.mbt       # object() mode + pick/omit/partial/extend/merge tests
-│   ├── test_array.mbt        # array() + nonempty tests
-│   ├── test_tuple.mbt        # tuple() tests
-│   ├── test_combinators.mbt  # union/literal/optional/default/brand/bigint tests
-│   ├── test_any_unknown_preprocess.mbt # any/unknown/preprocess tests
-│   ├── test_transform_refine.mbt # transform/refine tests
-│   ├── test_json_schema.mbt  # JSON Schema export + $defs/$ref tests
-│   ├── test_json_schema_fixes.mbt # exclusiveMin/Max semantics + enum edge cases
-│   ├── test_moonbit_struct.mbt # MoonBit struct generation tests
-│   ├── test_prompt.mbt       # Prompt generation tests
-│   ├── test_prompt_named.mbt # Named schema export tests
-│   ├── test_custom_message.mbt # Custom error message tests
-│   ├── test_errors.mbt       # Error collection tests
-│   ├── test_schema_to_code.mbt # Code generation tests
-│   └── reexporter.mbt        # Test re-exports
-│
-├── cmd/                      # CLI tools
-│   ├── main/                 # Benchmark runner (performance baselines)
-│   ├── wasm/                 # WebAssembly cross-language benchmark
-│   ├── json2schema/          # JSON → moon_zod schema code generator + JSON Schema reverse importer
-│   ├── gen-struct/           # JSON Schema → MoonBit struct generator
-│   └── validate/             # JSON schema validator (infer-then-validate)
-│
-└── examples/                 # LLM agent demonstrations
-    ├── gen-struct/           # JSON Schema → MoonBit struct generator demo
-    ├── json2schema/          # JSON → moon_zod schema code generation
-    ├── mock/                 # Mock agent demonstrations
-    │   ├── llm_agent/        # Basic LLM tool calling example
-    │   └── educational_agent/ # Multi-round self-correction demo
-    ├── multiple_schemas/     # Handling multiple schemas
-    ├── real_llm_agent/       # Real LLM integration (with API fallback to mock)
-    ├── resources/            # Sample data files (JSON, JSON Schema)
-    ├── schema2json/          # Schema → JSON Schema export demo
-    ├── schema2prompt/        # Schema → prompt generation showcase
-    ├── shared_schemas/       # Shared schema definitions (library package)
-    └── validate_cli/         # CLI validation demo
+├── moon.work                  # Workspace: five independently publishable modules
+├── core/                      # Betterlol/moon_zod/core — Schema IR and validation
+│   ├── moon.mod
+│   └── ...
+├── importers/                 # Betterlol/moon_zod/importers — JSON Schema import
+│   ├── moon.mod
+│   └── ...
+├── exporters/                 # Betterlol/moon_zod/exporters — code/schema export
+│   ├── moon.mod
+│   └── ...
+├── async/                     # Betterlol/moon_zod/async — independent async adapters
+│   ├── moon.mod
+│   └── benchmarks/
+├── moon_zod/                  # Betterlol/moon_zod — unified facade
+│   ├── moon.mod
+│   ├── reexporter.mbt         # Single public API aggregation point
+│   ├── combinators/          # Import/export composition
+│   ├── cmd/                  # CLI tools and benchmarks
+│   ├── examples/             # Usage examples and shared schemas
+│   └── tests/                # Direct imports; no duplicate re-exports
+├── docs/
+└── moon_zod_lab/              # Separately managed consumer submodule
 ```
 
 ---
 
 ## Development
 
+This repository uses `moon.work` to develop five modules together: the main
+`Betterlol/moon_zod` facade and the independently publishable `/core`,
+`/exporters`, `/importers`, and `/async` modules. Existing package import paths are
+unchanged. See the [workspace guide](docs/WORKSPACE.md) for module dependencies,
+direct imports, and release checks.
+
 ```bash
 # Testing & Building
-moon test                # Run all tests (479 total, 0 warnings)
+moon test                # Run tests across the workspace
 moon build               # Build the library
 moon check               # Type check (0 errors, 0 warnings)
 moon info && moon fmt    # Update interface + format
 
 # CLI Tools
-moon run cmd/main                                      # Run performance benchmarks
-moon run cmd/json2schema -- '{"hello":"world"}'      # JSON → moon_zod schema code
-moon run cmd/json2schema -- --from-json-schema '<{...}>'  # JSON Schema → moon_zod code
-moon run cmd/json2schema -- --from-json-schema '<{...}>' --verbose  # with debug output
-moon run cmd/gen-struct -- --schema '<{...}>'          # JSON Schema → MoonBit structs
-moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # Validate JSON
+moon run moon_zod/cmd/main                                      # Run performance benchmarks
+moon run moon_zod/cmd/json2schema -- '{"hello":"world"}'      # JSON → moon_zod schema code
+moon run moon_zod/cmd/json2schema -- --from-json-schema '<{...}>'  # JSON Schema → moon_zod code
+moon run moon_zod/cmd/json2schema -- --from-json-schema '<{...}>' --verbose  # with debug output
+moon run moon_zod/cmd/gen-struct -- --schema '<{...}>'          # JSON Schema → MoonBit structs
+moon run moon_zod/cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # Validate JSON
 
 # Examples
-moon run examples/mock/llm_agent                     # Basic LLM tool calling demo
-moon run examples/mock/educational_agent             # Multi-round self-correction demo
-moon run examples/real_llm_agent -- product prompt   # Real LLM with mock fallback
-moon run examples/real_llm_agent -- product validate # Validate with real API
-moon run examples/multiple_schemas                   # Multiple schema handling
-moon run examples/schema2json -- product schema      # Schema → JSON Schema export
-moon run examples/schema2prompt -- product schema    # Schema → prompt generation showcase
-moon run examples/json2schema                        # JSON → moon_zod schema code gen
+moon run moon_zod/examples/mock/llm_agent                     # Basic LLM tool calling demo
+moon run moon_zod/examples/mock/educational_agent             # Multi-round self-correction demo
+moon run moon_zod/examples/real_llm_agent -- product prompt   # Real LLM with mock fallback
+moon run moon_zod/examples/real_llm_agent -- product validate # Validate with real API
+moon run moon_zod/examples/multiple_schemas                   # Multiple schema handling
+moon run moon_zod/examples/schema2json -- product schema      # Schema → JSON Schema export
+moon run moon_zod/examples/schema2prompt -- product schema    # Schema → prompt generation showcase
+moon run moon_zod/examples/json2schema                        # JSON → moon_zod schema code gen
 ```
 
 ---

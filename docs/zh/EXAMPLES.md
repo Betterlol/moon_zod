@@ -6,27 +6,27 @@ moon_zod 包含多种示例，展示了不同的使用场景，从基本的 JSON
 
 | 示例 | 描述 | 输出 |
 |---|---|---|
-| [json2schema](../../examples/json2schema/) | 在 MoonBit 中定义 Schema + 校验硬编码的 JSON | 打印 User、Post 和 GitHub API Schema 的校验结果 |
-| [mock/llm_agent](../../examples/mock/llm_agent/) | 模拟的 LLM 自纠正循环（简单版） | 2 轮模拟：错误 JSON → 错误 → 修复后的 JSON → Strip 清理 |
-| [mock/educational_agent](../../examples/mock/educational_agent/) | 模拟的 3 轮自纠正（深层版） | 3 轮：结构层 → 规则层 → Strip 防御层 |
-| [multiple_schemas](../../examples/multiple_schemas/) | Schema 组合 + 多格式代码生成 | 输出 TS / JSON Schema / MoonBit struct / moon_zod 代码 |
-| [real_llm_agent](../../examples/real_llm_agent/) | 端到端 Schema → Prompt → 真实 LLM → 解析 | 自纠正循环：校验 → 收集错误 → 重试 |
-| [schema2json](../../examples/schema2json/) | moon_zod schema → JSON Schema 导出 | 包含完整约束的标准 JSON Schema |
-| [schema2prompt](../../examples/schema2prompt/) | moon_zod schema → TS 接口 prompt | TypeScript 接口附带 `//` 约束注释 |
-| [validate CLI](../../cmd/validate/) | JSON Schema → 校验 JSON | `PASS` / `FAIL` 附带错误详情 |
-| [gen-struct CLI](../../cmd/gen-struct/) | JSON Schema → MoonBit struct 代码生成 | `pub struct` + `fn to_schema()` 定义 |
-| [json2schema CLI](../../cmd/json2schema/) | JSON → moon_zod schema 代码生成 | 可直接复制粘贴的 `@moon_zod.object({...})` 代码 |
+| [json2schema](../../moon_zod/examples/json2schema/) | 在 MoonBit 中定义 Schema + 校验硬编码的 JSON | 打印 User、Post 和 GitHub API Schema 的校验结果 |
+| [mock/llm_agent](../../moon_zod/examples/mock/llm_agent/) | 模拟的 LLM 自纠正循环（简单版） | 2 轮模拟：错误 JSON → 错误 → 修复后的 JSON → Strip 清理 |
+| [mock/educational_agent](../../moon_zod/examples/mock/educational_agent/) | 模拟的 3 轮自纠正（深层版） | 3 轮：结构层 → 规则层 → Strip 防御层 |
+| [multiple_schemas](../../moon_zod/examples/multiple_schemas/) | Schema 组合 + 多格式代码生成 | 输出 TS / JSON Schema / MoonBit struct / moon_zod 代码 |
+| [real_llm_agent](../../moon_zod/examples/real_llm_agent/) | 端到端 Schema → Prompt → 真实 LLM → 解析 | 自纠正循环：校验 → 收集错误 → 重试 |
+| [schema2json](../../moon_zod/examples/schema2json/) | moon_zod schema → JSON Schema 导出 | 包含完整约束的标准 JSON Schema |
+| [schema2prompt](../../moon_zod/examples/schema2prompt/) | moon_zod schema → TS 接口 prompt | TypeScript 接口附带 `//` 约束注释 |
+| [validate CLI](../../moon_zod/cmd/validate/) | JSON Schema → 校验 JSON | `PASS` / `FAIL` 附带错误详情 |
+| [gen-struct CLI](../../moon_zod/cmd/gen-struct/) | JSON Schema → MoonBit struct 代码生成 | `pub struct` + `fn to_schema()` 定义 |
+| [json2schema CLI](../../moon_zod/cmd/json2schema/) | JSON → moon_zod schema 代码生成 | 可直接复制粘贴的 `@moon_zod.object({...})` 代码 |
 
 ---
 
 ## json2schema
 
-**路径：** [`examples/json2schema/`](../../examples/json2schema/) • [README](../../examples/json2schema/README.md)
+**路径：** [`examples/json2schema/`](../../moon_zod/examples/json2schema/) • [README](../../moon_zod/examples/json2schema/README.md)
 
 一个可运行的 MoonBit 程序，定义现实的 Schema（JSONPlaceholder 用户、文章、GitHub Rust 仓库 API 响应），并针对这些 Schema 校验硬编码的 JSON。打印每个 Schema 的成功/失败状态。
 
 ```bash
-$ sh cmd/json2schema/cli.sh --file examples/resources/test_placeholder_post.json
+$ sh moon_zod/cmd/json2schema/cli.sh --file moon_zod/examples/resources/test_placeholder_post.json
 ```
 
 输出：
@@ -38,14 +38,14 @@ let root = @moon_zod.object({ "userId": @moon_zod.number().int(), "id": @moon_zo
 
 ## mock
 
-**路径：** [`examples/mock/`](../../examples/mock/) • [README](../../examples/mock/README.md)
+**路径：** [`examples/mock/`](../../moon_zod/examples/mock/) • [README](../../moon_zod/examples/mock/README.md)
 
 ### mock/llm_agent
 
 针对用户资料 Schema 的模拟自纠正循环。Mock LLM 首先返回无效的 JSON — moon_zod 收集所有错误。经过纠正反馈后，mock LLM 使用有效数据加上一个虚构字段重试。Strip 模式将其无声地移除。
 
 ```bash
-$ moon run examples/mock/llm_agent
+$ moon run moon_zod/examples/mock/llm_agent
 ```
 
 输出示例：
@@ -71,7 +71,7 @@ $ moon run examples/mock/llm_agent
 | 3 | Strip 层 | 移除 12 个虚构的元数据字段 |
 
 ```bash
-$ moon run examples/mock/educational_agent
+$ moon run moon_zod/examples/mock/educational_agent
 ```
 
 输出示例：
@@ -89,21 +89,21 @@ $ moon run examples/mock/educational_agent
 
 ## multiple_schemas
 
-**路径：** [`examples/multiple_schemas/`](../../examples/multiple_schemas/) • [README](../../examples/multiple_schemas/README.md)
+**路径：** [`examples/multiple_schemas/`](../../moon_zod/examples/multiple_schemas/) • [README](../../moon_zod/examples/multiple_schemas/README.md)
 
 最全面的 Schema 组合示例。根据 CLI 参数输出不同的表示形式：
 
 ```bash
-$ moon run examples/multiple_schemas -- ts       # TypeScript 接口 prompt
-$ moon run examples/multiple_schemas -- json     # JSON Schema
-$ moon run examples/multiple_schemas -- moonbit  # MoonBit struct 代码
-$ moon run examples/multiple_schemas -- moon_zod # moon_zod 构建器代码
+$ moon run moon_zod/examples/multiple_schemas -- ts       # TypeScript 接口 prompt
+$ moon run moon_zod/examples/multiple_schemas -- json     # JSON Schema
+$ moon run moon_zod/examples/multiple_schemas -- moonbit  # MoonBit struct 代码
+$ moon run moon_zod/examples/multiple_schemas -- moon_zod # moon_zod 构建器代码
 ```
 
 展示了 `.partial()`、`.omit()`、`.pick()`、`.extend_with()`、`.merge()`、`tuple`、`any`/`unknown`、`preprocess`、`transform`、`refine`、`union`、`intersection`、`literal`、`default` 等功能。
 
 ```bash
-$ moon run examples/multiple_schemas -- ts
+$ moon run moon_zod/examples/multiple_schemas -- ts
 ```
 
 输出示例：
@@ -190,7 +190,7 @@ export interface Order {
 
 ## real_llm_agent
 
-**路径：** [`examples/real_llm_agent/`](../../examples/real_llm_agent/) • [README](../../examples/real_llm_agent/README.md)
+**路径：** [`examples/real_llm_agent/`](../../moon_zod/examples/real_llm_agent/) • [README](../../moon_zod/examples/real_llm_agent/README.md)
 
 完整的 Schema → Prompt → LLM → 解析闭环。两种模式：
 
@@ -199,17 +199,17 @@ export interface Order {
 
 ```bash
 # MoonBit prompt 模式（TS 接口风格）
-$ python3 examples/real_llm_agent/agent.py product --moon-prompt
+$ python3 moon_zod/examples/real_llm_agent/agent.py product --moon-prompt
 
 # 经典模式（JSON Schema 在 prompt 中）
-$ python3 examples/real_llm_agent/agent.py product
+$ python3 moon_zod/examples/real_llm_agent/agent.py product
 
 # 工具调用模式（OpenAI 函数调用）
-$ python3 examples/real_llm_agent/agent.py product --mode tool
+$ python3 moon_zod/examples/real_llm_agent/agent.py product --mode tool
 ```
 
 ```bash
-python3 examples/real_llm_agent/agent.py product --moon-prompt
+python3 moon_zod/examples/real_llm_agent/agent.py product --moon-prompt
 ```
 
 输出示例：
@@ -294,12 +294,12 @@ python3 examples/real_llm_agent/agent.py product --moon-prompt
 
 ## schema2json
 
-**路径：** [`examples/schema2json/`](../../examples/schema2json/) • [README](../../examples/schema2json/README.md)
+**路径：** [`examples/schema2json/`](../../moon_zod/examples/schema2json/) • [README](../../moon_zod/examples/schema2json/README.md)
 
 将 moon_zod schema 导出为标准 JSON Schema，包含完整的约束注释：
 
 ```bash
-$ moon run examples/schema2json -- product schema
+$ moon run moon_zod/examples/schema2json -- product schema
 ```
 
 输出示例：
@@ -395,12 +395,12 @@ $ moon run examples/schema2json -- product schema
 
 ## schema2prompt
 
-**路径：** [`examples/schema2prompt/`](../../examples/schema2prompt/) • [README](../../examples/schema2prompt/README.md)
+**路径：** [`examples/schema2prompt/`](../../moon_zod/examples/schema2prompt/) • [README](../../moon_zod/examples/schema2prompt/README.md)
 
 将 moon_zod schema 转换为 TypeScript 接口风格的 prompt 字符串，附带约束注释：
 
 ```bash
-$ moon run examples/schema2prompt -- product prompt
+$ moon run moon_zod/examples/schema2prompt -- product prompt
 ```
 
 输出示例：
@@ -424,12 +424,12 @@ $ moon run examples/schema2prompt -- product prompt
 
 ## validate CLI
 
-**路径：** [`cmd/validate/`](../../cmd/validate/) • [README](../../examples/validate_cli/README.md)
+**路径：** [`cmd/validate/`](../../moon_zod/cmd/validate/) • [README](../../moon_zod/examples/validate_cli/README.md)
 
 基于 Shell 的 JSON 校验器。从样本推断 schema 或读取 JSON Schema，然后校验 JSON/JSONL 输入：
 
 ```bash
-$ sh cmd/validate/cli.sh '{"name":"Alice"}' '{"name":"Bob"}'
+$ sh moon_zod/cmd/validate/cli.sh '{"name":"Alice"}' '{"name":"Bob"}'
 ```
 
 ```text
@@ -438,7 +438,7 @@ PASS
 ```
 
 ```bash
-$ sh cmd/validate/cli.sh '{"name":"Alice"}' '{"age":30}'
+$ sh moon_zod/cmd/validate/cli.sh '{"name":"Alice"}' '{"age":30}'
 ```
 
 ```text
@@ -451,12 +451,12 @@ FAIL
 
 ## gen-struct CLI
 
-**路径：** [`cmd/gen-struct/`](../../cmd/gen-struct/) • [README](../../examples/gen-struct/README.md)
+**路径：** [`cmd/gen-struct/`](../../moon_zod/cmd/gen-struct/) • [README](../../moon_zod/examples/gen-struct/README.md)
 
 将 JSON Schema 转换为 MoonBit struct 定义及静态 `Type::to_schema()` 函数：
 
 ```bash
-$ sh cmd/gen-struct/cli.sh --from-json-schema '{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}}}'
+$ sh moon_zod/cmd/gen-struct/cli.sh --from-json-schema '{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}}}'
 ```
 
 ```moonbit nocheck
@@ -475,12 +475,12 @@ pub fn Root::to_schema() -> @moon_zod.Schema {
 
 ## json2schema CLI
 
-**路径：** [`cmd/json2schema/`](../../cmd/json2schema/) • [README](../../examples/json2schema/README.md)
+**路径：** [`cmd/json2schema/`](../../moon_zod/cmd/json2schema/) • [README](../../moon_zod/examples/json2schema/README.md)
 
 从 JSON 样本推断 moon_zod schema，或从 JSON Schema 反向导入：
 
 ```bash
-$ sh cmd/json2schema/cli.sh '{"name":"Alice","age":30}'
+$ sh moon_zod/cmd/json2schema/cli.sh '{"name":"Alice","age":30}'
 ```
 
 ```moonbit nocheck

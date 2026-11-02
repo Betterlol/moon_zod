@@ -41,10 +41,10 @@ match schema.parse(input_json) {
 **Zero-code CLI validation:**
 ```bash
 # Infer schema from sample, validate data
-moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
+moon run moon_zod/cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
 # PASS
 
 # Batch validation with JSON Lines
-moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
+moon run moon_zod/cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
 # Results: 2 passed, 0 failed
 ```

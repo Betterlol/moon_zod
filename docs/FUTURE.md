@@ -55,7 +55,7 @@ flowchart TB
 
 ## 可选异步扩展
 
-`Betterlol/moon_zod/async` 是独立的可选子包，核心 `Schema::parse()`
+`Betterlol/moon_zod/async` 是可独立发布的模块，核心 `Schema::parse()`
 保持同步。扩展提供以下能力：
 
 - `AsyncSchema`：先完成同步规则、转换和 Strip 清洗，再按声明顺序执行

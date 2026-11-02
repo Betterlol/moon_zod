@@ -120,22 +120,22 @@ moon check               # 类型检查（0 错误，0 警告）
 moon info && moon fmt    # 更新接口 + 格式化
 
 # CLI 工具
-moon run cmd/main                                      # 运行性能基准测试
-moon run cmd/json2schema -- '{"hello":"world"}'      # JSON → moon_zod Schema 代码
-moon run cmd/json2schema -- --from-json-schema '<{...}>'  # JSON Schema → moon_zod 代码
-moon run cmd/json2schema -- --from-json-schema '<{...}>' --verbose  # 带调试输出
-moon run cmd/gen-struct -- --schema '<{...}>'          # JSON Schema → MoonBit 结构
-moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # 校验 JSON
+moon run moon_zod/cmd/main                                      # 运行性能基准测试
+moon run moon_zod/cmd/json2schema -- '{"hello":"world"}'      # JSON → moon_zod Schema 代码
+moon run moon_zod/cmd/json2schema -- --from-json-schema '<{...}>'  # JSON Schema → moon_zod 代码
+moon run moon_zod/cmd/json2schema -- --from-json-schema '<{...}>' --verbose  # 带调试输出
+moon run moon_zod/cmd/gen-struct -- --schema '<{...}>'          # JSON Schema → MoonBit 结构
+moon run moon_zod/cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # 校验 JSON
 
 # 示例
-moon run examples/mock/llm_agent                     # 基础 LLM 工具调用演示
-moon run examples/mock/educational_agent             # 多轮自我纠正演示
-moon run examples/real_llm_agent -- product prompt   # 真实 LLM 带模拟回退
-moon run examples/real_llm_agent -- product validate # 用真实 API 校验
-moon run examples/multiple_schemas                   # 多个 Schema 处理
-moon run examples/schema2json -- product schema      # Schema → JSON Schema 导出
-moon run examples/schema2prompt -- product schema    # Schema → 提示生成展示
-moon run examples/json2schema                        # JSON → moon_zod Schema 代码生成
+moon run moon_zod/examples/mock/llm_agent                     # 基础 LLM 工具调用演示
+moon run moon_zod/examples/mock/educational_agent             # 多轮自我纠正演示
+moon run moon_zod/examples/real_llm_agent -- product prompt   # 真实 LLM 带模拟回退
+moon run moon_zod/examples/real_llm_agent -- product validate # 用真实 API 校验
+moon run moon_zod/examples/multiple_schemas                   # 多个 Schema 处理
+moon run moon_zod/examples/schema2json -- product schema      # Schema → JSON Schema 导出
+moon run moon_zod/examples/schema2prompt -- product schema    # Schema → 提示生成展示
+moon run moon_zod/examples/json2schema                        # JSON → moon_zod Schema 代码生成
 ```
 
 ---

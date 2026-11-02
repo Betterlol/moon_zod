@@ -120,22 +120,22 @@ moon check               # Type check (0 errors, 0 warnings)
 moon info && moon fmt    # Update interface + format
 
 # CLI Tools
-moon run cmd/main                                      # Run performance benchmarks
-moon run cmd/json2schema -- '{"hello":"world"}'      # JSON → moon_zod schema code
-moon run cmd/json2schema -- --from-json-schema '<{...}>'  # JSON Schema → moon_zod code
-moon run cmd/json2schema -- --from-json-schema '<{...}>' --verbose  # with debug output
-moon run cmd/gen-struct -- --schema '<{...}>'          # JSON Schema → MoonBit structs
-moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # Validate JSON
+moon run moon_zod/cmd/main                                      # Run performance benchmarks
+moon run moon_zod/cmd/json2schema -- '{"hello":"world"}'      # JSON → moon_zod schema code
+moon run moon_zod/cmd/json2schema -- --from-json-schema '<{...}>'  # JSON Schema → moon_zod code
+moon run moon_zod/cmd/json2schema -- --from-json-schema '<{...}>' --verbose  # with debug output
+moon run moon_zod/cmd/gen-struct -- --schema '<{...}>'          # JSON Schema → MoonBit structs
+moon run moon_zod/cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # Validate JSON
 
 # Examples
-moon run examples/mock/llm_agent                     # Basic LLM tool calling demo
-moon run examples/mock/educational_agent             # Multi-round self-correction demo
-moon run examples/real_llm_agent -- product prompt   # Real LLM with mock fallback
-moon run examples/real_llm_agent -- product validate # Validate with real API
-moon run examples/multiple_schemas                   # Multiple schema handling
-moon run examples/schema2json -- product schema      # Schema → JSON Schema export
-moon run examples/schema2prompt -- product schema    # Schema → prompt generation showcase
-moon run examples/json2schema                        # JSON → moon_zod schema code gen
+moon run moon_zod/examples/mock/llm_agent                     # Basic LLM tool calling demo
+moon run moon_zod/examples/mock/educational_agent             # Multi-round self-correction demo
+moon run moon_zod/examples/real_llm_agent -- product prompt   # Real LLM with mock fallback
+moon run moon_zod/examples/real_llm_agent -- product validate # Validate with real API
+moon run moon_zod/examples/multiple_schemas                   # Multiple schema handling
+moon run moon_zod/examples/schema2json -- product schema      # Schema → JSON Schema export
+moon run moon_zod/examples/schema2prompt -- product schema    # Schema → prompt generation showcase
+moon run moon_zod/examples/json2schema                        # JSON → moon_zod schema code gen
 ```
 
 ---

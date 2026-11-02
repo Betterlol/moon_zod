@@ -1,8 +1,24 @@
 # moon_zod async
 
-`Betterlol/moon_zod/async` is an optional companion package. It leaves
-`Betterlol/moon_zod/core` synchronous and dependency-light. The underlying
+`Betterlol/moon_zod/async` is an independently published companion module. It
+depends only on `Betterlol/moon_zod/core` and `moonbitlang/async`; it does not
+depend on the MoonZod facade, importers, or exporters. The underlying
 MoonBit async runtime is native-first; its Wasm support remains experimental.
+
+Add `Betterlol/moon_zod/async` and `Betterlol/moon_zod/core` to `moon.mod`, then
+import their packages directly:
+
+```moonbit nocheck
+///|
+// moon.pkg
+import {
+  "Betterlol/moon_zod/async" @moon_zod_async,
+  "Betterlol/moon_zod/core" @moon_zod,
+}
+```
+
+The aliases below let async examples use core factories without depending on the
+facade module. Run `moon test async --target native` from the repository root.
 
 ## Async refinements
 
@@ -160,7 +176,7 @@ without changing the core `Schema` type or its synchronous parser.
 JSONL/SSE framing and validation share the same implementation for plain schemas
 and async wrappers. Lines contained in a read chunk decode directly from a byte
 view; spanning lines are joined once before UTF-8 decoding. Run the
-[manual benchmark](../examples/async_bench/README.md) to measure this pipeline.
+[manual benchmark](benchmarks/README.md) to measure this pipeline.
 
 CI exercises native async tests on Linux, macOS and Windows, alongside the default
 Wasm tests. These tests use observable readers for backpressure, input/callback
