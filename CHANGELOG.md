@@ -4,26 +4,96 @@
 
 **To see the full details, please refer to docs in branch `doc`.**
 
-## v0.10.0 — Core semantics migration (release preparation)
+## v0.10.0 — Core correctness and Zod 4 migration
 
-This breaking upgrade is split into a Core PR and a dependent export PR. Publish
-v0.10.0 after both are merged; export contracts are completed in the latter.
+Version 0.10.0 builds on the v0.9.3 compatibility baseline and includes breaking
+core API, validation and export changes. Read the migration notes before upgrading.
 
-- Distinguish missing values from explicit null. Use optional() for absence,
-  nullable() for null, nullish() for both, and parse_missing() for root absence.
-- Fill missing object defaults. default() supplies an output without parsing the
-  fallback; prefault() validates and transforms a fallback input.
-- Preserve parsed container children, execute node refinements, isolate union
-  and intersection branches, and recursively merge intersection outputs.
-- Reject nonfinite numbers; fix safe-integer ranges, decimal rules and formats.
-  Use Unicode code point lengths, full case conversion and ECMAScript trim.
-- Add Schema identity, structured Rule/Transform metadata, path_segments and
-  nested union issues. Direct struct literals and exhaustive matches must adapt.
-- Apply shape edits before refine(). Unknown pick/omit keys and invalid
-  discriminator definitions abort at construction. Lazy resolution is cached.
-- The existing export APIs have only the adaptations needed to build against
-  Core; checked projections, export annotations, ConstraintInfo and generated-type migrations are
-  delivered by the dependent export PR.
+- Distinguish absence from null: optional/default handle missing values, with
+  nullable/nullish/prefault and parse_missing for explicit control.
+- Run refinements at every node; retain parsed container children, isolate branch
+  input and recursively merge intersection outputs without mutating callers.
+- Enforce finite numbers and safe integers, decimal numeric bounds/multiples,
+  complete datetime/IPv6/email/URI validation and ordered built-in effects.
+- Add structured constraint/effect metadata, checked source export and structural
+  input/output JSON Schema views. Unsupported custom callbacks fail explicitly.
+- Traverse every schema kind with node identities; cache lazy resolution, check
+  names and emit recursive JSON references and compilable recursive source.
+- Preserve escaped field paths, structured union issues and explicit Schema error
+  precedence. Guard shape edits on refined objects and retain discriminator tags.
+- Provide manual lab checks that compile and run emitted schemas and recursive
+  structs on Wasm GC and JS. Historical allocation/performance claims are withdrawn.
+
+Follow-up review fixes: recursively merged checked intersection outputs, typed
+large numeric source bounds, explicit pipeline input/output default handling,
+structured errors for interior tuple absence, recursive JsonNullable codecs and
+component-specific URI/percent-encoding checks. Independent output-contract and
+generated-type codec tests cover these combinations; README throughput is historical.
+
+### Local Zod 4.6.7 compatibility corrections
+
+- Reconcile only the current intersection's unknown object keys. A key rejected
+  by every branch remains invalid; nested Strict failures remain independent.
+  Transform/pipe effects preserve these issues while continuing, so a later
+  intersection can reconcile them without losing output validation failures.
+- Fractional integer failures stop subsequent refinements, while unsafe integral
+  values remain continuable range failures. Built-in string effects continue
+  after ordinary constraint failures; custom transformations still stop.
+- An absent optional can discard an invalid prefault. Defaults behind preprocess
+  or only in a pipeline's output no longer force an outer optional to run. A
+  pipeline without that outer optional can still fill its output default.
+- Count string lengths as Unicode code points; use Unicode 17.0 full default
+  case conversion, including expansions and final sigma, and ECMAScript trim.
+  Fix datetime precision/offset combinations and case-insensitive ULID validation.
+- Reject unknown pick/omit keys. Report the actual required tuple prefix, retain
+  present-item diagnostics for overlong tuples, and classify exact lengths and
+  substring constraints using structured issue codes.
+- Export safe-integer bounds for int(), escape named JSON references as JSON
+  Pointer URI fragments, and permit missing output after fallible optional defaults.
+
+The comparison oracle uses the local Zod source (4.6.7, `afdac65`) rather than an
+unrelated npm installation. From this repository, run
+`python moon_zod_lab/scripts/check_zod_compat.py --moon-zod-path . --zod-path PATH`
+to compare Wasm GC and JS behavior and verify the explicitly retained differences.
+Run `node moon_zod_lab/scripts/generate_unicode_case.mjs --moon-zod-path . --check`
+with Node 24.15.0 / Unicode 17.0 to check the portable case tables. The script also
+supports a complete runtime casing oracle without committing the large fixture.
+See the lab README for dependencies and isolated prerelease source checks.
+
+The JSON-only callback protocol, Result errors, URI/CUID/email profiles, exact
+decimal multipleOf, enum and JSON-literal conveniences, conservative refined-object
+edits, discriminated-union/async scope and exporter view policy remain intentional
+port adaptations. Checked exports may conservatively reject unsupported projections;
+these corrections do not claim full Zod API or JavaScript-value equivalence.
+
+
+### Core migration
+
+- `optional()` accepts missing values only. Use `nullable()` for explicit null
+  or `nullish()` for both. `parse_missing()` returns `Ok(None)` for absence and
+  `Ok(Some(value))` for a produced value. JSON callbacks skip missing values.
+- `default(value)` supplies an output value for absence without running the
+  inner parser. Use `prefault(value)` to validate and transform a fallback input.
+  Explicit null is validated by the inner schema. Parsed object defaults are
+  retained; tuple holes before later values return a positional error.
+- Numbers must be finite; integer rules enforce the safe integer range. Numeric
+  bounds and multiples retain decimal values. Format checks reject invalid dates,
+  IPv6 and URI components; URI validation does not perform WHATWG normalization.
+- Validation errors add `path_segments`; union errors preserve branch issues.
+  Update direct `Schema`, `Rule`, `TransformClosure`, `ConstraintInfo` and issue
+  construction for the new identity, constraint, effect and error metadata;
+  prefer schema factories and rule methods. Async error variants remain those
+  introduced in v0.9.1/v0.9.2.
+- Apply object shape operations before refinements. Discriminated union branches
+  must be objects with compatible literal tags. Intersection merge conflicts
+  return validation errors instead of silently overwriting parsed values.
+- Use `try_to_json_schema(view=InputView/OutputView)` for stage-aware structural
+  contracts and `try_schema_to_moon_zod_code()` for checked source generation.
+  Unsupported custom callbacks and unrepresentable compositions return `Err`;
+  the legacy source export aborts when it cannot preserve behavior.
+- Generated nullable values use `JsonNullable[T]` (`JsonNull` / `JsonValue(T)`)
+  with inline JSON codecs. Missing object fields add an outer `Option`.
+  MoonBit's standard non-field `Option` JSON encoding is not interchangeable.
 
 ## v0.9.3 — Documentation and compatibility maintenance
 

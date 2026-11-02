@@ -163,10 +163,10 @@ test "schema_to_prompt_named emits named aliases for wrappers and containers" {
 
   @debug.assert_eq(prompt.contains("export type Tags = string[]"), true)
   @debug.assert_eq(
-    prompt.contains("export type MaybeText = string | null"),
+    prompt.contains("export type MaybeText = string | undefined"),
     true,
   )
-  @debug.assert_eq(prompt.contains("export type Count = number | null"), true)
+  @debug.assert_eq(prompt.contains("export type Count = number"), true)
   @debug.assert_eq(prompt.contains("export type Transformed = string"), true)
   @debug.assert_eq(prompt.contains("export type Pair = [string, number]"), true)
   @debug.assert_eq(prompt.contains("export type Anything = any"), true)
@@ -192,7 +192,7 @@ test "schema_to_prompt_named references named optional object wrappers" {
 
   @debug.assert_eq(
     prompt.contains("export type ProductMetadata = {") &&
-    prompt.contains("} | null"),
+    prompt.contains("} | undefined"),
     true,
   )
   @debug.assert_eq(prompt.contains("metadata?: ProductMetadata"), true)
@@ -238,9 +238,15 @@ test "schema_to_prompt_named: intersection type export" {
   let prompt = schema_to_prompt_named(order_id_schema)
 
   @debug.assert_eq(prompt.contains("export interface PositiveId"), true)
-  @debug.assert_eq(prompt.contains("id: number,  // [int, positive]"), true)
+  @debug.assert_eq(
+    prompt.contains("id: number,  // [int, > 0, max: 9007199254740991]"),
+    true,
+  )
   @debug.assert_eq(prompt.contains("export interface BoundedId"), true)
-  @debug.assert_eq(prompt.contains("id: number,  // [int, max: 100]"), true)
+  @debug.assert_eq(
+    prompt.contains("id: number,  // [int, -9007199254740991-100]"),
+    true,
+  )
   @debug.assert_eq(
     prompt.contains("export type OrderId = PositiveId & BoundedId"),
     true,
