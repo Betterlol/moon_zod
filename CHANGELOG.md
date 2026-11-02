@@ -4,6 +4,14 @@
 
 **To see the full details, please refer to docs in branch `doc`.**
 
+## v0.9.3 — Documentation and compatibility maintenance
+
+- Remove unsupported zero-allocation claims and label historical throughput
+  numbers as measurements that must be reproduced for the version under test.
+- Keep the independent moon_zod_lab submodule, benchmark setup and existing CI.
+- Preserve the v0.9.2 parsing, validation, error and export contracts. Core
+  semantics and export migrations are reserved for v0.10.0.
+
 ## v0.9.2 (2026-10-18)
 
 ### Async validation

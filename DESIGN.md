@@ -93,7 +93,7 @@ Schema::parse(json)                   ← 公共入口，创建 path_stack
        └─ 基本类型检查                ← format_path 后报错
 ```
 
-路径栈 (`Array[String]`) 在所有 parse helper 间共享，进入子结构 `push` / 返回 `let _ = pop()`。仅在产生 `ValidationError` 时调用 `format_path(stack)` 拼接字符串。**成功路径零堆分配**。
+路径栈 (`Array[String]`) 在所有 parse helper 间共享，进入子结构 `push` / 返回 `let _ = pop()`。仅在产生 `ValidationError` 时调用 `format_path(stack)` 拼接字符串；这不代表整个解析过程零分配。
 
 ### 2. append_rule — 装饰器穿透
 

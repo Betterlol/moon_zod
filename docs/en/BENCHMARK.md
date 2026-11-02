@@ -1,6 +1,6 @@
 ## ⚡ Performance
 
-moon_zod's **Mutable Path Stack** (Phase 5) defers path string construction until an error actually occurs. On the validation success path — the common case for well-behaved LLM output — **zero heap allocations** happen for path tracking.
+Path strings are rendered when errors occur. This does not establish a zero-allocation validation path; use the lab to measure the actual version, schema and backend.
 
 This is especially important for **Wasm edge runtimes** where GC pauses and memory pressure directly impact request latency.
 
