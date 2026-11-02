@@ -3,7 +3,7 @@
 Run from the repository root:
 
 ```sh
-moon run moon_zod/examples/async_bench --target native --release
+moon run async/benchmarks --target native --release
 ```
 
 The benchmark measures the complete in-memory read, UTF-8 decode, JSON parse,

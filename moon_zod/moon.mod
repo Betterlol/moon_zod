@@ -27,5 +27,4 @@ import {
   "Betterlol/moon_zod/core@0.10.0",
   "Betterlol/moon_zod/exporters@0.10.0",
   "Betterlol/moon_zod/importers@0.10.0",
-  "moonbitlang/async@0.22.7",
 }

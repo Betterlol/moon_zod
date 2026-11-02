@@ -156,7 +156,7 @@ moon run moon_zod/examples/json2schema                        # JSON → moon_zo
 - **自定义错误消息**：所有校验器上的 `msg?` 参数、`.message(text)` 覆盖方法、类型级别的 `required_error` / `invalid_type_error`
 - **错误收集**：在一次遍历中收集**所有**校验错误，非常适合 LLM 自我纠正循环
 - **完整路径错误报告**：每个错误都包含确切的字段路径（`users[0].profile.age`）
-- **可选异步扩展**：`Betterlol/moon_zod/async` 提供单问题/多问题异步 refine、JSON Lines 和单帧/跨帧 SSE JSON 校验，同时保持核心 API 同步。详见[异步指南](../../moon_zod/async/README.mbt.md)
+- **可选异步扩展**：`Betterlol/moon_zod/async` 提供单问题/多问题异步 refine、JSON Lines 和单帧/跨帧 SSE JSON 校验，同时保持核心 API 同步。详见[异步指南](../../async/README.mbt.md)
 - **LLM 提示生成**：
   - `schema_to_prompt(schema)` —— 内联 TypeScript 接口，带约束注释
   - `schema_to_prompt_named(schema, include_names?)` —— 模块化接口，带拓扑排序和类型名称引用

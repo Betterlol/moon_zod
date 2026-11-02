@@ -40,16 +40,17 @@ jobs:
       - name: Package Workspace Modules
         run: |
           moon -C core package --list
+          moon -C async package --list
           moon -C exporters package --list
           moon -C importers package --list
           moon -C moon_zod package --list
           python .github/scripts/check_workspace_archives.py
 
       - name: Check Native Async Package
-        run: moon check moon_zod/async --target native --deny-warn
+        run: moon check async --target native --deny-warn
 
       - name: Run Native Async Tests
-        run: moon test moon_zod/async --target native --enable-coverage
+        run: moon test async --target native --enable-coverage
 
       - name: Code Line Count (Unix)
         if: runner.os != 'Windows'
@@ -57,7 +58,7 @@ jobs:
         run: |
           echo "=== Source Code Lines ==="
           core=$(find core moon_zod/combinators -name "*.mbt" ! -name "*_wbtest*" | xargs wc -l | tail -1)
-          async_lines=$(find moon_zod/async -name "*.mbt" ! -name "*_test.mbt" | xargs wc -l | tail -1)
+          async_lines=$(find async -name "*.mbt" ! -name "*_test.mbt" | xargs wc -l | tail -1)
           exporters=$(find exporters -name "*.mbt" | xargs wc -l | tail -1)
           importers=$(find importers -name "*.mbt" | xargs wc -l | tail -1)
           cli=$(find moon_zod/cmd moon_zod/examples -name "*.mbt" | xargs wc -l | tail -1)
@@ -95,7 +96,7 @@ jobs:
 
           Write-Output "=== Source Code Lines ==="
           $core = Count-Lines @("core", "moon_zod/combinators") "*_wbtest*"
-          $async_lines = Count-Lines @("moon_zod/async") "*_test.mbt"
+          $async_lines = Count-Lines @("async") "*_test.mbt"
           $exporters = Count-Lines @("exporters")
           $importers = Count-Lines @("importers")
           $cli = Count-Lines @("moon_zod/cmd", "moon_zod/examples")

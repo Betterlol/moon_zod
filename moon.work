@@ -1,6 +1,7 @@
 members = [
   "./moon_zod",
   "./core",
+  "./async",
   "./exporters",
   "./importers",
 ]

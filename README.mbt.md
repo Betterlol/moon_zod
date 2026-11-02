@@ -127,7 +127,7 @@ In LLM Tool Calling, the model often produces **multiple errors at once** and **
 
 ```
 moon_zod/
-├── moon.work                  # Workspace: four independently publishable modules
+├── moon.work                  # Workspace: five independently publishable modules
 ├── core/                      # Betterlol/moon_zod/core — Schema IR and validation
 │   ├── moon.mod
 │   └── ...
@@ -137,11 +137,13 @@ moon_zod/
 ├── exporters/                 # Betterlol/moon_zod/exporters — code/schema export
 │   ├── moon.mod
 │   └── ...
+├── async/                     # Betterlol/moon_zod/async — independent async adapters
+│   ├── moon.mod
+│   └── benchmarks/
 ├── moon_zod/                  # Betterlol/moon_zod — unified facade
 │   ├── moon.mod
 │   ├── reexporter.mbt         # Single public API aggregation point
 │   ├── combinators/          # Import/export composition
-│   ├── async/                # Optional asynchronous adapters
 │   ├── cmd/                  # CLI tools and benchmarks
 │   ├── examples/             # Usage examples and shared schemas
 │   └── tests/                # Direct imports; no duplicate re-exports
@@ -153,9 +155,9 @@ moon_zod/
 
 ## Development
 
-This repository uses `moon.work` to develop four modules together: the main
+This repository uses `moon.work` to develop five modules together: the main
 `Betterlol/moon_zod` facade and the independently publishable `/core`,
-`/exporters`, and `/importers` modules. Existing package import paths are
+`/exporters`, `/importers`, and `/async` modules. Existing package import paths are
 unchanged. See the [workspace guide](docs/WORKSPACE.md) for module dependencies,
 direct imports, and release checks.
 
@@ -203,7 +205,7 @@ moon run moon_zod/examples/json2schema                        # JSON → moon_zo
 - **Custom error messages**: `msg?` parameter on all validators, `.message(text)` override method, type-level `required_error` / `invalid_type_error`
 - **Error collection**: Collects **all** validation errors in one pass, perfect for LLM self-correction loops
 - **Full-path error reporting**: Every error includes exact field path (`users[0].profile.age`)
-- **Optional async extensions**: `Betterlol/moon_zod/async` adds single/multi-issue async refinements, JSON Lines, and single/multi-frame SSE JSON validation while keeping the core API synchronous. See the [async guide](moon_zod/async/README.mbt.md)
+- **Optional async extensions**: `Betterlol/moon_zod/async` adds single/multi-issue async refinements, JSON Lines, and single/multi-frame SSE JSON validation while keeping the core API synchronous. See the [async guide](async/README.mbt.md)
 - **LLM prompt generation**:
   - `schema_to_prompt(schema)` — inline TypeScript-interface with constraint comments
   - `schema_to_prompt_named(schema, include_names?)` — modular interfaces with topological sorting and type name references

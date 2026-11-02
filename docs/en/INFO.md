@@ -156,7 +156,7 @@ moon run moon_zod/examples/json2schema                        # JSON → moon_zo
 - **Custom error messages**: `msg?` parameter on all validators, `.message(text)` override method, type-level `required_error` / `invalid_type_error`
 - **Error collection**: Collects **all** validation errors in one pass, perfect for LLM self-correction loops
 - **Full-path error reporting**: Every error includes exact field path (`users[0].profile.age`)
-- **Optional async extensions**: `Betterlol/moon_zod/async` adds single/multi-issue async refinements, JSON Lines, and single/multi-frame SSE JSON validation while keeping the core API synchronous. See the [async guide](../../moon_zod/async/README.mbt.md)
+- **Optional async extensions**: `Betterlol/moon_zod/async` adds single/multi-issue async refinements, JSON Lines, and single/multi-frame SSE JSON validation while keeping the core API synchronous. See the [async guide](../../async/README.mbt.md)
 - **LLM prompt generation**:
   - `schema_to_prompt(schema)` — inline TypeScript-interface with constraint comments
   - `schema_to_prompt_named(schema, include_names?)` — modular interfaces with topological sorting and type name references

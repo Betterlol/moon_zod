@@ -125,7 +125,7 @@ moon run moon_zod/cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"E
 
 ```
 moon_zod/
-├── moon.work                  # Workspace: four independently publishable modules
+├── moon.work                  # Workspace: five independently publishable modules
 ├── core/                      # Betterlol/moon_zod/core — Schema IR and validation
 │   ├── moon.mod
 │   └── ...
@@ -135,11 +135,13 @@ moon_zod/
 ├── exporters/                 # Betterlol/moon_zod/exporters — code/schema export
 │   ├── moon.mod
 │   └── ...
+├── async/                     # Betterlol/moon_zod/async — independent async adapters
+│   ├── moon.mod
+│   └── benchmarks/
 ├── moon_zod/                  # Betterlol/moon_zod — unified facade
 │   ├── moon.mod
 │   ├── reexporter.mbt         # Single public API aggregation point
 │   ├── combinators/          # Import/export composition
-│   ├── async/                # Optional asynchronous adapters
 │   ├── cmd/                  # CLI tools and benchmarks
 │   ├── examples/             # Usage examples and shared schemas
 │   └── tests/                # Direct imports; no duplicate re-exports
@@ -151,8 +153,8 @@ moon_zod/
 
 ## 开发
 
-本仓库通过 `moon.work` 联合开发四个模块：主模块 `Betterlol/moon_zod`
-以及可独立发布的 `/core`、`/exporters`、`/importers`。现有包导入路径保持不变。
+本仓库通过 `moon.work` 联合开发五个模块：主模块 `Betterlol/moon_zod`
+以及可独立发布的 `/core`、`/exporters`、`/importers`、`/async`。现有包导入路径保持不变。
 模块依赖、直接引用方式和发布检查见[工作区指南](docs/WORKSPACE.md)。
 
 ```bash
@@ -199,7 +201,7 @@ moon run moon_zod/examples/json2schema                        # JSON → moon_zo
 - **自定义错误消息**：所有校验器上的 `msg?` 参数、`.message(text)` 覆盖方法、类型级别的 `required_error` / `invalid_type_error`
 - **错误收集**：在一次遍历中收集**所有**校验错误，非常适合 LLM 自我纠正循环
 - **完整路径错误报告**：每个错误都包含确切的字段路径（`users[0].profile.age`）
-- **可选异步扩展**：`Betterlol/moon_zod/async` 提供单问题/多问题异步 refine、JSON Lines 和单帧/跨帧 SSE JSON 校验，同时保持核心 API 同步。详见[异步指南](moon_zod/async/README.mbt.md)
+- **可选异步扩展**：`Betterlol/moon_zod/async` 提供单问题/多问题异步 refine、JSON Lines 和单帧/跨帧 SSE JSON 校验，同时保持核心 API 同步。详见[异步指南](async/README.mbt.md)
 - **LLM 提示生成**：
   - `schema_to_prompt(schema)` —— 内联 TypeScript 接口，带约束注释
   - `schema_to_prompt_named(schema, include_names?)` —— 模块化接口，带拓扑排序和类型名称引用

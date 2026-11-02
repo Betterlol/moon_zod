@@ -13,6 +13,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 def package_name(filename):
     parts = filename.split("/")
+    if parts[:2] == ["async", "benchmarks"]:
+        return None
     if parts[0] == "moon_zod" and len(parts) > 1:
         return parts[1]
     return parts[0]

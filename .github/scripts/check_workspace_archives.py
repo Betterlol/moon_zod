@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
-    for directory in ("core", "exporters", "importers", "moon_zod"):
+    for directory in ("core", "async", "exporters", "importers", "moon_zod"):
         manifest = (ROOT / directory / "moon.mod").read_text(encoding="utf-8")
         fields = dict(re.findall(r'^(name|version|readme) = "([^"]+)"', manifest, re.M))
         filename = fields["name"].replace("/", "-") + "-" + fields["version"] + ".zip"

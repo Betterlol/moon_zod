@@ -27,8 +27,9 @@ let json_schema = @moon_zod.to_json_schema(schema)
 ```
 
 For only synchronous validation, depend on `Betterlol/moon_zod/core` directly.
-The optional `Betterlol/moon_zod/async` package adds asynchronous refinements,
-JSON Lines validation, and SSE adapters.
+The independently published `Betterlol/moon_zod/async` module adds asynchronous refinements,
+JSON Lines validation, and SSE adapters. Add it separately when needed; the
+facade does not depend on the async runtime.
 
 See the [project README](https://github.com/Betterlol/moon_zod) and
 [workspace guide](https://github.com/Betterlol/moon_zod/blob/main/docs/WORKSPACE.md)

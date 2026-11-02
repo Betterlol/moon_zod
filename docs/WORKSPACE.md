@@ -1,20 +1,23 @@
 # Workspace development and publishing
 
-The repository uses `moon.work` to develop four independently publishable
+The repository uses `moon.work` to develop five independently publishable
 modules together. Module and package names intentionally preserve the existing
 import paths; no compatibility packages or chains of re-exports are needed.
 
 | Directory | Module | Module dependencies |
 | --- | --- | --- |
 | `core/` | `Betterlol/moon_zod/core` | `moonbitlang/regexp` |
+| `async/` | `Betterlol/moon_zod/async` | core, `moonbitlang/async` |
 | `exporters/` | `Betterlol/moon_zod/exporters` | core |
 | `importers/` | `Betterlol/moon_zod/importers` | core |
-| `moon_zod/` | `Betterlol/moon_zod` | core, exporters, importers, `moonbitlang/async` |
+| `moon_zod/` | `Betterlol/moon_zod` | core, exporters, importers |
 
-The main module owns the public facade, `moon_zod/combinators/`, the optional
-`moon_zod/async/` package, CLI tools, examples, and integration tests. Core has no dependency on
-the facade, IO, importers, or exporters. Combinators remain a small composition
-layer in the main module.
+The main module owns the public facade, `moon_zod/combinators/`, CLI tools,
+examples, and integration tests. It does not depend on async or its runtime.
+The async module depends only on core and `moonbitlang/async`, and owns its
+benchmark at `async/benchmarks/`. Core has no dependency on the facade, IO,
+importers, or exporters. Combinators remain a small composition layer in the
+main module.
 
 ## Dependencies and imports
 
@@ -40,6 +43,10 @@ and use `@moon_zod`. After publishing this split, consumers importing the old
 subpackages directly must also declare their owning modules in `moon.mod`.
 Package import paths and the `Schema` type identity are unchanged.
 
+Async consumers declare `Betterlol/moon_zod/async` as a separate module
+dependency. They can import it alongside core without installing the facade,
+importers, or exporters. See the [async guide](../async/README.mbt.md).
+
 Inside this workspace, dependencies on member modules resolve to local source.
 Outside it, dependencies resolve to published Mooncakes versions. The versions
 shown here describe the workspace manifests; new modules must be published
@@ -52,8 +59,8 @@ Run these commands from the repository root:
 ```sh
 moon check --deny-warn
 moon test
-moon check moon_zod/async --target native --deny-warn
-moon test moon_zod/async --target native
+moon check async --target native --deny-warn
+moon test async --target native
 moon info
 moon fmt
 ```
@@ -84,6 +91,7 @@ Preview archives before publishing:
 
 ```sh
 moon -C core package --list
+moon -C async package --list
 moon -C exporters package --list
 moon -C importers package --list
 moon -C moon_zod package --list
@@ -95,7 +103,7 @@ README, and license. Sibling modules and the repository's `moon.work` are
 outside its archive root. The main archive depends on the other modules rather
 than shipping duplicate implementations.
 
-Publish changed modules in dependency order: core, then importers/exporters,
+Publish changed modules in dependency order: core, then async/importers/exporters,
 then the main module. Run `moon publish` from each module directory. Publishing
 is a separate release action; workspace migration does not publish anything.
 
