@@ -127,15 +127,9 @@ test "json_infer_schema validates inferred object shape" {
 }
 
 ///|
-test "json_infer_schema handles empty arrays as string arrays" {
-  let schema = json_infer_schema(parse_json("[]"))
-
-  guard schema.parse(parse_json("[\"x\"]")) is Ok(_) else {
-    fail("expected inferred empty array to accept strings")
-  }
-  guard schema.parse(parse_json("[1]")) is Err(_) else {
-    fail("expected inferred empty array to reject numbers")
-  }
+test "json_infer_schema leaves empty array elements unconstrained" {
+  let schema = json_infer_schema(Json::array([]))
+  assert_true(schema.parse(parse_json("[1,\"x\"]")) is Ok(_))
 }
 
 ///|

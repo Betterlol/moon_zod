@@ -211,8 +211,8 @@ test "uuid rejects invalid format" {
     "550e8400-e29b-41d4-a716-44665544000",
     // missing dash
      "550e8400e29b-41d4-a716-446655440000",
-    // wrong version (not 4)
-     "550e8400-e29b-51d4-a716-446655440000",
+    // invalid version (outside 1-8)
+     "550e8400-e29b-91d4-a716-446655440000",
     // wrong variant
      "550e8400-e29b-41d4-c716-446655440000",
     // non-hex character
@@ -309,10 +309,10 @@ test "cuid custom message" {
 
 ///|
 /// datetime() — ISO 8601 datetime validation
-test "datetime passes date only" {
+test "datetime rejects date without time" {
   let s = string().datetime()
-  guard s.parse(Json::string("2024-01-15")) is Ok(_) else {
-    fail("expected Ok")
+  guard s.parse(Json::string("2024-01-15")) is Err(_) else {
+    fail("expected Err")
   }
 }
 
@@ -327,7 +327,7 @@ test "datetime passes with time and Z" {
 ///|
 test "datetime passes leap year february" {
   let s = string().datetime()
-  guard s.parse(Json::string("2024-02-29")) is Ok(_) else {
+  guard s.parse(Json::string("2024-02-29T00:00:00Z")) is Ok(_) else {
     fail("expected Ok")
   }
 }
@@ -566,26 +566,26 @@ test "ipv6 passes with many groups and compression" {
 
 ///|
 /// Email enhanced: quoted local part
-test "email passes quoted local" {
+test "email default rejects quoted local" {
   let s = string().email()
-  guard s.parse(Json::string("\"abc@def\"@example.com")) is Ok(_) else {
-    fail("expected Ok for quoted local")
+  guard s.parse(Json::string("\"abc@def\"@example.com")) is Err(_) else {
+    fail("expected Err for quoted local")
   }
 }
 
 ///|
-test "email passes ip literal ipv4" {
+test "email default rejects ip literal ipv4" {
   let s = string().email()
-  guard s.parse(Json::string("user@[192.168.1.1]")) is Ok(_) else {
-    fail("expected Ok for IP literal")
+  guard s.parse(Json::string("user@[192.168.1.1]")) is Err(_) else {
+    fail("expected Err for IP literal")
   }
 }
 
 ///|
-test "email passes ip literal ipv6" {
+test "email default rejects ip literal ipv6" {
   let s = string().email()
-  guard s.parse(Json::string("user@[IPv6:2001:db8::1]")) is Ok(_) else {
-    fail("expected Ok for IPv6 literal")
+  guard s.parse(Json::string("user@[IPv6:2001:db8::1]")) is Err(_) else {
+    fail("expected Err for IPv6 literal")
   }
 }
 

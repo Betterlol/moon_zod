@@ -201,11 +201,8 @@ test "pick selects specific fields" {
 }
 
 ///|
-test "pick ignores keys not in original spec" {
-  let p = object({ "x": string() }).pick(["x", "y"])
-  guard p.parse(Json::object({ "x": Json::string("ok") })) is Ok(_) else {
-    fail("expected Ok")
-  }
+test "panic pick rejects keys not in original spec" {
+  let _ = object({ "x": string() }).pick(["x", "y"])
 }
 
 ///|
@@ -280,12 +277,11 @@ test "partial makes all fields optional" {
 }
 
 ///|
-test "partial allows null on all fields" {
+test "partial rejects explicit null on nonnullable fields" {
   let p = object({ "a": string(), "b": number() }).partial()
-  match p.parse(Json::object({ "a": Json::null(), "b": Json::null() })) {
-    Ok(_) => ()
-    Err(_) => fail("expected Ok")
-  }
+  assert_true(
+    p.parse(Json::object({ "a": Json::null(), "b": Json::null() })) is Err(_),
+  )
 }
 
 ///|

@@ -1,9 +1,10 @@
 ///|
-/// Make a field optional: null or missing values pass validation.
+/// Make a field optional: absent keys pass; explicit null is validated normally.
 /// Rules chained after `.optional()` are pushed through to the inner schema
 /// via `append_rule`, so `string().optional().min(3)` works correctly.
 pub fn Schema::optional(self : Schema) -> Schema {
   {
+    id: new_schema_id(),
     schema_type: OptionalType(self),
     rules: [],
     description: self.description,
@@ -16,13 +17,14 @@ pub fn Schema::optional(self : Schema) -> Schema {
 
 ///|
 pub fn Schema::parse_optional(
-  _self : Schema,
+  self : Schema,
   inner : Schema,
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  match json {
-    Null => Ok(json)
-    _ => parse_inner(inner, json, path_stack)
-  }
+  parse_inner(
+    { ..self, id: new_schema_id(), schema_type: OptionalType(inner), },
+    json,
+    path_stack,
+  )
 }
