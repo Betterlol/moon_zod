@@ -4,10 +4,10 @@
 
 **To see the full details, please refer to docs in branch `doc`.**
 
-## Unreleased — Core correctness and Zod 4 migration
+## v0.10.0 — Core correctness and Zod 4 migration
 
-These changes are unreleased and build on v0.9.2. The published module version
-remains unchanged; see the migration notes below before upgrading.
+Version 0.10.0 builds on v0.9.2 and includes breaking core API and behavior
+changes. See the migration notes below before upgrading.
 
 - Distinguish absence from null: optional/default handle missing values, with
   nullable/nullish/prefault and parse_missing for explicit control.
