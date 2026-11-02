@@ -1,0 +1,3 @@
+[submodule "moon_zod_lab"]
+	path = moon_zod_lab
+	url = https://github.com/Betterlol/moon_zod_lab.git
