@@ -7,21 +7,63 @@
 
 ///|
 fn merge_annotations(base : Json, rules : Array[@core.Rule]) -> Json {
-  match base {
-    Object(map) => {
-      for rule in rules {
-        match rule.annotation {
-          Object(ann_map) =>
-            for k, v in ann_map {
-              map.set(k, v)
+  guard base is Object(fields) else { return base }
+  for rule in rules {
+    if rule.annotation is Object(annotation) {
+      for key, value in annotation {
+        match (fields.get(key), value) {
+          (Some(Number(previous, ..)), Number(next, ..)) =>
+            if key == "minLength" ||
+              key == "minItems" ||
+              key == "minimum" ||
+              key == "exclusiveMinimum" {
+              fields.set(
+                key,
+                Json::number(if previous > next { previous } else { next }),
+              )
+            } else if key == "maxLength" ||
+              key == "maxItems" ||
+              key == "maximum" ||
+              key == "exclusiveMaximum" {
+              fields.set(
+                key,
+                Json::number(if previous < next { previous } else { next }),
+              )
+            } else if previous != next {
+              append_annotation_intersection(fields, key, value)
             }
-          _ => ()
+          (Some(previous), _) =>
+            if previous != value {
+              if key == "type" &&
+                value == Json::string("integer") &&
+                previous == Json::string("number") {
+                fields.set(key, value)
+              } else {
+                append_annotation_intersection(fields, key, value)
+              }
+            }
+          (None, _) => fields.set(key, value)
         }
       }
-      base
     }
-    _ => base
   }
+  base
+}
+
+///|
+fn append_annotation_intersection(
+  fields : Map[String, Json],
+  key : String,
+  value : Json,
+) -> Unit {
+  let additions = match fields.get("allOf") {
+    Some(Array(items)) => items
+    _ => []
+  }
+  let annotation : Map[String, Json] = Map([])
+  annotation.set(key, value)
+  additions.push(Json::object(annotation))
+  fields.set("allOf", Json::array(additions))
 }
 
 ///|
@@ -53,16 +95,6 @@ fn maybe_merge_annotations(
   } else {
     base
   }
-}
-
-///|
-fn nullable_schema(inner_json : Json) -> Json {
-  Json::object({
-    "anyOf": Json::array([
-      inner_json,
-      Json::object({ "type": Json::string("null") }),
-    ]),
-  })
 }
 
 ///|
@@ -188,12 +220,16 @@ fn[R : JsonSchemaRenderer] render_json_tuple_type(
   renderer : R,
   items : Array[@core.Schema],
 ) -> Json {
+  let mut minimum = items.length()
+  while minimum > 0 && @core.is_optional_schema(items[minimum - 1]) {
+    minimum = minimum - 1
+  }
   Json::object({
     "type": Json::string("array"),
     "prefixItems": Json::array(
       items.map(fn(item) { render_json_type(renderer, item) }),
     ),
-    "minItems": Json::number(items.length().to_double()),
+    "minItems": Json::number(minimum.to_double()),
     "maxItems": Json::number(items.length().to_double()),
   })
 }
@@ -352,6 +388,7 @@ pub extend NamedJsonRenderer with JsonSchemaRenderer::{
   render_unknown,
   render_tuple,
   render_preprocess,
+  render_lazy,
 }
 
 ///|
@@ -447,7 +484,11 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_optional(
   inner : @core.Schema,
   schema : @core.Schema,
 ) -> Json {
-  nullable_schema(render_json_type_ref(self, inner, self.named_names))
+  render_json_type_ref(
+    self,
+    without_inherited_name(schema, inner),
+    self.named_names,
+  )
 }
 
 ///|
@@ -459,7 +500,11 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_default(
   schema : @core.Schema,
 ) -> Json {
   add_default(
-    nullable_schema(render_json_type_ref(self, inner, self.named_names)),
+    render_json_type_ref(
+      self,
+      without_inherited_name(schema, inner),
+      self.named_names,
+    ),
     default_val,
   )
 }
@@ -469,10 +514,19 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_default(
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_transform(
   self : NamedJsonRenderer,
   inner : @core.Schema,
-  _closure : @core.TransformClosure,
+  closure : @core.TransformClosure,
   schema : @core.Schema,
 ) -> Json {
-  render_json_type_ref(self, inner, self.named_names)
+  let base = render_json_type_ref(
+    self,
+    without_inherited_name(schema, inner),
+    self.named_names,
+  )
+  if closure.kind is CustomTransform {
+    base
+  } else {
+    maybe_merge_annotations(base, schema.rules, self.include_annotations)
+  }
 }
 
 ///|
@@ -569,9 +623,13 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_tuple(
 pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_preprocess(
   self : NamedJsonRenderer,
   inner : @core.Schema,
-  _schema : @core.Schema,
+  schema : @core.Schema,
 ) -> Json {
-  render_json_type(self, inner)
+  render_json_type_ref(
+    self,
+    without_inherited_name(schema, inner),
+    self.named_names,
+  )
 }
 
 // ── Public API ──
@@ -580,6 +638,10 @@ pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_preprocess(
 /// Convert a moon_zod @core.Schema into a standard JSON @core.Schema @core.object with full
 /// constraint annotations (minLength, maximum, pattern, format, etc.).
 pub fn to_json_schema(schema : @core.Schema) -> Json {
+  let _ = @core.collect_named_schemas(schema)
+  if contains_lazy(schema, Map([])) {
+    return to_json_schema_named(schema)
+  }
   render_json_type(NamedJsonRenderer(named_names=[]), schema)
 }
 
@@ -587,6 +649,10 @@ pub fn to_json_schema(schema : @core.Schema) -> Json {
 /// Convert a moon_zod @core.Schema into a lightweight JSON @core.Schema skeleton.
 /// Only structural type information is exported.
 pub fn to_json_schema_skeleton(schema : @core.Schema) -> Json {
+  let _ = @core.collect_named_schemas(schema)
+  if contains_lazy(schema, Map([])) {
+    return to_json_schema_named_impl(schema, None, false)
+  }
   render_json_type(
     NamedJsonRenderer(named_names=[], include_annotations=false),
     schema,
@@ -600,6 +666,15 @@ pub fn to_json_schema_named(
   schema : @core.Schema,
   include_names~ : Array[String]? = None,
 ) -> Json {
+  to_json_schema_named_impl(schema, include_names, true)
+}
+
+///|
+fn to_json_schema_named_impl(
+  schema : @core.Schema,
+  include_names : Array[String]?,
+  include_annotations : Bool,
+) -> Json {
   let mut schema = schema
   if schema.name.is_empty() {
     schema = schema.name("Root")
@@ -611,12 +686,15 @@ pub fn to_json_schema_named(
 
   let defs_map : Map[String, Json] = Map([])
   for ns in sorted_schemas {
-    let ref_names = named_names.filter(fn(n) { n != ns.name })
-    let renderer = NamedJsonRenderer(named_names=ref_names)
+    let ref_names = named_names
+    let renderer = NamedJsonRenderer(
+      named_names=ref_names,
+      include_annotations~,
+    )
     defs_map.set(ns.name, render_json_type(renderer, ns))
   }
 
-  let renderer = NamedJsonRenderer(named_names~)
+  let renderer = NamedJsonRenderer(named_names~, include_annotations~)
   let root = render_json_type_ref(renderer, schema, named_names)
 
   let result_map : Map[String, Json] = Map([])
@@ -629,4 +707,41 @@ pub fn to_json_schema_named(
   }
   result_map.set("$defs", Json::object(defs_map))
   Json::object(result_map)
+}
+
+///|
+pub impl JsonSchemaRenderer for NamedJsonRenderer with fn render_lazy(
+  self,
+  resolved,
+  schema,
+) {
+  render_json_type_ref(
+    self,
+    without_inherited_name(schema, resolved),
+    self.named_names,
+  )
+}
+
+///|
+fn without_inherited_name(
+  wrapper : @core.Schema,
+  inner : @core.Schema,
+) -> @core.Schema {
+  if !wrapper.name.is_empty() && wrapper.name == inner.name {
+    { ..inner, name: "", }
+  } else {
+    inner
+  }
+}
+
+///|
+fn contains_lazy(schema : @core.Schema, visited : Map[Int32, Bool]) -> Bool {
+  if schema.schema_type is LazyType(_) {
+    return true
+  }
+  if visited.contains(schema.id) {
+    return false
+  }
+  visited.set(schema.id, true)
+  @core.schema_children(schema).any(fn(child) { contains_lazy(child, visited) })
 }

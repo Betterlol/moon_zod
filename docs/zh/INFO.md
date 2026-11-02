@@ -171,5 +171,5 @@ moon run examples/json2schema                        # JSON → moon_zod Schema 
   - `schema_to_moonbit_struct(schema)` —— 为每个对象/枚举 schema 生成 MoonBit struct/enum 定义
   - `schema_to_moonbit_struct_full(schema)` —— 生成定义并附加静态 `Type::to_schema()` 函数
 - **轻量依赖**：核心 MoonBit 库加官方 `moonbitlang/regexp`，无其他外部依赖
-- **WebAssembly 就绪**：共享路径栈，错误路径按需渲染
+- **WebAssembly 就绪**：共享路径栈；容器重建以保留转换后的结果
 - **历史性能**：每秒约 18.5k–56k 次校验；应针对实际测试版本重新测量
