@@ -239,8 +239,10 @@ fn render_enum_to_schema_fn(
 ///|
 fn field_to_moonbit_type(schema : @core.Schema, type_hint : String) -> String {
   match schema.schema_type {
-    OptionalType(inner) | DefaultType(inner, _) =>
-      field_to_moonbit_type(inner, type_hint)
+    OptionalType(inner)
+    | DefaultType(inner, _)
+    | PrefaultType(inner, _)
+    | NullableType(inner) => field_to_moonbit_type(inner, type_hint)
     TransformType(inner, _) => field_to_moonbit_type(inner, type_hint)
     PreprocessType(_, inner) => field_to_moonbit_type(inner, type_hint)
     StringType => "String"

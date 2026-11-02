@@ -87,3 +87,25 @@ pub using @importers {json_schema_to_schema}
 
 ///|
 pub using @combinators {json_schema_to_moon_zod, json_schema_to_prompt}
+
+///|
+/// Structured core metadata and numeric bound support.
+pub using @core {
+  trait NumericBound,
+  type Constraint,
+  type TransformKind,
+  effective_rules,
+}
+
+///|
+/// Checked schema graph and stage-specific export helpers.
+pub using @core {
+  schema_children,
+  try_collect_named_schemas,
+  try_schema_nodes,
+  output_is_optional,
+}
+
+///|
+/// Structured validation paths and their canonical string representation.
+pub using @core {type PathSegment, parse_path, format_path_segments}

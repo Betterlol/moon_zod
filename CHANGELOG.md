@@ -4,6 +4,27 @@
 
 **To see the full details, please refer to docs in branch `doc`.**
 
+## v0.10.0 — Core semantics migration (release preparation)
+
+This breaking upgrade is split into a Core PR and a dependent export PR. Publish
+v0.10.0 after both are merged; export contracts are completed in the latter.
+
+- Distinguish missing values from explicit null. Use optional() for absence,
+  nullable() for null, nullish() for both, and parse_missing() for root absence.
+- Fill missing object defaults. default() supplies an output without parsing the
+  fallback; prefault() validates and transforms a fallback input.
+- Preserve parsed container children, execute node refinements, isolate union
+  and intersection branches, and recursively merge intersection outputs.
+- Reject nonfinite numbers; fix safe-integer ranges, decimal rules and formats.
+  Use Unicode code point lengths, full case conversion and ECMAScript trim.
+- Add Schema identity, structured Rule/Transform metadata, path_segments and
+  nested union issues. Direct struct literals and exhaustive matches must adapt.
+- Apply shape edits before refine(). Unknown pick/omit keys and invalid
+  discriminator definitions abort at construction. Lazy resolution is cached.
+- The existing export APIs have only the adaptations needed to build against
+  Core; checked projections, export annotations, ConstraintInfo and generated-type migrations are
+  delivered by the dependent export PR.
+
 ## v0.9.3 — Documentation and compatibility maintenance
 
 - Remove unsupported zero-allocation claims and label historical throughput

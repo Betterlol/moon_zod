@@ -9,7 +9,8 @@
 /// innermost schema that carries the actual rules.
 pub fn unwrap_schema(schema : Schema) -> Schema {
   match schema.schema_type {
-    OptionalType(inner) => unwrap_schema(inner)
+    OptionalType(inner) | NullableType(inner) | PrefaultType(inner, _) =>
+      unwrap_schema(inner)
     DefaultType(inner, _) => unwrap_schema(inner)
     PreprocessType(_, inner) => unwrap_schema(inner)
     TransformType(inner, _) => unwrap_schema(inner)
@@ -22,7 +23,7 @@ pub fn unwrap_schema(schema : Schema) -> Schema {
 /// Peel OptionalType / DefaultType wrappers to check optionality.
 pub fn peel_optional(schema : Schema) -> Schema {
   match schema.schema_type {
-    OptionalType(s) | DefaultType(s, _) => s
+    OptionalType(s) | DefaultType(s, _) | PrefaultType(s, _) => s
     _ => schema
   }
 }
@@ -62,58 +63,24 @@ pub fn join_parts(parts : Array[String]) -> String {
 ///|
 /// Collect all named schemas from the input schema tree.
 pub fn collect_named_schemas(schema : Schema) -> Array[Schema] {
-  let visited : Array[String] = []
-  let result : Array[Schema] = []
-  collect_named_schemas_impl(schema, visited, result)
-  result
+  match try_collect_named_schemas(schema) {
+    Ok(result) => result
+    Err(message) => abort(message)
+  }
 }
 
 ///|
+/// Compatibility helper; traversal is centralized in the checked collector.
 pub fn collect_named_schemas_impl(
   schema : Schema,
   visited : Array[String],
   result : Array[Schema],
 ) -> Unit {
-  if !schema.name.is_empty() {
-    let already_visited = value_in_array(schema.name, visited)
-    if !already_visited {
-      visited.push(schema.name)
-      result.push(schema)
-    } else {
-      return
+  for node in collect_named_schemas(schema) {
+    if !visited.contains(node.name) {
+      visited.push(node.name)
+      result.push(node)
     }
-  }
-
-  match schema.schema_type {
-    ObjectType(fields, _) =>
-      for _key, field_schema in fields {
-        collect_named_schemas_impl(field_schema, visited, result)
-      }
-    ArrayType(elem) => collect_named_schemas_impl(elem, visited, result)
-    OptionalType(inner) => collect_named_schemas_impl(inner, visited, result)
-    DefaultType(inner, _) => collect_named_schemas_impl(inner, visited, result)
-    PreprocessType(_, inner) =>
-      collect_named_schemas_impl(inner, visited, result)
-    TransformType(inner, _) =>
-      collect_named_schemas_impl(inner, visited, result)
-    LazyType(f) => collect_named_schemas_impl(f(), visited, result)
-    DiscriminatedUnionType(_, options) =>
-      for _key, option in options {
-        collect_named_schemas_impl(option, visited, result)
-      }
-    PipeType(input, _, output) => {
-      collect_named_schemas_impl(input, visited, result)
-      collect_named_schemas_impl(output, visited, result)
-    }
-    UnionType(schemas) =>
-      for s in schemas {
-        collect_named_schemas_impl(s, visited, result)
-      }
-    IntersectionType(schemas) =>
-      for s in schemas {
-        collect_named_schemas_impl(s, visited, result)
-      }
-    _ => ()
   }
 }
 
@@ -206,83 +173,9 @@ pub fn find_schema_dependencies_impl(
   schema : Schema,
   schema_map : Array[Schema],
   deps : Array[String],
-  visited_names : Array[String],
+  _visited_names : Array[String],
 ) -> Unit {
-  if value_in_array(schema.name, visited_names) {
-    return
-  }
-  if !schema.name.is_empty() {
-    visited_names.push(schema.name)
-  }
-
-  let name_exists_in_map = fn(name : String) {
-    for s in schema_map {
-      if s.name == name {
-        return true
-      }
-    }
-    false
-  }
-
-  match schema.schema_type {
-    ObjectType(fields, _) =>
-      for _key, field_schema in fields {
-        if !field_schema.name.is_empty() &&
-          name_exists_in_map(field_schema.name) {
-          if !value_in_array(field_schema.name, deps) {
-            deps.push(field_schema.name)
-          }
-        }
-        find_schema_dependencies_impl(
-          field_schema, schema_map, deps, visited_names,
-        )
-      }
-    ArrayType(elem) => {
-      if !elem.name.is_empty() && name_exists_in_map(elem.name) {
-        if !value_in_array(elem.name, deps) {
-          deps.push(elem.name)
-        }
-      }
-      find_schema_dependencies_impl(elem, schema_map, deps, visited_names)
-    }
-    OptionalType(inner) =>
-      find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
-    DefaultType(inner, _) =>
-      find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
-    PreprocessType(_, inner) =>
-      find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
-    TransformType(inner, _) =>
-      find_schema_dependencies_impl(inner, schema_map, deps, visited_names)
-    LazyType(f) =>
-      find_schema_dependencies_impl(f(), schema_map, deps, visited_names)
-    DiscriminatedUnionType(_, options) =>
-      for _key, option in options {
-        find_schema_dependencies_impl(option, schema_map, deps, visited_names)
-      }
-    PipeType(input, _, output) => {
-      find_schema_dependencies_impl(input, schema_map, deps, visited_names)
-      find_schema_dependencies_impl(output, schema_map, deps, visited_names)
-    }
-    UnionType(schemas) =>
-      for s in schemas {
-        if !s.name.is_empty() && name_exists_in_map(s.name) {
-          if !value_in_array(s.name, deps) {
-            deps.push(s.name)
-          }
-        }
-        find_schema_dependencies_impl(s, schema_map, deps, visited_names)
-      }
-    IntersectionType(schemas) =>
-      for s in schemas {
-        if !s.name.is_empty() && name_exists_in_map(s.name) {
-          if !value_in_array(s.name, deps) {
-            deps.push(s.name)
-          }
-        }
-        find_schema_dependencies_impl(s, schema_map, deps, visited_names)
-      }
-    _ => ()
-  }
+  gather_dependencies(schema, schema_map, deps, Map([]), 0)
 }
 
 ///|

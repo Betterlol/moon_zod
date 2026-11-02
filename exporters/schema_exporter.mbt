@@ -179,6 +179,13 @@ fn schema_type_to_code(
       }
       "@moon_zod.tuple([" + join_with(parts, ", ") + "])"
     }
+    NullableType(inner) =>
+      schema_to_moon_zod_code_inline(inner, Some(defined_names)) + ".nullable()"
+    PrefaultType(inner, value) =>
+      schema_to_moon_zod_code_inline(inner, Some(defined_names)) +
+      ".prefault(" +
+      json_to_literal(value) +
+      ")"
     OptionalType(inner) =>
       schema_to_moon_zod_code_inline(inner, Some(defined_names)) + ".optional()"
     DefaultType(inner, default_val) =>

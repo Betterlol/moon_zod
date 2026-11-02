@@ -14,8 +14,20 @@
 /// }
 /// ```
 pub fn recursive(f : () -> Schema) -> Schema {
+  let cached : Ref[Schema?] = Ref(None)
+  let resolve = fn() {
+    match cached.val {
+      Some(schema) => schema
+      None => {
+        let schema = f()
+        cached.val = Some(schema)
+        schema
+      }
+    }
+  }
   {
-    schema_type: LazyType(f),
+    id: new_schema_id(),
+    schema_type: LazyType(resolve),
     rules: [],
     description: "",
     required_error: "",
@@ -32,17 +44,9 @@ pub fn Schema::parse_lazy(
   json : Json,
   path_stack : Array[String],
 ) -> RawSchemaResult {
-  let resolved = f()
-  match parse_inner(resolved, json, path_stack) {
-    Err(e) => Err(e)
-    Ok(v) => {
-      let raw : Array[RawIssue] = []
-      collect_raw_errors(raw, path_stack, json, self.rules)
-      if raw.is_empty() {
-        Ok(v)
-      } else {
-        Err(raw)
-      }
-    }
-  }
+  parse_inner(
+    { ..self, id: new_schema_id(), schema_type: LazyType(f), },
+    json,
+    path_stack,
+  )
 }

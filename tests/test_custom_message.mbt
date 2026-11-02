@@ -153,7 +153,7 @@ test "message method penetrates existing optional wrapper" {
   let s = string().min(3).optional().message("太短了")
   guard s.parse(Json::string("ab")) is Err(errors) else { fail("expected Err") }
   @debug.assert_eq(errors[0].message, "太短了")
-  guard s.parse(Json::null()) is Ok(_) else { fail("expected Ok") }
+  guard s.parse_missing() is Ok(_) else { fail("expected Ok") }
 }
 
 ///|
@@ -168,7 +168,7 @@ test "message method penetrates existing default wrapper" {
   let s = string().min(3).default(Json::string("abcd")).message("太短了")
   guard s.parse(Json::string("ab")) is Err(errors) else { fail("expected Err") }
   @debug.assert_eq(errors[0].message, "太短了")
-  guard s.parse(Json::null()) is Ok(_) else { fail("expected Ok") }
+  guard s.parse_missing() is Ok(_) else { fail("expected Ok") }
 }
 
 ///|
