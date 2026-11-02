@@ -1,7 +1,5 @@
 # 设计文档
 
-本文描述 v0.10.0 的完整设计。Core PR 提供解析协议及必要适配；checked 导出、导出元数据与生成类型由依赖的导入导出 PR 完成。
-
 ## 定位：Schema IR
 
 moon_zod 的核心定位是 **运行时 Schema 中间表示（IR）**——一个独立于输入来源和输出目标的校验契约层。它不像传统校验库那样绑定到特定的数据格式定义方式，而是在前端导入与后端导出之间建立了一个统一的 Schema 对象模型。
@@ -122,7 +120,7 @@ refine 的对象形状，避免回调继续依赖被删除或改变的字段。�
 `try_to_json_schema(view=InputView/OutputView)` 明确区分原始输入与解析结果：
 输入 Strip 对象允许额外字段，输出 Strip 对象不含额外字段。无法表示的阶段
 返回 `Err`，不能把未知自定义转换当作恒等函数。详细边界见
-[迁移说明](CHANGELOG.md)。
+[迁移说明](CHANGELOG.md#core-migration)。
 
 ---
 

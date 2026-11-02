@@ -857,7 +857,14 @@ pub fn Schema::datetime(
     },
     message,
     IssueCode::InvalidFormat("datetime"),
-    Json::object({ "format": Json::string("date-time") }),
+    Json::object({
+      "format": Json::string("date-time"),
+      "x-moon-zod-datetime": Json::object({
+        "offset": Json::boolean(offset),
+        "allow_local": Json::boolean(allow_local),
+        "precision": Json::number(precision.to_double()),
+      }),
+    }),
     explicit_message=!msg.is_empty(),
   )
 }

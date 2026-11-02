@@ -121,7 +121,11 @@ pub fn Schema::int(self : Schema, msg~ : String = "") -> Schema {
     },
     message,
     IssueCode::InvalidFormat("integer"),
-    Json::object({ "type": Json::string("integer") }),
+    Json::object({
+      "type": Json::string("integer"),
+      "minimum": Json::number(-9007199254740991.0),
+      "maximum": Json::number(9007199254740991.0),
+    }),
     explicit_message=!msg.is_empty(),
   )
 }
@@ -264,7 +268,11 @@ pub fn Schema::safe(self : Schema, msg~ : String = "") -> Schema {
     },
     message,
     IssueCode::Custom,
-    Json::object({ "type": Json::string("integer") }),
+    Json::object({
+      "type": Json::string("integer"),
+      "minimum": Json::number(min_safe),
+      "maximum": Json::number(max_safe),
+    }),
     explicit_message=!msg.is_empty(),
     constraint=Some(SafeInteger),
   )

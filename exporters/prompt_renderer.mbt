@@ -74,6 +74,12 @@ pub(open) trait StringRenderer {
     schema : @core.Schema,
     indent : Int32,
   ) -> String
+  fn render_lazy(
+    Self,
+    resolved : @core.Schema,
+    schema : @core.Schema,
+    indent : Int32,
+  ) -> String
 }
 
 ///|
@@ -94,8 +100,7 @@ pub fn[R : StringRenderer] render_type(
     ArrayType(elem) => renderer.render_array(elem, schema, indent)
     TupleType(items) => renderer.render_tuple(items, schema, indent)
     OptionalType(inner) => renderer.render_optional(inner, schema, indent)
-    NullableType(inner) =>
-      renderer.render_union([inner, @core.null()], schema, indent)
+    NullableType(inner) => render_type(renderer, inner, indent) + " | null"
     PrefaultType(inner, value) =>
       renderer.render_default(inner, value, schema, indent)
     DefaultType(inner, default_val) =>
@@ -109,7 +114,7 @@ pub fn[R : StringRenderer] render_type(
     TransformType(inner, closure) =>
       renderer.render_transform(inner, closure, schema, indent)
     LiteralType(value) => renderer.render_literal(value, schema, indent)
-    LazyType(f) => render_type(renderer, f(), indent)
+    LazyType(f) => renderer.render_lazy(f(), schema, indent)
     DiscriminatedUnionType(_, options) => {
       let schemas : Array[@core.Schema] = []
       for _key, option in options {
@@ -118,7 +123,7 @@ pub fn[R : StringRenderer] render_type(
       renderer.render_union(schemas, schema, indent)
     }
     PipeType(input, _, output) =>
-      render_type(renderer, input, indent) +
+      render_type(renderer, without_inherited_name(schema, input), indent) +
       " → " +
       render_type(renderer, output, indent)
   }
