@@ -171,5 +171,5 @@ moon run examples/json2schema                        # JSON → moon_zod schema 
   - `schema_to_moonbit_struct(schema)` — recursively generate MoonBit struct/enum definitions for every object/enum schema
   - `schema_to_moonbit_struct_full(schema)` — generate definitions plus static `Type::to_schema()` functions
 - **Lightweight dependencies**: Core MoonBit library plus official `moonbitlang/regexp` for regex validation
-- **WebAssembly-ready**: Shared path stack with error-path rendering
+- **WebAssembly-ready**: Shared path stack; parsed containers are rebuilt to preserve transformed values
 - **Historical performance**: ~18.5k–56k validations/second; reproduce the benchmark for the version under test

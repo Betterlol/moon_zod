@@ -5,6 +5,7 @@
 /// Schema names are treated only as type-name hints; anonymous nested objects are
 /// named from their owner and field path.
 pub fn schema_to_moonbit_struct(schema : @core.Schema) -> String {
+  let _ = @core.collect_named_schemas(schema)
   let root_name = schema_type_name(schema, "Root")
   let defs : Array[StructDef] = []
   collect_type_defs(schema, root_name, defs)
@@ -15,6 +16,7 @@ pub fn schema_to_moonbit_struct(schema : @core.Schema) -> String {
 /// Convert a moon_zod schema into MoonBit type definitions plus static
 /// `Type::to_schema() -> @moon_zod.Schema` functions for each generated type.
 pub fn schema_to_moonbit_struct_full(schema : @core.Schema) -> String {
+  let _ = @core.collect_named_schemas(schema)
   let root_name = schema_type_name(schema, "Root")
   let defs : Array[StructDef] = []
   collect_type_defs(schema, root_name, defs)
@@ -36,22 +38,29 @@ fn collect_type_defs(
   match schema.schema_type {
     ObjectType(spec, _) => {
       let type_name = schema_type_name(schema, type_hint)
+      if def_exists(defs, type_name) {
+        return
+      }
+      push_struct_def(defs, type_name, schema)
       for key, field_schema in spec {
         collect_field_defs(field_schema, child_type_name(type_name, key), defs)
       }
-      push_struct_def(defs, type_name, schema)
     }
     EnumType(values) =>
       push_enum_def(defs, schema_type_name(schema, type_hint), values)
-    OptionalType(inner) | DefaultType(inner, _) | TransformType(inner, _) =>
-      collect_type_defs(inner, type_hint, defs)
+    OptionalType(inner)
+    | DefaultType(inner, _)
+    | PrefaultType(inner, _)
+    | NullableType(inner)
+    | TransformType(inner, _) => collect_type_defs(inner, type_hint, defs)
     PreprocessType(_, inner) => collect_type_defs(inner, type_hint, defs)
     ArrayType(elem) => collect_type_defs(elem, type_hint + "Item", defs)
     UnionType(schemas) | IntersectionType(schemas) =>
       for item in schemas {
         collect_type_defs(item, type_hint, defs)
       }
-    LazyType(f) => collect_type_defs(f(), type_hint, defs)
+    LazyType(f) =>
+      collect_type_defs(f(), schema_type_name(schema, type_hint), defs)
     DiscriminatedUnionType(_, options) =>
       for _key, option in options {
         collect_type_defs(option, type_hint, defs)
@@ -71,15 +80,19 @@ fn collect_field_defs(
   defs : Array[StructDef],
 ) -> Unit {
   match schema.schema_type {
-    OptionalType(inner) | DefaultType(inner, _) | TransformType(inner, _) =>
-      collect_field_defs(inner, type_hint, defs)
+    OptionalType(inner)
+    | DefaultType(inner, _)
+    | PrefaultType(inner, _)
+    | NullableType(inner)
+    | TransformType(inner, _) => collect_field_defs(inner, type_hint, defs)
     PreprocessType(_, inner) => collect_field_defs(inner, type_hint, defs)
     ArrayType(elem) => collect_field_defs(elem, type_hint + "Item", defs)
     UnionType(schemas) | IntersectionType(schemas) =>
       for item in schemas {
         collect_field_defs(item, type_hint, defs)
       }
-    LazyType(f) => collect_field_defs(f(), type_hint, defs)
+    LazyType(f) =>
+      collect_field_defs(f(), schema_type_name(schema, type_hint), defs)
     DiscriminatedUnionType(_, options) =>
       for _key, option in options {
         collect_field_defs(option, type_hint, defs)
@@ -168,9 +181,13 @@ fn render_struct_def(type_name : String, schema : @core.Schema) -> String {
           field_schema,
           child_type_name(escaped_type, key),
         )
-        let opt_mark = if is_optional_field(field_schema) { "?" } else { "" }
+        let field_type = if @core.output_is_optional(field_schema) {
+          optional_moonbit_type(field_type)
+        } else {
+          field_type
+        }
         let comment = @core.constraint_comment(field_schema)
-        let line = "  " + field_name + " : " + field_type + opt_mark
+        let line = "  " + field_name + " : " + field_type
         if comment.is_empty() {
           result = result + line + "\n"
         } else {
@@ -239,8 +256,10 @@ fn render_enum_to_schema_fn(
 ///|
 fn field_to_moonbit_type(schema : @core.Schema, type_hint : String) -> String {
   match schema.schema_type {
-    OptionalType(inner) | DefaultType(inner, _) =>
+    OptionalType(inner) | DefaultType(inner, _) | PrefaultType(inner, _) =>
       field_to_moonbit_type(inner, type_hint)
+    NullableType(inner) =>
+      nullable_moonbit_type(field_to_moonbit_type(inner, type_hint))
     TransformType(inner, _) => field_to_moonbit_type(inner, type_hint)
     PreprocessType(_, inner) => field_to_moonbit_type(inner, type_hint)
     StringType => "String"
@@ -251,13 +270,14 @@ fn field_to_moonbit_type(schema : @core.Schema, type_hint : String) -> String {
     ObjectType(_, _) => schema_type_name(schema, type_hint)
     ArrayType(elem) =>
       "Array[" + field_to_moonbit_type(elem, type_hint + "Item") + "]"
-    TupleType(_) => "Json // TODO: tuple type"
+    TupleType(_) => "Json"
     EnumType(_) => schema_type_name(schema, type_hint)
     UnionType(schemas) => union_to_moonbit_type(schemas, type_hint)
     IntersectionType(schemas) =>
       intersection_to_moonbit_type(schemas, type_hint)
     LiteralType(value) => literal_to_moonbit_type(value)
-    LazyType(f) => field_to_moonbit_type(f(), type_hint)
+    LazyType(f) =>
+      field_to_moonbit_type(f(), schema_type_name(schema, type_hint))
     DiscriminatedUnionType(_, options) => {
       let schemas : Array[@core.Schema] = []
       for _key, option in options {
@@ -278,13 +298,13 @@ fn union_to_moonbit_type(
     let left = schemas[0]
     let right = schemas[1]
     if is_null_schema(left) {
-      return field_to_moonbit_type(right, type_hint)
+      return nullable_moonbit_type(field_to_moonbit_type(right, type_hint))
     }
     if is_null_schema(right) {
-      return field_to_moonbit_type(left, type_hint)
+      return nullable_moonbit_type(field_to_moonbit_type(left, type_hint))
     }
   }
-  "Json // TODO: union type"
+  "Json"
 }
 
 ///|
@@ -295,15 +315,24 @@ fn intersection_to_moonbit_type(
   if schemas.length() == 1 {
     return field_to_moonbit_type(schemas[0], type_hint)
   }
-  "Json // TODO: intersection type"
+  "Json"
 }
 
 ///|
-fn is_optional_field(schema : @core.Schema) -> Bool {
-  match schema.schema_type {
-    OptionalType(_) | DefaultType(_, _) => true
-    UnionType(schemas) => schemas.any(fn(item) { is_null_schema(item) })
-    _ => false
+fn nullable_moonbit_type(type_name : String) -> String {
+  if type_name.has_prefix("@moon_zod.JsonNullable[") {
+    type_name
+  } else {
+    "@moon_zod.JsonNullable[" + type_name + "]"
+  }
+}
+
+///|
+fn optional_moonbit_type(type_name : String) -> String {
+  if type_name.has_suffix("?") {
+    type_name
+  } else {
+    type_name + "?"
   }
 }
 
