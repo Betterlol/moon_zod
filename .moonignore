@@ -14,7 +14,7 @@ target/
 branch_doc/
 doc/
 doc_utils/
-bench_cross_lang/
+moon_zod_lab/
 moonbit_syntax_pitfalls.md
 AGENTS.md
 

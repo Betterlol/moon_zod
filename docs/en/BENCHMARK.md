@@ -4,19 +4,25 @@ moon_zod's **Mutable Path Stack** (Phase 5) defers path string construction unti
 
 This is especially important for **Wasm edge runtimes** where GC pauses and memory pressure directly impact request latency.
 
-### Cross-Language Benchmark (100k iterations)
+### Cross-Language Benchmarks and Exporter Validation
 
-| Validator | Runtime | Ops/sec |
-|---|---|---|
-| **TS Zod** | In-process V8 | 243,178 ops/sec |
-| **MoonZod** | Native (@bench) | **3,815,556 ops/sec** |
+Cross-language comparisons, JSON Schema exporter validation, and named-schema benchmarks are maintained in the independent [moon_zod_lab](https://github.com/Betterlol/moon_zod_lab) repository, included here as a submodule. The lab depends on a published Mooncakes version; its reports identify the version actually tested.
 
-> Both validators run in-process with no subprocess overhead. MoonZod uses MoonBit's `@bench` library for calibrated iteration counts (ns/op → ops/sec); TS Zod uses wall-clock timing over 100k manual `parse()` calls. MoonZod is ~15x faster than TS Zod on this benchmark, demonstrating the advantage of a focused, zero-allocation validation path (Phase 5 Mutable Path Stack).
+Initialize the submodule and run the cross-language benchmark:
 
-Run the benchmarks:
+```sh
+git submodule update --init moon_zod_lab
+cd moon_zod_lab
+npm ci
+npm run bench:validation
 ```
-moon run cmd/main                  # MoonZod throughput (3 benchmarks)
-cd bench_cross_lang && node bench.js  # Cross-language comparison
+
+See the submodule README for the full dependency setup for exporter validation and Zod/Pydantic named-schema comparisons.
+
+The MoonBit benchmark entry point remains available in this repository:
+
+```sh
+moon run cmd/main
 ```
 
 ---
