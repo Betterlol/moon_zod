@@ -96,11 +96,11 @@ match parser.finish() {
 **零代码 CLI 校验：**
 ```bash
 # 从样本推断 Schema，校验数据
-moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
+moon run moon_zod/cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
 # PASS
 
 # 使用 JSON Lines 批量校验
-moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
+moon run moon_zod/cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
 # 结果：2 通过，0 失败
 ```
 
@@ -125,125 +125,60 @@ moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
 
 ```
 moon_zod/
-├── core/                     # 核心 Schema 校验库
-│   ├── types.mbt             # ValidationError、SchemaResult、核心类型
-│   ├── schema.mbt            # Schema 结构、解析分发、路径栈
-│   ├── string.mbt            # string() 工厂 + 校验器（trim、to_lower、to_upper）
-│   ├── number.mbt            # number() 工厂 + 校验器
-│   ├── boolean.mbt           # boolean() 工厂
-│   ├── null.mbt              # null() 工厂
-│   ├── bigint.mbt            # bigint() 工厂
-│   ├── any_unknown.mbt       # any() / unknown() 传递 Schema
-│   ├── array.mbt             # array() 工厂 + parse_array
-│   ├── tuple.mbt             # tuple() 工厂 + parse_tuple
-│   ├── object.mbt            # object() + 模式（strip/passthrough/strict）、pick/omit/partial/extend/merge
-│   ├── optional.mbt          # optional() 工厂
-│   ├── default.mbt           # default() 工厂
-│   ├── enum.mbt              # enum_values() 工厂
-│   ├── literal.mbt           # literal() 工厂（常量值）
-│   ├── union.mbt             # union() 工厂
-│   ├── intersection.mbt      # intersection() / intersect()
-│   ├── refine.mbt            # refine() 用于自定义校验
-│   ├── transform.mbt         # transform() 用于数据转换
-│   ├── preprocess.mbt        # preprocess() 用于输入预处理
-│   ├── shared_utils.mbt      # 通用工具（unwrap_schema、peel_optional 等）
-│   ├── constraint_extractor.mbt  # 从规则提取约束信息
-│   └── moon_zod_wbtest.mbt   # 白盒测试（路径栈不变量）
-│
-├── combinators/              # Schema 组合器工具
-│   └── schema_combinators.mbt # Schema 组合辅助函数
-│
-├── async/                    # 可选异步扩展
-│   ├── schema.mbt            # 解析后的异步 refine
-│   ├── issue.mbt             # 异步问题类型与工厂
-│   ├── jsonl.mbt             # 带背压的 JSON Lines 校验
-│   ├── sse.mbt               # SSE 分帧与元数据
-│   ├── sse_json.mbt          # 逐帧 JSON 校验
-│   ├── sse_json_stream.mbt   # 跨帧 JSON 与异步校验
-│   ├── line_reader.mbt       # 有界 UTF-8 分块读取
-│   └── stream_limits.mbt     # 行与帧缓冲限制
-│
-├── exporters/                # 代码/Schema 导出工具
-│   ├── prompt.mbt            # schema_to_prompt() / schema_to_prompt_named()
-│   ├── prompt_renderer.mbt   # 基于特性的提示渲染
-│   ├── json_schema.mbt       # to_json_schema() / to_json_schema_named()
-│   ├── json_schema_renderer.mbt # 基于特性的 JSON Schema 渲染
-│   ├── moonbit_struct.mbt    # schema_to_moonbit_struct() + 静态 to_schema() 生成
-│   └── schema_exporter.mbt   # 共享导出器工具
-│
-├── importers/                # Schema 导入工具
-│   └── from_json_schema.mbt  # json_schema_to_moon_zod() —— 反向 JSON Schema → moon_zod 代码生成
-│
-├── tests/                    # 测试套件（479 个测试）
-│   ├── test_string.mbt       # string() 校验器测试（trim、to_lower、to_upper、nonempty）
-│   ├── test_number.mbt       # number() 校验器测试
-│   ├── test_boolean_null.mbt # boolean/null 测试
-│   ├── test_object.mbt       # object() 模式 + pick/omit/partial/extend/merge 测试
-│   ├── test_array.mbt        # array() + nonempty 测试
-│   ├── test_tuple.mbt        # tuple() 测试
-│   ├── test_combinators.mbt  # union/literal/optional/default/brand/bigint 测试
-│   ├── test_any_unknown_preprocess.mbt # any/unknown/preprocess 测试
-│   ├── test_transform_refine.mbt # transform/refine 测试
-│   ├── test_json_schema.mbt  # JSON Schema 导出 + $defs/$ref 测试
-│   ├── test_json_schema_fixes.mbt # exclusiveMin/Max 语义 + enum 边界情况
-│   ├── test_moonbit_struct.mbt # MoonBit 结构生成测试
-│   ├── test_prompt.mbt       # 提示生成测试
-│   ├── test_prompt_named.mbt # 命名 Schema 导出测试
-│   ├── test_custom_message.mbt # 自定义错误消息测试
-│   ├── test_errors.mbt       # 错误收集测试
-│   ├── test_schema_to_code.mbt # 代码生成测试
-│   └── reexporter.mbt        # 测试重新导出
-│
-├── cmd/                      # CLI 工具
-│   ├── main/                 # 基准测试运行器（性能基准）
-│   ├── wasm/                 # WebAssembly 跨语言基准测试
-│   ├── json2schema/          # JSON → moon_zod Schema 代码生成器 + JSON Schema 反向导入器
-│   ├── gen-struct/           # JSON Schema → MoonBit 结构生成器
-│   └── validate/             # JSON Schema 校验器（推断后校验）
-│
-└── examples/                 # LLM 智能体演示
-    ├── gen-struct/           # JSON Schema → MoonBit 结构生成演示
-    ├── json2schema/          # JSON → moon_zod Schema 代码生成
-    ├── mock/                 # 模拟智能体演示
-    │   ├── llm_agent/        # 基础 LLM 工具调用示例
-    │   └── educational_agent/ # 多轮自我纠正演示
-    ├── multiple_schemas/     # 处理多个 Schema
-    ├── real_llm_agent/       # 真实 LLM 集成（带 API 模拟回退）
-    ├── resources/            # 样本数据文件（JSON、JSON Schema）
-    ├── schema2json/          # Schema → JSON Schema 导出演示
-    ├── schema2prompt/        # Schema → 提示生成展示
-    ├── shared_schemas/       # 共享 Schema 定义（库包）
-    └── validate_cli/         # CLI 校验演示
+├── moon.work                  # Workspace: four independently publishable modules
+├── core/                      # Betterlol/moon_zod/core — Schema IR and validation
+│   ├── moon.mod
+│   └── ...
+├── importers/                 # Betterlol/moon_zod/importers — JSON Schema import
+│   ├── moon.mod
+│   └── ...
+├── exporters/                 # Betterlol/moon_zod/exporters — code/schema export
+│   ├── moon.mod
+│   └── ...
+├── moon_zod/                  # Betterlol/moon_zod — unified facade
+│   ├── moon.mod
+│   ├── reexporter.mbt         # Single public API aggregation point
+│   ├── combinators/          # Import/export composition
+│   ├── async/                # Optional asynchronous adapters
+│   ├── cmd/                  # CLI tools and benchmarks
+│   ├── examples/             # Usage examples and shared schemas
+│   └── tests/                # Direct imports; no duplicate re-exports
+├── docs/
+└── moon_zod_lab/              # Separately managed consumer submodule
 ```
 
 ---
 
 ## 开发
 
+本仓库通过 `moon.work` 联合开发四个模块：主模块 `Betterlol/moon_zod`
+以及可独立发布的 `/core`、`/exporters`、`/importers`。现有包导入路径保持不变。
+模块依赖、直接引用方式和发布检查见[工作区指南](docs/WORKSPACE.md)。
+
 ```bash
 # 测试与构建
-moon test                # 运行所有测试（共 479 个，0 警告）
+moon test                # 运行整个工作区的测试
 moon build               # 构建库
 moon check               # 类型检查（0 错误，0 警告）
 moon info && moon fmt    # 更新接口 + 格式化
 
 # CLI 工具
-moon run cmd/main                                      # 运行性能基准测试
-moon run cmd/json2schema -- '{"hello":"world"}'      # JSON → moon_zod Schema 代码
-moon run cmd/json2schema -- --from-json-schema '<{...}>'  # JSON Schema → moon_zod 代码
-moon run cmd/json2schema -- --from-json-schema '<{...}>' --verbose  # 带调试输出
-moon run cmd/gen-struct -- --schema '<{...}>'          # JSON Schema → MoonBit 结构
-moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # 校验 JSON
+moon run moon_zod/cmd/main                                      # 运行性能基准测试
+moon run moon_zod/cmd/json2schema -- '{"hello":"world"}'      # JSON → moon_zod Schema 代码
+moon run moon_zod/cmd/json2schema -- --from-json-schema '<{...}>'  # JSON Schema → moon_zod 代码
+moon run moon_zod/cmd/json2schema -- --from-json-schema '<{...}>' --verbose  # 带调试输出
+moon run moon_zod/cmd/gen-struct -- --schema '<{...}>'          # JSON Schema → MoonBit 结构
+moon run moon_zod/cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}'  # 校验 JSON
 
 # 示例
-moon run examples/mock/llm_agent                     # 基础 LLM 工具调用演示
-moon run examples/mock/educational_agent             # 多轮自我纠正演示
-moon run examples/real_llm_agent -- product prompt   # 真实 LLM 带模拟回退
-moon run examples/real_llm_agent -- product validate # 用真实 API 校验
-moon run examples/multiple_schemas                   # 多个 Schema 处理
-moon run examples/schema2json -- product schema      # Schema → JSON Schema 导出
-moon run examples/schema2prompt -- product schema    # Schema → 提示生成展示
-moon run examples/json2schema                        # JSON → moon_zod Schema 代码生成
+moon run moon_zod/examples/mock/llm_agent                     # 基础 LLM 工具调用演示
+moon run moon_zod/examples/mock/educational_agent             # 多轮自我纠正演示
+moon run moon_zod/examples/real_llm_agent -- product prompt   # 真实 LLM 带模拟回退
+moon run moon_zod/examples/real_llm_agent -- product validate # 用真实 API 校验
+moon run moon_zod/examples/multiple_schemas                   # 多个 Schema 处理
+moon run moon_zod/examples/schema2json -- product schema      # Schema → JSON Schema 导出
+moon run moon_zod/examples/schema2prompt -- product schema    # Schema → 提示生成展示
+moon run moon_zod/examples/json2schema                        # JSON → moon_zod Schema 代码生成
 ```
 
 ---
@@ -264,7 +199,7 @@ moon run examples/json2schema                        # JSON → moon_zod Schema 
 - **自定义错误消息**：所有校验器上的 `msg?` 参数、`.message(text)` 覆盖方法、类型级别的 `required_error` / `invalid_type_error`
 - **错误收集**：在一次遍历中收集**所有**校验错误，非常适合 LLM 自我纠正循环
 - **完整路径错误报告**：每个错误都包含确切的字段路径（`users[0].profile.age`）
-- **可选异步扩展**：`Betterlol/moon_zod/async` 提供单问题/多问题异步 refine、JSON Lines 和单帧/跨帧 SSE JSON 校验，同时保持核心 API 同步。详见[异步指南](async/README.mbt.md)
+- **可选异步扩展**：`Betterlol/moon_zod/async` 提供单问题/多问题异步 refine、JSON Lines 和单帧/跨帧 SSE JSON 校验，同时保持核心 API 同步。详见[异步指南](moon_zod/async/README.mbt.md)
 - **LLM 提示生成**：
   - `schema_to_prompt(schema)` —— 内联 TypeScript 接口，带约束注释
   - `schema_to_prompt_named(schema, include_names?)` —— 模块化接口，带拓扑排序和类型名称引用

@@ -52,6 +52,21 @@ class CoverageSummaryTests(unittest.TestCase):
             with self.subTest(classes=classes), self.assertRaises(ValueError):
                 self.read(classes)
 
+    def test_workspace_member_paths_are_counted_with_core_and_exporters(self):
+        coverage = self.read('''
+          <class filename="moon_zod/async/schema.mbt"><lines>
+            <line number="1" hits="1"/><line number="2" hits="0"/>
+          </lines></class>
+          <class filename="core/schema.mbt"><lines>
+            <line number="1" hits="1"/>
+          </lines></class>
+          <class filename="exporters/prompt.mbt"><lines>
+            <line number="1" hits="1"/>
+          </lines></class>
+        ''')
+        self.assertEqual(summarize(coverage, {"async"}), (1, 2))
+        self.assertEqual(summarize(coverage), (3, 4))
+
 
 if __name__ == "__main__":
     unittest.main()

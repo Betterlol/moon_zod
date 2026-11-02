@@ -1,5 +1,10 @@
 # importers
 
+本目录是独立模块 `Betterlol/moon_zod/importers`，仅依赖
+`Betterlol/moon_zod/core`。使用时在 `moon.mod` 中添加本模块，在 `moon.pkg`
+中直接导入同名包；也可通过主模块的 `@moon_zod` 统一入口使用。
+开发及发布方式见[工作区指南](../docs/WORKSPACE.md)。
+
 JSON Schema → moon_zod Schema 导入工具包。
 
 本包提供 **JSON Schema draft-07 → moon_zod @core.Schema** 的运行时转换能力，是四层架构中的第一层（Input → IR）。转换结果可直接用于 `schema.parse()` 运行时校验，或送入 exporters 做进一步代码/Schema 导出。

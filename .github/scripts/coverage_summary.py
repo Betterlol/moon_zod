@@ -8,13 +8,26 @@ from pathlib import Path
 
 
 PACKAGES = {"core", "async", "exporters", "importers", "combinators", "tests"}
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def package_name(filename):
+    parts = filename.split("/")
+    if parts[0] == "moon_zod" and len(parts) > 1:
+        return parts[1]
+    return parts[0]
 
 
 def read_coverage(report):
     coverage = {}
     for source in ET.parse(report).getroot().findall(".//class"):
         name = source.attrib["filename"].replace("\\", "/")
-        if name.split("/", 1)[0] not in PACKAGES:
+        if Path(name).is_absolute():
+            try:
+                name = Path(name).relative_to(PROJECT_ROOT).as_posix()
+            except ValueError:
+                continue
+        if package_name(name) not in PACKAGES:
             continue
         for line in source.findall("./lines/line"):
             lines = coverage.setdefault(name, {})
@@ -29,7 +42,7 @@ def summarize(coverage, packages=PACKAGES):
     hits = [
         covered
         for name, lines in coverage.items()
-        if name.split("/", 1)[0] in packages
+        if package_name(name) in packages
         for covered in lines.values()
     ]
     return sum(hits), len(hits)
@@ -61,8 +74,24 @@ def main():
     else:
         with tempfile.TemporaryDirectory(prefix="moon-zod-coverage-") as directory:
             report = Path(directory) / "coverage.xml"
+            build = PROJECT_ROOT / "_build"
+            traces = sorted(build.rglob("*.trace.source"))
+            logs = sorted(build.glob("moonbit_coverage_*.txt"))
+            if not traces or not logs:
+                raise ValueError("Run workspace tests with --enable-coverage first")
+            runtime_log = Path(directory) / "runtime.log"
+            runtime_log.write_text(
+                "\n".join(log.read_text(encoding="utf-8") for log in logs),
+                encoding="utf-8",
+            )
             subprocess.run(
-                ["moon", "coverage", "report", "-f", "cobertura", "-o", str(report)],
+                [
+                    "moon", "coverage", "report", "-f", "cobertura", "-o", str(report),
+                    "--absolute-file-paths", "--source-paths", str(PROJECT_ROOT),
+                    "--runtime-log", str(runtime_log),
+                    *(str(trace) for trace in traces),
+                ],
+                cwd=PROJECT_ROOT,
                 check=True,
             )
             display(read_coverage(report))

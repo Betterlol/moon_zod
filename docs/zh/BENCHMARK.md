@@ -22,5 +22,5 @@ npm run bench:validation
 本仓库仍保留 MoonBit 基准入口：
 
 ```sh
-moon run cmd/main
+moon run moon_zod/cmd/main
 ```

@@ -3,7 +3,7 @@
 从任何JSON数据负载即时生成 `@moon_zod` schema代码——无需手动为真实世界的API数据编写schema。
 
 ```bash
-moon run cmd/json2schema -- '{"hello": "world"}'
+moon run moon_zod/cmd/json2schema -- '{"hello": "world"}'
 ```
 
 输出（可直接复制粘贴的moon_zod代码）：
@@ -16,7 +16,7 @@ moon run cmd/json2schema -- '{"hello": "world"}'
 
 获取带有调试信息的详细输出：
 ```bash
-moon run cmd/json2schema -- --verbose '{"hello": "world"}'
+moon run moon_zod/cmd/json2schema -- --verbose '{"hello": "world"}'
 ```
 
 生成器递归推断类型（`string`、`number`、`boolean`、`null`、`array`、`object`），并安全转义对象键中的特殊字符。空数组会生成 `/* TODO: specify exact type */` 注释，以提醒你类型推断缺乏数据。
@@ -29,7 +29,7 @@ moon run cmd/json2schema -- --verbose '{"hello": "world"}'
 
 **内联模式**（JSON Schema作为命令参数）：
 ```bash
-moon run cmd/json2schema -- --from-json-schema '{
+moon run moon_zod/cmd/json2schema -- --from-json-schema '{
   "type": "object",
   "properties": {
     "name": {"type": "string", "minLength": 2},
@@ -41,7 +41,7 @@ moon run cmd/json2schema -- --from-json-schema '{
 
 **文件模式**（从文件读取JSON Schema）：
 ```bash
-moon run cmd/json2schema -- --from-json-schema --schema-file schema.json
+moon run moon_zod/cmd/json2schema -- --from-json-schema --schema-file schema.json
 ```
 
 输出：
@@ -69,7 +69,7 @@ moon run cmd/json2schema -- --from-json-schema --schema-file schema.json
 从任意 JSON Schema 生成 MoonBit 结构体定义——结构体定义 + 静态 `Type::to_schema()` 函数。
 
 ```bash
-moon run cmd/gen-struct -- --schema '{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}},"required":["name","age"]}'
+moon run moon_zod/cmd/gen-struct -- --schema '{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}},"required":["name","age"]}'
 ```
 
 输出：
@@ -101,17 +101,17 @@ pub fn Root::to_schema() -> @moon_zod.Schema {
 
 ```bash
 # 单个JSON校验
-moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
+moon run moon_zod/cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
 # PASS
 
 # 使用JSON Lines进行批量校验
-moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}\n{"age":30}'
+moon run moon_zod/cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}\n{"age":30}'
 # FAIL: line 3
 #   [name] Required (got: Null)
 # Results: 2 passed, 1 failed
 
 # 文件模式（JSON Schema作为schema源）
-moon run cmd/validate -- --schema-file schema.json --sample-file data.json
+moon run moon_zod/cmd/validate -- --schema-file schema.json --sample-file data.json
 ```
 
 **错误输出格式**：`[field_path] message (got: value)`

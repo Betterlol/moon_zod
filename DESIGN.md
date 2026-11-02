@@ -52,6 +52,16 @@ flowchart TB
 
 ## 当前架构概览
 
+### 工作区与模块边界
+
+仓库通过 `moon.work` 管理四个独立发布模块：主模块 `Betterlol/moon_zod`，
+以及 `Betterlol/moon_zod/core`、`Betterlol/moon_zod/importers`、
+`Betterlol/moon_zod/exporters`。主模块源码位于 `moon_zod/`，包导入路径保持不变；后两者只依赖 core，
+core 只依赖正则库。主模块保留组合层、异步扩展、CLI 和集成测试。
+
+只有 `moon_zod/reexporter.mbt` 维护统一公共入口，测试直接引用定义所在的包，
+不再复制导出列表。模块版本、打包和发布顺序见[工作区指南](docs/WORKSPACE.md)。
+
 ### 可选异步扩展
 
 `Betterlol/moon_zod/async` 是独立的可选子包，核心 `Schema::parse()`

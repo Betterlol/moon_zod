@@ -6,27 +6,27 @@ moon_zod ships with a variety of examples demonstrating different use cases, fro
 
 | Example | Description | Output |
 |---|---|---|
-| [json2schema](../../examples/json2schema/) | Define schemas in MoonBit + validate hardcoded JSON | Prints validation results for User, Post, and GitHub API schemas |
-| [mock/llm_agent](../../examples/mock/llm_agent/) | Simulated LLM self-correction loop (simple) | 2-round mock: bad JSON → errors → fixed JSON → Strip cleanse |
-| [mock/educational_agent](../../examples/mock/educational_agent/) | Simulated 3-round self-correction (deep) | 3 rounds: structural → rule → Strip defense layers |
-| [multiple_schemas](../../examples/multiple_schemas/) | Schema composition + multi-format code gen | Outputs TS / JSON Schema / MoonBit struct / moon_zod code |
-| [real_llm_agent](../../examples/real_llm_agent/) | End-to-end Schema → Prompt → Real LLM → Parse | Self-correction loop: validate → collect errors → retry |
-| [schema2json](../../examples/schema2json/) | moon_zod schema → JSON Schema export | Standard JSON Schema with full constraints |
-| [schema2prompt](../../examples/schema2prompt/) | moon_zod schema → TS interface prompt | TypeScript interface with `//` constraint comments |
-| [validate CLI](../../cmd/validate/) | JSON Schema → validate JSON | `PASS` / `FAIL` with error details |
-| [gen-struct CLI](../../cmd/gen-struct/) | JSON Schema → MoonBit struct code gen | `pub struct` + `fn to_schema()` definitions |
-| [json2schema CLI](../../cmd/json2schema/) | JSON → moon_zod schema code gen | Copy-paste ready `@moon_zod.object({...})` code |
+| [json2schema](../../moon_zod/examples/json2schema/) | Define schemas in MoonBit + validate hardcoded JSON | Prints validation results for User, Post, and GitHub API schemas |
+| [mock/llm_agent](../../moon_zod/examples/mock/llm_agent/) | Simulated LLM self-correction loop (simple) | 2-round mock: bad JSON → errors → fixed JSON → Strip cleanse |
+| [mock/educational_agent](../../moon_zod/examples/mock/educational_agent/) | Simulated 3-round self-correction (deep) | 3 rounds: structural → rule → Strip defense layers |
+| [multiple_schemas](../../moon_zod/examples/multiple_schemas/) | Schema composition + multi-format code gen | Outputs TS / JSON Schema / MoonBit struct / moon_zod code |
+| [real_llm_agent](../../moon_zod/examples/real_llm_agent/) | End-to-end Schema → Prompt → Real LLM → Parse | Self-correction loop: validate → collect errors → retry |
+| [schema2json](../../moon_zod/examples/schema2json/) | moon_zod schema → JSON Schema export | Standard JSON Schema with full constraints |
+| [schema2prompt](../../moon_zod/examples/schema2prompt/) | moon_zod schema → TS interface prompt | TypeScript interface with `//` constraint comments |
+| [validate CLI](../../moon_zod/cmd/validate/) | JSON Schema → validate JSON | `PASS` / `FAIL` with error details |
+| [gen-struct CLI](../../moon_zod/cmd/gen-struct/) | JSON Schema → MoonBit struct code gen | `pub struct` + `fn to_schema()` definitions |
+| [json2schema CLI](../../moon_zod/cmd/json2schema/) | JSON → moon_zod schema code gen | Copy-paste ready `@moon_zod.object({...})` code |
 
 ---
 
 ## json2schema
 
-**Path:** [`examples/json2schema/`](../../examples/json2schema/) • [README](../../examples/json2schema/README.md)
+**Path:** [`examples/json2schema/`](../../moon_zod/examples/json2schema/) • [README](../../moon_zod/examples/json2schema/README.md)
 
 A runnable MoonBit program that defines realistic schemas (JSONPlaceholder user, post, GitHub Rust repo API response) and validates hardcoded JSON against them. Prints success/failure for each schema.
 
 ```bash
-$ sh cmd/json2schema/cli.sh --file examples/resources/test_placeholder_post.json
+$ sh moon_zod/cmd/json2schema/cli.sh --file moon_zod/examples/resources/test_placeholder_post.json
 ```
 
 Output:
@@ -38,14 +38,14 @@ let root = @moon_zod.object({ "userId": @moon_zod.number().int(), "id": @moon_zo
 
 ## mock
 
-**Path:** [`examples/mock/`](../../examples/mock/) • [README](../../examples/mock/README.md)
+**Path:** [`examples/mock/`](../../moon_zod/examples/mock/) • [README](../../moon_zod/examples/mock/README.md)
 
 ### mock/llm_agent
 
 Simulated self-correction loop for a user-profile schema. Mock LLM first returns invalid JSON — moon_zod collects all errors. After correction feedback, mock LLM retries with valid data plus a hallucinated field. Strip mode silently removes it.
 
 ```bash
-$ moon run examples/mock/llm_agent
+$ moon run moon_zod/examples/mock/llm_agent
 ```
 
 Output be like:
@@ -71,7 +71,7 @@ Output be like:
 | 3 | Strip | Removes 12 hallucinated metadata fields |
 
 ```bash
-$ moon run examples/mock/educational_agent
+$ moon run moon_zod/examples/mock/educational_agent
 ```
 
 Output be like:
@@ -89,21 +89,21 @@ Output be like:
 
 ## multiple_schemas
 
-**Path:** [`examples/multiple_schemas/`](../../examples/multiple_schemas/) • [README](../../examples/multiple_schemas/README.md)
+**Path:** [`examples/multiple_schemas/`](../../moon_zod/examples/multiple_schemas/) • [README](../../moon_zod/examples/multiple_schemas/README.md)
 
 The most comprehensive schema composition example. Outputs different representations based on CLI argument:
 
 ```bash
-$ moon run examples/multiple_schemas -- ts       # TypeScript interface prompt
-$ moon run examples/multiple_schemas -- json     # JSON Schema
-$ moon run examples/multiple_schemas -- moonbit  # MoonBit struct code
-$ moon run examples/multiple_schemas -- moon_zod # moon_zod builder code
+$ moon run moon_zod/examples/multiple_schemas -- ts       # TypeScript interface prompt
+$ moon run moon_zod/examples/multiple_schemas -- json     # JSON Schema
+$ moon run moon_zod/examples/multiple_schemas -- moonbit  # MoonBit struct code
+$ moon run moon_zod/examples/multiple_schemas -- moon_zod # moon_zod builder code
 ```
 
 Demonstrates `.partial()`, `.omit()`, `.pick()`, `.extend_with()`, `.merge()`, `tuple`, `any`/`unknown`, `preprocess`, `transform`, `refine`, `union`, `intersection`, `literal`, `default`, and more.
 
 ```bash
-$ moon run examples/multiple_schemas -- ts
+$ moon run moon_zod/examples/multiple_schemas -- ts
 ```
 
 Output be like:
@@ -190,7 +190,7 @@ export interface Order {
 
 ## real_llm_agent
 
-**Path:** [`examples/real_llm_agent/`](../../examples/real_llm_agent/) • [README](../../examples/real_llm_agent/README.md)
+**Path:** [`examples/real_llm_agent/`](../../moon_zod/examples/real_llm_agent/) • [README](../../moon_zod/examples/real_llm_agent/README.md)
 
 The full Schema → Prompt → LLM → Parse closed-loop. Two modes:
 
@@ -199,17 +199,17 @@ The full Schema → Prompt → LLM → Parse closed-loop. Two modes:
 
 ```bash
 # MoonBit prompt mode (TS interface style)
-$ python3 examples/real_llm_agent/agent.py product --moon-prompt
+$ python3 moon_zod/examples/real_llm_agent/agent.py product --moon-prompt
 
 # Classic mode (JSON Schema in prompt)
-$ python3 examples/real_llm_agent/agent.py product
+$ python3 moon_zod/examples/real_llm_agent/agent.py product
 
 # Tool calling mode (OpenAI function calling)
-$ python3 examples/real_llm_agent/agent.py product --mode tool
+$ python3 moon_zod/examples/real_llm_agent/agent.py product --mode tool
 ```
 
 ```bash
-python3 examples/real_llm_agent/agent.py product --moon-prompt
+python3 moon_zod/examples/real_llm_agent/agent.py product --moon-prompt
 ```
 
 Output be like:
@@ -294,12 +294,12 @@ Supports cases: `product`, `movie`, `course_catalog` (nested, triggers correctio
 
 ## schema2json
 
-**Path:** [`examples/schema2json/`](../../examples/schema2json/) • [README](../../examples/schema2json/README.md)
+**Path:** [`examples/schema2json/`](../../moon_zod/examples/schema2json/) • [README](../../moon_zod/examples/schema2json/README.md)
 
 Exports a moon_zod schema as standard JSON Schema with full constraint annotations:
 
 ```bash
-$ moon run examples/schema2json -- product schema
+$ moon run moon_zod/examples/schema2json -- product schema
 ```
 
 Output be like:
@@ -395,12 +395,12 @@ Output be like:
 
 ## schema2prompt
 
-**Path:** [`examples/schema2prompt/`](../../examples/schema2prompt/) • [README](../../examples/schema2prompt/README.md)
+**Path:** [`examples/schema2prompt/`](../../moon_zod/examples/schema2prompt/) • [README](../../moon_zod/examples/schema2prompt/README.md)
 
 Converts a moon_zod schema into a TypeScript-interface prompt string with constraint comments:
 
 ```bash
-$ moon run examples/schema2prompt -- product prompt
+$ moon run moon_zod/examples/schema2prompt -- product prompt
 ```
 
 Output be like:
@@ -424,12 +424,12 @@ Output be like:
 
 ## validate CLI
 
-**Path:** [`cmd/validate/`](../../cmd/validate/) • [README](../../examples/validate_cli/README.md)
+**Path:** [`cmd/validate/`](../../moon_zod/cmd/validate/) • [README](../../moon_zod/examples/validate_cli/README.md)
 
 Shell-based JSON validator. Infers schema from sample or reads JSON Schema, then validates JSON/JSONL input:
 
 ```bash
-$ sh cmd/validate/cli.sh '{"name":"Alice"}' '{"name":"Bob"}'
+$ sh moon_zod/cmd/validate/cli.sh '{"name":"Alice"}' '{"name":"Bob"}'
 ```
 
 ```text
@@ -438,7 +438,7 @@ PASS
 ```
 
 ```bash
-$ sh cmd/validate/cli.sh '{"name":"Alice"}' '{"age":30}'
+$ sh moon_zod/cmd/validate/cli.sh '{"name":"Alice"}' '{"age":30}'
 ```
 
 ```text
@@ -451,12 +451,12 @@ FAIL
 
 ## gen-struct CLI
 
-**Path:** [`cmd/gen-struct/`](../../cmd/gen-struct/) • [README](../../examples/gen-struct/README.md)
+**Path:** [`cmd/gen-struct/`](../../moon_zod/cmd/gen-struct/) • [README](../../moon_zod/examples/gen-struct/README.md)
 
 Converts JSON Schema into MoonBit struct definitions plus static `Type::to_schema()` functions:
 
 ```bash
-$ sh cmd/gen-struct/cli.sh --from-json-schema '{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}}}'
+$ sh moon_zod/cmd/gen-struct/cli.sh --from-json-schema '{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}}}'
 ```
 
 ```moonbit nocheck
@@ -475,12 +475,12 @@ pub fn Root::to_schema() -> @moon_zod.Schema {
 
 ## json2schema CLI
 
-**Path:** [`cmd/json2schema/`](../../cmd/json2schema/) • [README](../../examples/json2schema/README.md)
+**Path:** [`cmd/json2schema/`](../../moon_zod/cmd/json2schema/) • [README](../../moon_zod/examples/json2schema/README.md)
 
 Infers a moon_zod schema from JSON, or reverse-imports from JSON Schema:
 
 ```bash
-$ sh cmd/json2schema/cli.sh '{"name":"Alice","age":30}'
+$ sh moon_zod/cmd/json2schema/cli.sh '{"name":"Alice","age":30}'
 ```
 
 ```moonbit nocheck

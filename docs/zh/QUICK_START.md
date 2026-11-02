@@ -41,10 +41,10 @@ match schema.parse(input_json) {
 **零代码 CLI 校验：**
 ```bash
 # 从样本推断 Schema，校验数据
-moon run cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
+moon run moon_zod/cmd/validate -- '{"name":"Alice","age":30}' '{"name":"Bob","age":25}'
 # PASS
 
 # 使用 JSON Lines 批量校验
-moon run cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
+moon run moon_zod/cmd/validate -- '{"name":"Alice"}' '{"name":"Bob"}\n{"name":"Eve"}'
 # 结果：2 通过，0 失败
 ```

@@ -199,7 +199,7 @@ upgrading from v0.9.0.
    timeout and, when needed, a total request deadline; byte limits do not bound
    stream duration.
 
-See [async package documentation](async/README.mbt.md) for usage examples and
+See [async package documentation](moon_zod/async/README.mbt.md) for usage examples and
 the complete reader contract.
 
 ## v0.8.2 (2026-07-12)

@@ -2,6 +2,11 @@
 
 Schema → String / Json / MoonBit source code 导出工具包。
 
+本目录是独立模块 `Betterlol/moon_zod/exporters`，仅依赖
+`Betterlol/moon_zod/core`。使用时在 `moon.mod` 中添加本模块，在 `moon.pkg`
+中直接导入同名包；也可通过主模块的 `@moon_zod` 统一入口使用。
+开发及发布方式见[工作区指南](../docs/WORKSPACE.md)。
+
 本包提供多条独立导出管线（Prompt / JSON Schema / MoonBit struct / MoonZod Schema）。每条管线对 `@core.SchemaType` 的 17 个变体做逐一渲染，支持内联展开和命名引用两种模式。
 
 ---
